@@ -1,0 +1,96 @@
+import { supabase } from '@/lib/supabase/client'
+import { proveedorSchema, compraProveedorSchema, pagoProveedorSchema } from '../schemas/proveedorSchema'
+import type { ServiceResult } from '@/shared/utils/serviceResult'
+import type { TProveedor, TCompraProveedor, TPagoProveedor } from '../types'
+import type { TProveedorForm, TCompraProveedorForm, TPagoProveedorForm } from '../schemas/proveedorSchema'
+
+export const proveedoresService = {
+  async getAll(): Promise<ServiceResult<TProveedor[]>> {
+    const { data, error } = await supabase
+      .from('proveedores')
+      .select('*')
+      .is('deleted_at', null)
+      .order('nombre')
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: data ?? [] }
+  },
+
+  async create(form: TProveedorForm): Promise<ServiceResult<TProveedor>> {
+    const parsed = proveedorSchema.safeParse(form)
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    const { data, error } = await supabase.from('proveedores').insert(parsed.data).select().single()
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data }
+  },
+
+  async update(id: string, form: Partial<TProveedorForm>): Promise<ServiceResult<TProveedor>> {
+    const parsed = proveedorSchema.partial().safeParse(form)
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    const { data, error } = await supabase.from('proveedores').update(parsed.data).eq('id', id).select().single()
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data }
+  },
+
+  async softDelete(id: string): Promise<ServiceResult<void>> {
+    const { error } = await supabase.from('proveedores').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: undefined }
+  },
+
+  // --- Compras ---
+
+  async getCompras(opts?: { proveedorId?: string; estado?: string }): Promise<ServiceResult<TCompraProveedor[]>> {
+    let query = supabase
+      .from('compras_proveedores')
+      .select('*, proveedores(nombre)')
+      .order('fecha', { ascending: false })
+    if (opts?.proveedorId) query = query.eq('proveedor_id', opts.proveedorId)
+    if (opts?.estado)      query = query.eq('estado', opts.estado)
+    const { data, error } = await query
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: (data ?? []) as unknown as TCompraProveedor[] }
+  },
+
+  async crearCompra(form: TCompraProveedorForm): Promise<ServiceResult<TCompraProveedor>> {
+    const parsed = compraProveedorSchema.safeParse(form)
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    const { data, error } = await supabase.from('compras_proveedores').insert(parsed.data).select().single()
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: data as TCompraProveedor }
+  },
+
+  async anularCompra(id: string): Promise<ServiceResult<void>> {
+    const { error } = await supabase.from('compras_proveedores').update({ estado: 'ANULADA' }).eq('id', id)
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: undefined }
+  },
+
+  // --- Pagos a proveedores ---
+
+  async getPagos(compraId: string): Promise<ServiceResult<TPagoProveedor[]>> {
+    const { data, error } = await supabase
+      .from('pagos_proveedores')
+      .select('*')
+      .eq('compra_id', compraId)
+      .order('fecha_pago', { ascending: false })
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: (data ?? []) as TPagoProveedor[] }
+  },
+
+  async registrarPago(form: TPagoProveedorForm): Promise<ServiceResult<TPagoProveedor>> {
+    const parsed = pagoProveedorSchema.safeParse(form)
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    const { data, error } = await supabase
+      .rpc('fn_registrar_pago_proveedor', {
+        p_compra_id:       parsed.data.compra_id,
+        p_tipo_pago:       parsed.data.tipo_pago,
+        p_importe:         parsed.data.importe,
+        p_fecha_pago:      parsed.data.fecha_pago,
+        p_cuenta_bancaria: parsed.data.cuenta_bancaria ?? undefined,
+        p_cheque_id:       undefined,
+        p_notas:           parsed.data.notas ?? undefined,
+      })
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: data as TPagoProveedor }
+  },
+}
