@@ -13,6 +13,7 @@ import {
   useEliminarPuntaje,
   usePreviewPuntaje,
   useConfirmarComisionPuntaje,
+  useComisionesRegistradas,
   useHorasPeriodo,
   useAgregarHoras,
   useEliminarHoras,
@@ -37,7 +38,20 @@ import { Skeleton } from '@/shared/components/ui/skeleton'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { Plus, Trash2, Settings } from 'lucide-react'
 
-const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const MESES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
 
 interface Props {
   empleada: TEmpleada
@@ -45,7 +59,7 @@ interface Props {
 
 export function ComisionesSection({ empleada }: Props) {
   const hoy = new Date()
-  const [mes,  setMes]  = useState(hoy.getMonth() + 1)
+  const [mes, setMes] = useState(hoy.getMonth() + 1)
   const [anio, setAnio] = useState(hoy.getFullYear())
   const [showConfig, setShowConfig] = useState(false)
 
@@ -56,15 +70,17 @@ export function ComisionesSection({ empleada }: Props) {
   return (
     <div className="space-y-6">
       {/* Período selector */}
-      <div className="flex flex-wrap items-center gap-4 border border-border bg-muted/30 px-4 py-3">
+      <div className="border-border bg-muted/30 flex flex-wrap items-center gap-4 border px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Año</span>
+          <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+            Año
+          </span>
           <div className="flex gap-1">
             {ANIOS.map((a) => (
               <button
                 key={a}
                 onClick={() => setAnio(a)}
-                className={`px-2.5 py-1 text-xs font-semibold border transition-colors ${
+                className={`border px-2.5 py-1 text-xs font-semibold transition-colors ${
                   a === anio
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
@@ -76,18 +92,24 @@ export function ComisionesSection({ empleada }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Mes</span>
+          <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+            Mes
+          </span>
           <select
             value={mes}
             onChange={(e) => setMes(Number(e.target.value))}
-            className="border border-border bg-surface px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            className="border-border bg-surface focus:ring-primary border px-2 py-1 text-xs focus:ring-1 focus:outline-none"
           >
-            {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            {MESES.map((m, i) => (
+              <option key={i} value={i + 1}>
+                {m}
+              </option>
+            ))}
           </select>
         </div>
         <button
           onClick={() => setShowConfig((v) => !v)}
-          className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="text-muted-foreground hover:text-foreground ml-auto flex items-center gap-1.5 text-xs transition-colors"
         >
           <Settings className="h-3.5 w-3.5" />
           Configurar comisión
@@ -105,7 +127,7 @@ export function ComisionesSection({ empleada }: Props) {
 
       {/* Contenido por tipo */}
       {tipoComision === 'NINGUNA' && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
+        <p className="text-muted-foreground py-8 text-center text-sm">
           Esta empleada no tiene un esquema de comisión asignado.
           <br />
           <span className="text-xs">Editá el legajo para configurar el tipo de comisión.</span>
@@ -113,27 +135,15 @@ export function ComisionesSection({ empleada }: Props) {
       )}
 
       {tipoComision === 'PRODUCCION' && (
-        <ComisionProduccionPanel
-          empleadaId={empleada.id}
-          mes={mes}
-          anio={anio}
-        />
+        <ComisionProduccionPanel empleadaId={empleada.id} mes={mes} anio={anio} />
       )}
 
       {tipoComision === 'PUNTAJE' && (
-        <ComisionPuntajePanel
-          empleadaId={empleada.id}
-          mes={mes}
-          anio={anio}
-        />
+        <ComisionPuntajePanel empleadaId={empleada.id} mes={mes} anio={anio} />
       )}
 
       {tipoComision === 'HORAS' && (
-        <ComisionHorasPanel
-          empleadaId={empleada.id}
-          mes={mes}
-          anio={anio}
-        />
+        <ComisionHorasPanel empleadaId={empleada.id} mes={mes} anio={anio} />
       )}
     </div>
   )
@@ -142,7 +152,9 @@ export function ComisionesSection({ empleada }: Props) {
 // ── Config form ───────────────────────────────────────────────
 
 function ComisionConfigForm({
-  empleada, tipoComision, onClose,
+  empleada,
+  tipoComision,
+  onClose,
 }: {
   empleada: TEmpleada
   tipoComision: TTipoComision
@@ -156,11 +168,12 @@ function ComisionConfigForm({
   const form = useForm<TComisionConfigForm>({
     resolver: zodResolver(comisionConfigSchema) as unknown as Resolver<TComisionConfigForm>,
     defaultValues: {
-      empleada_id:    empleada.id,
-      tipo_calculo:   config?.tipo_calculo ?? (tipoComision === 'HORAS' ? 'VALOR_HORA' : 'MONTO_FIJO'),
-      valor:          esPuntaje ? 0 : (config?.valor ?? 0),
+      empleada_id: empleada.id,
+      tipo_calculo:
+        config?.tipo_calculo ?? (tipoComision === 'HORAS' ? 'VALOR_HORA' : 'MONTO_FIJO'),
+      valor: esPuntaje ? 0 : (config?.valor ?? 0),
       umbral_puntaje: config?.umbral_puntaje ?? undefined,
-      vigente_desde:  toLocalDateInputValue(),
+      vigente_desde: toLocalDateInputValue(),
     },
   })
 
@@ -173,8 +186,8 @@ function ComisionConfigForm({
   const getTipoCalculoOptions = () => {
     if (tipoComision === 'HORAS') return [{ value: 'VALOR_HORA', label: 'Valor por hora' }]
     return [
-      { value: 'MONTO_FIJO',  label: 'Monto fijo' },
-      { value: 'PORCENTAJE',  label: 'Porcentaje' },
+      { value: 'MONTO_FIJO', label: 'Monto fijo' },
+      { value: 'PORCENTAJE', label: 'Porcentaje' },
     ]
   }
 
@@ -187,16 +200,17 @@ function ComisionConfigForm({
   if (tipoComision === 'NINGUNA') return null
 
   return (
-    <form onSubmit={onSubmit} className="border border-primary/30 bg-primary/5 p-4 space-y-3">
-      <p className="text-xs font-semibold text-primary">
+    <form onSubmit={onSubmit} className="border-primary/30 bg-primary/5 space-y-3 border p-4">
+      <p className="text-primary text-xs font-semibold">
         Configuración vigente desde hoy
         {config && !esPuntaje && (
-          <span className="ml-2 font-normal text-muted-foreground">
-            (actual: {config.tipo_calculo === 'PORCENTAJE' ? `${config.valor}%` : formatMoney(config.valor)})
+          <span className="text-muted-foreground ml-2 font-normal">
+            (actual:{' '}
+            {config.tipo_calculo === 'PORCENTAJE' ? `${config.valor}%` : formatMoney(config.valor)})
           </span>
         )}
         {config && esPuntaje && config.umbral_puntaje && (
-          <span className="ml-2 font-normal text-muted-foreground">
+          <span className="text-muted-foreground ml-2 font-normal">
             (umbral actual: {config.umbral_puntaje} pts)
           </span>
         )}
@@ -204,15 +218,17 @@ function ComisionConfigForm({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {!esPuntaje && tipoComision !== 'HORAS' && (
           <div>
-            <label className="block text-[11px] font-semibold tracking-wide uppercase text-muted-foreground mb-1">
+            <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
               Cálculo *
             </label>
             <select
               {...form.register('tipo_calculo')}
-              className="w-full border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
             >
               {getTipoCalculoOptions().map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
               ))}
             </select>
           </div>
@@ -249,7 +265,9 @@ function ComisionConfigForm({
         <Button type="submit" size="sm" disabled={guardar.isPending}>
           {guardar.isPending ? 'Guardando...' : 'Guardar configuración'}
         </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button type="button" size="sm" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
       </div>
     </form>
   )
@@ -258,7 +276,9 @@ function ComisionConfigForm({
 // ── Panel: Producción ─────────────────────────────────────────
 
 function ComisionProduccionPanel({
-  empleadaId, mes, anio,
+  empleadaId,
+  mes,
+  anio,
 }: {
   empleadaId: string
   mes: number
@@ -277,7 +297,11 @@ function ComisionProduccionPanel({
       <div className="grid grid-cols-3 gap-3">
         <SummaryCard label="Total trabajos" value={formatMoney(totalBase)} />
         <SummaryCard
-          label={config?.tipo_calculo === 'PORCENTAJE' ? `Comisión (${config.valor}%)` : 'Comisión (fijo)'}
+          label={
+            config?.tipo_calculo === 'PORCENTAJE'
+              ? `Comisión (${config.valor}%)`
+              : 'Comisión (fijo)'
+          }
           value={formatMoney(comision ?? 0)}
           highlight
         />
@@ -285,7 +309,7 @@ function ComisionProduccionPanel({
       </div>
 
       <div>
-        <h4 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+        <h4 className="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">
           Trabajos aprobados con comisión — {MESES[mes - 1]} {anio}
         </h4>
         {isLoading ? (
@@ -293,25 +317,25 @@ function ComisionProduccionPanel({
         ) : !trabajosConComision.length ? (
           <Empty text="Sin trabajos con comisión aprobados para este período" />
         ) : (
-          <div className="border border-border overflow-x-auto">
+          <div className="border-border overflow-x-auto border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b-2 border-border bg-muted/50">
+                <tr className="border-border bg-muted/50 border-b-2">
                   <Th>Fecha</Th>
                   <Th>Tipo</Th>
                   <Th>Cliente</Th>
                   <Th align="right">Importe comisión</Th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border bg-surface">
+              <tbody className="divide-border bg-surface divide-y">
                 {trabajosConComision.map((t) => (
                   <tr key={t.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-2.5 tabular-nums text-sm">{formatDate(t.fecha)}</td>
+                    <td className="px-4 py-2.5 text-sm tabular-nums">{formatDate(t.fecha)}</td>
                     <td className="px-4 py-2.5 text-sm">{t.tipo_trabajo}</td>
-                    <td className="px-4 py-2.5 text-sm text-muted-foreground">
+                    <td className="text-muted-foreground px-4 py-2.5 text-sm">
                       {t.clientes?.nombre ?? '—'}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">
+                    <td className="px-4 py-2.5 text-right font-medium tabular-nums">
                       {formatMoney(Number(t.importe_comision ?? 0))}
                     </td>
                   </tr>
@@ -323,8 +347,9 @@ function ComisionProduccionPanel({
       </div>
 
       {(comision ?? 0) > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Para agregar la comisión a la liquidación, usá el botón "Agregar concepto" en la solapa Liquidación.
+        <p className="text-muted-foreground text-xs">
+          Para agregar la comisión a la liquidación, usá el botón &quot;Agregar concepto&quot; en la
+          solapa Liquidación.
         </p>
       )}
     </div>
@@ -334,7 +359,9 @@ function ComisionProduccionPanel({
 // ── Panel: Puntaje ────────────────────────────────────────────
 
 function ComisionPuntajePanel({
-  empleadaId, mes, anio,
+  empleadaId,
+  mes,
+  anio,
 }: {
   empleadaId: string
   mes: number
@@ -347,79 +374,139 @@ function ComisionPuntajePanel({
   const { data: registros = [], isLoading } = usePuntajePeriodo(empleadaId, mes, anio)
   const { data: saldo } = useSaldoPuntaje(empleadaId)
   const { data: preview } = usePreviewPuntaje(empleadaId, mes, anio)
-  const agregar   = useAgregarPuntaje(empleadaId, mes, anio)
-  const eliminar  = useEliminarPuntaje(empleadaId, mes, anio)
+  const { data: tiposParam = [] } = useParametros({ categorias: ['TIPO_SERVICIO'] })
+  const { data: comisionesRegistradas = [] } = useComisionesRegistradas(empleadaId)
+  const agregar = useAgregarPuntaje(empleadaId, mes, anio)
+  const eliminar = useEliminarPuntaje(empleadaId, mes, anio)
   const confirmar = useConfirmarComisionPuntaje(empleadaId, mes, anio)
+
+  const comisionDelPeriodo = comisionesRegistradas.find(
+    (c) => c.periodo_mes === mes && c.periodo_anio === anio
+  )
 
   const form = useForm<TRegistroPuntajeForm>({
     resolver: zodResolver(registroPuntajeSchema) as unknown as Resolver<TRegistroPuntajeForm>,
     defaultValues: {
-      empleada_id:  empleadaId,
-      periodo_mes:  mes,
+      empleada_id: empleadaId,
+      periodo_mes: mes,
       periodo_anio: anio,
-      descripcion:  '',
-      puntos:       0,
+      descripcion: '',
+      puntos: 0,
+      tipo_trabajo: null,
     },
   })
 
   const onSubmit = form.handleSubmit(async (data) => {
     const r = await agregar.mutateAsync({ ...data, periodo_mes: mes, periodo_anio: anio })
     if (r.ok) {
-      form.reset({ empleada_id: empleadaId, periodo_mes: mes, periodo_anio: anio, descripcion: '', puntos: 0 })
+      form.reset({
+        empleada_id: empleadaId,
+        periodo_mes: mes,
+        periodo_anio: anio,
+        descripcion: '',
+        puntos: 0,
+        tipo_trabajo: null,
+      })
       setShowForm(false)
     }
   })
 
-  const totalPeriodo   = registros.reduce((s, r) => s + Number(r.puntos), 0)
-  const puntosAcum     = saldo?.puntos_acumulados ?? 0
+  const totalPeriodo = registros.reduce((s, r) => s + Number(r.puntos), 0)
+  const puntosAcum = saldo?.puntos_acumulados ?? 0
   const totalCalculado = totalPeriodo + puntosAcum
-  const umbral         = preview?.umbral ?? 0
+  const umbral = preview?.umbral ?? 0
   const comisionGenerada = preview?.comision_generada ?? 0
-  const puntosRestantes  = preview?.puntos_restantes ?? (totalCalculado >= umbral && umbral > 0 ? totalCalculado - umbral : totalCalculado)
-  const superaUmbral   = totalCalculado >= umbral && umbral > 0
+  const puntosRestantes =
+    preview?.puntos_restantes ??
+    (totalCalculado >= umbral && umbral > 0 ? totalCalculado - umbral : totalCalculado)
+  const superaUmbral = totalCalculado >= umbral && umbral > 0
+  const hayRegistrosSinTipo = registros.some((r) => !r.tipo_trabajo)
 
   return (
     <div className="space-y-4">
       {/* Resumen */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SummaryCard label="Este mes"      value={`${totalPeriodo} pts`} />
-        <SummaryCard label="Acumulado"     value={`${puntosAcum} pts`} />
-        <SummaryCard label="Total"          value={`${totalCalculado.toFixed(2)} pts`} highlight />
-        <SummaryCard label={`Umbral (${umbral} pts)`} value={superaUmbral ? formatMoney(comisionGenerada) : 'No alcanzado'} valueClassName={superaUmbral ? 'text-success' : 'text-muted-foreground'} />
+        <SummaryCard label="Este mes" value={`${totalPeriodo} pts`} />
+        <SummaryCard label="Acumulado" value={`${puntosAcum} pts`} />
+        <SummaryCard label="Total" value={`${totalCalculado.toFixed(2)} pts`} highlight />
+        <SummaryCard
+          label={`Umbral (${umbral} pts)`}
+          value={superaUmbral ? formatMoney(comisionGenerada) : 'No alcanzado'}
+          valueClassName={superaUmbral ? 'text-success' : 'text-muted-foreground'}
+        />
       </div>
 
-      {/* Confirmar comisión */}
-      {superaUmbral && (
-        <div className="flex items-center gap-3 border border-success/30 bg-success/5 px-4 py-3">
-          <p className="flex-1 text-sm text-success font-medium">
-            Umbral superado — comisión generada: {formatMoney(comisionGenerada)}
+      {/* Alerta registros sin tipo */}
+      {hayRegistrosSinTipo && (
+        <p className="border-warning/40 bg-warning/5 text-warning border px-3 py-2 text-xs">
+          Algunos registros no tienen tipo de trabajo — se usa el valor más reciente configurado
+          como fallback. Para mayor precisión, especificá el tipo al agregar puntajes.
+        </p>
+      )}
+
+      {/* Estado comisión del período */}
+      {comisionDelPeriodo ? (
+        <div
+          className={`flex items-center gap-3 border px-4 py-3 ${
+            comisionDelPeriodo.estado === 'LIQUIDADA'
+              ? 'border-success/30 bg-success/5'
+              : 'border-primary/30 bg-primary/5'
+          }`}
+        >
+          <p className="flex-1 text-sm font-medium">
+            {comisionDelPeriodo.estado === 'LIQUIDADA' ? (
+              <span className="text-success">
+                Comisión liquidada — {formatMoney(comisionDelPeriodo.importe)}
+              </span>
+            ) : (
+              <span className="text-primary">
+                Comisión registrada — {formatMoney(comisionDelPeriodo.importe)} pendiente de
+                importar en Liquidación
+              </span>
+            )}
           </p>
-          <Button
-            size="sm"
-            onClick={() => setShowConfirm(true)}
-            disabled={confirmar.isPending}
+          <span
+            className={`border px-2 py-1 text-[10px] font-bold tracking-widest uppercase ${
+              comisionDelPeriodo.estado === 'LIQUIDADA'
+                ? 'border-success/30 text-success'
+                : 'border-primary/30 text-primary'
+            }`}
           >
-            Confirmar comisión
+            {comisionDelPeriodo.estado === 'LIQUIDADA' ? 'Liquidada' : 'Pendiente'}
+          </span>
+        </div>
+      ) : superaUmbral ? (
+        <div className="border-success/30 bg-success/5 flex items-center gap-3 border px-4 py-3">
+          <p className="text-success flex-1 text-sm font-medium">
+            Umbral superado — comisión calculada: {formatMoney(comisionGenerada)}
+          </p>
+          <Button size="sm" onClick={() => setShowConfirm(true)} disabled={confirmar.isPending}>
+            Registrar comisión
           </Button>
         </div>
-      )}
+      ) : null}
 
       {/* Registros */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+        <div className="mb-2 flex items-center justify-between">
+          <h4 className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
             Puntajes — {MESES[mes - 1]} {anio}
           </h4>
           <Button size="sm" variant="outline" onClick={() => setShowForm((v) => !v)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />Agregar
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Agregar
           </Button>
         </div>
 
         {showForm && (
-          <form onSubmit={onSubmit} className="border border-border bg-surface p-4 space-y-3 mb-3">
+          <form onSubmit={onSubmit} className="border-border bg-surface mb-3 space-y-3 border p-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="sm:col-span-2">
-                <Input label="Tarea / descripción *" {...form.register('descripcion')} error={form.formState.errors.descripcion?.message} />
+                <Input
+                  label="Tarea / descripción *"
+                  {...form.register('descripcion')}
+                  error={form.formState.errors.descripcion?.message}
+                />
               </div>
               <Input
                 label="Puntos *"
@@ -430,11 +517,31 @@ function ComisionPuntajePanel({
                 error={form.formState.errors.puntos?.message}
               />
             </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+                  Tipo de trabajo
+                </label>
+                <select
+                  {...form.register('tipo_trabajo')}
+                  className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+                >
+                  <option value="">— Sin especificar</option>
+                  {tiposParam.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={agregar.isPending}>
                 {agregar.isPending ? 'Guardando...' : 'Guardar'}
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>
+                Cancelar
+              </Button>
             </div>
           </form>
         )}
@@ -444,24 +551,30 @@ function ComisionPuntajePanel({
         ) : !registros.length ? (
           <Empty text="Sin puntajes registrados para este período" />
         ) : (
-          <div className="border border-border overflow-x-auto">
+          <div className="border-border overflow-x-auto border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b-2 border-border bg-muted/50">
+                <tr className="border-border bg-muted/50 border-b-2">
                   <Th>Descripción</Th>
+                  <Th>Tipo</Th>
                   <Th align="right">Puntos</Th>
                   <Th />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border bg-surface">
+              <tbody className="divide-border bg-surface divide-y">
                 {registros.map((r) => (
                   <tr key={r.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-2.5">{r.descripcion}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">{Number(r.puntos).toFixed(2)}</td>
-                    <td className="px-4 py-2.5 w-10">
+                    <td className="text-muted-foreground px-4 py-2.5 text-xs">
+                      {r.tipo_trabajo ?? <span className="italic">sin tipo</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-medium tabular-nums">
+                      {Number(r.puntos).toFixed(2)}
+                    </td>
+                    <td className="w-10 px-4 py-2.5">
                       <button
                         onClick={() => setDeleteId(r.id)}
-                        className="p-1 text-muted-foreground hover:text-danger"
+                        className="text-muted-foreground hover:text-danger p-1"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -479,17 +592,23 @@ function ComisionPuntajePanel({
         title="Eliminar puntaje"
         description="Se eliminará este registro de puntaje."
         confirmLabel="Eliminar"
-        onConfirm={() => { if (deleteId) eliminar.mutate(deleteId); setDeleteId(null) }}
+        onConfirm={() => {
+          if (deleteId) eliminar.mutate(deleteId)
+          setDeleteId(null)
+        }}
         onCancel={() => setDeleteId(null)}
         isPending={eliminar.isPending}
       />
 
       <ConfirmDialog
         open={showConfirm}
-        title="Confirmar comisión por puntaje"
-        description={`Se generará una entrada de ${formatMoney(comisionGenerada)} en la liquidación y el saldo de puntos quedará en ${puntosRestantes.toFixed(2)} pts.`}
-        confirmLabel="Confirmar"
-        onConfirm={() => { confirmar.mutate(); setShowConfirm(false) }}
+        title="Registrar comisión por puntaje"
+        description={`Se guardará una comisión de ${formatMoney(comisionGenerada)} como pendiente de liquidación. El saldo de puntos quedará en ${puntosRestantes.toFixed(2)} pts. Podés importarla a la liquidación cuando quieras.`}
+        confirmLabel="Registrar"
+        onConfirm={() => {
+          confirmar.mutate()
+          setShowConfirm(false)
+        }}
         onCancel={() => setShowConfirm(false)}
         isPending={confirmar.isPending}
       />
@@ -500,7 +619,9 @@ function ComisionPuntajePanel({
 // ── Panel: Horas ──────────────────────────────────────────────
 
 function ComisionHorasPanel({
-  empleadaId, mes, anio,
+  empleadaId,
+  mes,
+  anio,
 }: {
   empleadaId: string
   mes: number
@@ -511,15 +632,15 @@ function ComisionHorasPanel({
 
   const { data: registros = [], isLoading } = useHorasPeriodo(empleadaId, mes, anio)
   const { data: resumen } = useCalcularHoras(empleadaId, mes, anio)
-  const agregar  = useAgregarHoras(empleadaId, mes, anio)
+  const agregar = useAgregarHoras(empleadaId, mes, anio)
   const eliminar = useEliminarHoras(empleadaId, mes, anio)
 
   const form = useForm<TRegistroHorasForm>({
     resolver: zodResolver(registroHorasSchema) as unknown as Resolver<TRegistroHorasForm>,
     defaultValues: {
       empleada_id: empleadaId,
-      fecha:       toLocalDateInputValue(),
-      horas:       0,
+      fecha: toLocalDateInputValue(),
+      horas: 0,
       descripcion: '',
     },
   })
@@ -527,7 +648,12 @@ function ComisionHorasPanel({
   const onSubmit = form.handleSubmit(async (data) => {
     const r = await agregar.mutateAsync(data)
     if (r.ok) {
-      form.reset({ empleada_id: empleadaId, fecha: toLocalDateInputValue(), horas: 0, descripcion: '' })
+      form.reset({
+        empleada_id: empleadaId,
+        fecha: toLocalDateInputValue(),
+        horas: 0,
+        descripcion: '',
+      })
       setShowForm(false)
     }
   })
@@ -539,23 +665,28 @@ function ComisionHorasPanel({
       {/* Resumen */}
       <div className="grid grid-cols-3 gap-3">
         <SummaryCard label="Horas trabajadas" value={`${totalHoras.toFixed(2)} hs`} />
-        <SummaryCard label="Valor por hora"   value={formatMoney(resumen?.valor_hora ?? 0)} />
-        <SummaryCard label="Total a pagar"    value={formatMoney(resumen?.total_pagar ?? 0)} highlight />
+        <SummaryCard label="Valor por hora" value={formatMoney(resumen?.valor_hora ?? 0)} />
+        <SummaryCard
+          label="Total a pagar"
+          value={formatMoney(resumen?.total_pagar ?? 0)}
+          highlight
+        />
       </div>
 
       {/* Registros */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+        <div className="mb-2 flex items-center justify-between">
+          <h4 className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
             Horas — {MESES[mes - 1]} {anio}
           </h4>
           <Button size="sm" variant="outline" onClick={() => setShowForm((v) => !v)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />Agregar
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Agregar
           </Button>
         </div>
 
         {showForm && (
-          <form onSubmit={onSubmit} className="border border-border bg-surface p-4 space-y-3 mb-3">
+          <form onSubmit={onSubmit} className="border-border bg-surface mb-3 space-y-3 border p-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Input
                 label="Fecha *"
@@ -578,7 +709,9 @@ function ComisionHorasPanel({
               <Button type="submit" size="sm" disabled={agregar.isPending}>
                 {agregar.isPending ? 'Guardando...' : 'Guardar'}
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>
+                Cancelar
+              </Button>
             </div>
           </form>
         )}
@@ -588,26 +721,30 @@ function ComisionHorasPanel({
         ) : !registros.length ? (
           <Empty text="Sin horas registradas para este período" />
         ) : (
-          <div className="border border-border overflow-x-auto">
+          <div className="border-border overflow-x-auto border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b-2 border-border bg-muted/50">
+                <tr className="border-border bg-muted/50 border-b-2">
                   <Th>Fecha</Th>
                   <Th align="right">Horas</Th>
                   <Th>Descripción</Th>
                   <Th />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border bg-surface">
+              <tbody className="divide-border bg-surface divide-y">
                 {registros.map((r) => (
                   <tr key={r.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-2.5 tabular-nums">{formatDate(r.fecha)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">{Number(r.horas).toFixed(2)}</td>
-                    <td className="px-4 py-2.5 text-sm text-muted-foreground">{r.descripcion ?? '—'}</td>
-                    <td className="px-4 py-2.5 w-10">
+                    <td className="px-4 py-2.5 text-right font-medium tabular-nums">
+                      {Number(r.horas).toFixed(2)}
+                    </td>
+                    <td className="text-muted-foreground px-4 py-2.5 text-sm">
+                      {r.descripcion ?? '—'}
+                    </td>
+                    <td className="w-10 px-4 py-2.5">
                       <button
                         onClick={() => setDeleteId(r.id)}
-                        className="p-1 text-muted-foreground hover:text-danger"
+                        className="text-muted-foreground hover:text-danger p-1"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -625,14 +762,18 @@ function ComisionHorasPanel({
         title="Eliminar registro de horas"
         description="Se eliminará este registro."
         confirmLabel="Eliminar"
-        onConfirm={() => { if (deleteId) eliminar.mutate(deleteId); setDeleteId(null) }}
+        onConfirm={() => {
+          if (deleteId) eliminar.mutate(deleteId)
+          setDeleteId(null)
+        }}
         onCancel={() => setDeleteId(null)}
         isPending={eliminar.isPending}
       />
 
       {(resumen?.total_pagar ?? 0) > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Para agregar el total a la liquidación, usá el botón "Agregar concepto" en la solapa Liquidación.
+        <p className="text-muted-foreground text-xs">
+          Para agregar el total a la liquidación, usá el botón &quot;Agregar concepto&quot; en la
+          solapa Liquidación.
         </p>
       )}
     </div>
@@ -642,7 +783,10 @@ function ComisionHorasPanel({
 // ── Shared UI ─────────────────────────────────────────────────
 
 function SummaryCard({
-  label, value, highlight, valueClassName,
+  label,
+  value,
+  highlight,
+  valueClassName,
 }: {
   label: string
   value: string
@@ -650,9 +794,15 @@ function SummaryCard({
   valueClassName?: string
 }) {
   return (
-    <div className={`border px-4 py-3 ${highlight ? 'border-primary/40 bg-primary/5' : 'border-border bg-surface'}`}>
-      <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-base font-bold tabular-nums ${highlight ? 'text-primary' : ''} ${valueClassName ?? ''}`}>
+    <div
+      className={`border px-4 py-3 ${highlight ? 'border-primary/40 bg-primary/5' : 'border-border bg-surface'}`}
+    >
+      <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+        {label}
+      </p>
+      <p
+        className={`mt-1 text-base font-bold tabular-nums ${highlight ? 'text-primary' : ''} ${valueClassName ?? ''}`}
+      >
         {value}
       </p>
     </div>
@@ -661,7 +811,9 @@ function SummaryCard({
 
 function Th({ children, align }: { children?: ReactNode; align?: 'right' }) {
   return (
-    <th className={`px-4 py-2.5 text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground ${align === 'right' ? 'text-right' : 'text-left'}`}>
+    <th
+      className={`text-muted-foreground px-4 py-2.5 text-[10px] font-bold tracking-[0.14em] uppercase ${align === 'right' ? 'text-right' : 'text-left'}`}
+    >
       {children}
     </th>
   )
@@ -670,13 +822,17 @@ function Th({ children, align }: { children?: ReactNode; align?: 'right' }) {
 function Skeletons() {
   return (
     <div className="space-y-px">
-      {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-none" />)}
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Skeleton key={i} className="h-10 w-full rounded-none" />
+      ))}
     </div>
   )
 }
 
 function Empty({ text }: { text: string }) {
   return (
-    <p className="py-6 text-center text-xs tracking-widest uppercase text-muted-foreground">{text}</p>
+    <p className="text-muted-foreground py-6 text-center text-xs tracking-widest uppercase">
+      {text}
+    </p>
   )
 }

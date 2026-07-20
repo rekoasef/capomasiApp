@@ -4,10 +4,14 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export function calcularSaldoPendiente(
   importeLiquidado: number,
-  imputaciones: Pick<TImputacion, 'importe'>[]
+  imputaciones: Pick<TImputacion, 'importe'>[],
+  importeFacturado?: number | null
 ): number {
+  // El cliente paga el importe facturado (con IVA si FC_A); si no hay, paga el liquidado
+  const base =
+    importeFacturado != null && importeFacturado > 0 ? importeFacturado : importeLiquidado
   const totalImputado = imputaciones.reduce((sum, i) => sum + i.importe, 0)
-  return Math.max(0, round2(importeLiquidado - totalImputado))
+  return Math.max(0, round2(base - totalImputado))
 }
 
 export function calcularTotalImputado(imputaciones: Pick<TImputacion, 'importe'>[]): number {

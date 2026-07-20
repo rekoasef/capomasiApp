@@ -75,7 +75,8 @@ export type TLiquidacionConImputaciones = TLiquidacion & {
 export type TCuentaCorriente = {
   cliente_id: string
   cliente_nombre: string
-  total_devengado: number
+  total_devengado: number // lo que el cliente debe pagar (con IVA si FC_A)
+  total_devengado_neto: number // base sin IVA — ingresos de Paola para estadísticas
   total_cobrado: number
   total_recibido: number
   total_imputado: number

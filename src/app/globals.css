@@ -1,17 +1,17 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
 @theme {
   /* Brand tokens */
-  --color-success:  #2E7D32;
-  --color-warning:  #C4980A;
-  --color-danger:   #B91C1C;
-  --color-surface:  #FFFFFF;
-  --color-muted:    oklch(0.944 0.008 80);
-  --color-border:   oklch(0.880 0.010 80);
+  --color-success: #2e7d32;
+  --color-warning: #c4980a;
+  --color-danger: #b91c1c;
+  --color-surface: #ffffff;
+  --color-muted: oklch(0.944 0.008 80);
+  --color-border: oklch(0.88 0.01 80);
 
   /* Tabular figures for financial data */
   --font-numeric: 'Inter', system-ui, sans-serif;
@@ -54,46 +54,122 @@
 
 :root {
   /* Warm off-white background — like aged paper */
-  --background:           oklch(0.971 0.007 80);
-  --foreground:           oklch(0.135 0.008 65);
+  --background: oklch(0.971 0.007 80);
+  --foreground: oklch(0.135 0.008 65);
 
-  --card:                 oklch(1 0 0);
-  --card-foreground:      oklch(0.135 0.008 65);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.135 0.008 65);
 
-  --popover:              oklch(1 0 0);
-  --popover-foreground:   oklch(0.135 0.008 65);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.135 0.008 65);
 
   /* Golden amber as primary */
-  --primary:              oklch(0.685 0.148 83);
-  --primary-foreground:   oklch(0.135 0.008 65);
+  --primary: oklch(0.685 0.148 83);
+  --primary-foreground: oklch(0.135 0.008 65);
 
-  --secondary:            oklch(0.940 0.010 80);
+  --secondary: oklch(0.94 0.01 80);
   --secondary-foreground: oklch(0.135 0.008 65);
 
-  --muted:                oklch(0.944 0.008 80);
-  --muted-foreground:     oklch(0.520 0.012 75);
+  --muted: oklch(0.944 0.008 80);
+  --muted-foreground: oklch(0.52 0.012 75);
 
-  --accent:               oklch(0.940 0.010 80);
-  --accent-foreground:    oklch(0.135 0.008 65);
+  --accent: oklch(0.94 0.01 80);
+  --accent-foreground: oklch(0.135 0.008 65);
 
-  --destructive:          oklch(0.527 0.213 27);
+  --destructive: oklch(0.527 0.213 27);
 
-  --border:               oklch(0.880 0.010 80);
-  --input:                oklch(0.880 0.010 80);
-  --ring:                 oklch(0.685 0.148 83);
+  --border: oklch(0.88 0.01 80);
+  --input: oklch(0.88 0.01 80);
+  --ring: oklch(0.685 0.148 83);
 
   /* Sharp corners — 2px radius */
   --radius: 0.125rem;
 
   /* Sidebar — dark charcoal */
-  --sidebar:                     oklch(0.118 0.010 65);
-  --sidebar-foreground:          oklch(0.520 0.008 65);
-  --sidebar-primary:             oklch(0.685 0.148 83);
-  --sidebar-primary-foreground:  oklch(0.118 0.010 65);
-  --sidebar-accent:              oklch(0.685 0.148 83);
-  --sidebar-accent-foreground:   oklch(0.118 0.010 65);
-  --sidebar-border:              oklch(0.200 0.008 65);
-  --sidebar-ring:                oklch(0.685 0.148 83);
+  --sidebar: oklch(0.118 0.01 65);
+  --sidebar-foreground: oklch(0.52 0.008 65);
+  --sidebar-primary: oklch(0.685 0.148 83);
+  --sidebar-primary-foreground: oklch(0.118 0.01 65);
+  --sidebar-accent: oklch(0.685 0.148 83);
+  --sidebar-accent-foreground: oklch(0.118 0.01 65);
+  --sidebar-border: oklch(0.2 0.008 65);
+  --sidebar-ring: oklch(0.685 0.148 83);
+}
+
+/* ── react-big-calendar overrides ─────────────────────────────────────────── */
+.rbc-capomasi {
+  font-family: inherit;
+  font-size: 12px;
+}
+.rbc-capomasi .rbc-month-view {
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+.rbc-capomasi .rbc-header {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: oklch(0.52 0.012 75);
+  background: oklch(0.944 0.008 80);
+}
+.rbc-capomasi .rbc-header + .rbc-header {
+  border-left: 1px solid var(--border);
+}
+.rbc-capomasi .rbc-month-row {
+  border-top: 1px solid var(--border);
+}
+.rbc-capomasi .rbc-day-bg + .rbc-day-bg {
+  border-left: 1px solid var(--border);
+}
+.rbc-capomasi .rbc-day-bg {
+  background: var(--surface, #fff);
+}
+.rbc-capomasi .rbc-day-bg.rbc-today {
+  background: oklch(0.685 0.148 83 / 0.06);
+}
+.rbc-capomasi .rbc-off-range-bg {
+  background: oklch(0.944 0.008 80 / 0.6);
+}
+.rbc-capomasi .rbc-date-cell {
+  padding: 4px 6px 2px;
+  font-size: 11px;
+  color: oklch(0.52 0.012 75);
+}
+.rbc-capomasi .rbc-date-cell.rbc-now button {
+  font-weight: 700;
+  color: oklch(0.685 0.148 83);
+}
+.rbc-capomasi .rbc-date-cell button {
+  background: none;
+  border: none;
+  cursor: default;
+  font-size: inherit;
+  color: inherit;
+}
+.rbc-capomasi .rbc-event {
+  border-radius: 2px !important;
+  padding: 1px 5px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #fff !important;
+  border: none !important;
+  outline: none !important;
+}
+.rbc-capomasi .rbc-event:focus {
+  outline: none;
+}
+.rbc-capomasi .rbc-show-more {
+  color: oklch(0.685 0.148 83);
+  font-size: 11px;
+  font-weight: 600;
+  background: none;
+  padding: 0 4px;
+}
+.rbc-capomasi .rbc-event-label {
+  display: none;
 }
 
 @layer base {
@@ -102,7 +178,9 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "kern" 1, "liga" 1;
+    font-feature-settings:
+      'kern' 1,
+      'liga' 1;
   }
   html {
     @apply font-sans;
@@ -112,6 +190,6 @@
   td,
   .font-mono {
     font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1;
+    font-feature-settings: 'tnum' 1;
   }
 }

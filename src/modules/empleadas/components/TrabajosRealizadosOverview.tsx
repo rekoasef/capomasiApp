@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '@/lib/auth/useAuth'
 import { useEmpleadas, useTrabajosRealizados } from '../hooks/useEmpleadas'
 import { CargarTrabajoForm } from './CargarTrabajoForm'
@@ -9,7 +9,20 @@ import { Button } from '@/shared/components/ui/button'
 import { Select } from '@/shared/components/ui/select'
 import { Plus } from 'lucide-react'
 
-const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+const MESES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
 
 export function TrabajosRealizadosOverview() {
   const hoy = new Date()
@@ -25,14 +38,12 @@ export function TrabajosRealizadosOverview() {
     [empleadas, user?.id]
   )
 
-  useEffect(() => {
-    if (!isAdmin && empleadaPropia?.id) {
-      setEmpleadaId(empleadaPropia.id)
-    }
-  }, [empleadaPropia?.id, isAdmin])
-
   const filtroEmpleada = isAdmin ? empleadaId || undefined : empleadaPropia?.id
-  const { data: trabajos = [], isLoading } = useTrabajosRealizados(periodoAnio, periodoMes, filtroEmpleada)
+  const { data: trabajos = [], isLoading } = useTrabajosRealizados(
+    periodoAnio,
+    periodoMes,
+    filtroEmpleada
+  )
 
   const empleadasOptions = empleadas.map((empleada) => ({
     value: empleada.id,
@@ -77,8 +88,11 @@ export function TrabajosRealizadosOverview() {
       </div>
 
       {showForm && (
-        <div className="rounded-md border border-border bg-surface p-4">
-          <CargarTrabajoForm onSuccess={() => setShowForm(false)} onCancel={() => setShowForm(false)} />
+        <div className="border-border bg-surface rounded-md border p-4">
+          <CargarTrabajoForm
+            onSuccess={() => setShowForm(false)}
+            onCancel={() => setShowForm(false)}
+          />
         </div>
       )}
 

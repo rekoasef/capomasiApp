@@ -1,14 +1,22 @@
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { ProfileCard } from '@/modules/auth/components/ProfileCard'
 import { ValoresPuntoTipoConfig } from '@/modules/empleadas/components/ValoresPuntoTipoConfig'
+import { TiposServicioManager } from '@/modules/configuracion/components/TiposServicioManager'
+import { AuditLogViewer } from '@/modules/auditoria/components/AuditLogViewer'
 
 export default function ConfiguracionPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Configuración" description="Tu perfil y ajustes del sistema" />
       <ProfileCard />
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="border-border bg-surface border p-6">
+        <TiposServicioManager />
+      </div>
+      <div className="border-border bg-surface border p-6">
         <ValoresPuntoTipoConfig />
+      </div>
+      <div className="border-border bg-surface border p-6">
+        <AuditLogViewer />
       </div>
     </div>
   )

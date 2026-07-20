@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { trabajoSchema, actualizarEstadoSchema } from '../schemas/trabajoSchema'
+import { trabajoSchema } from '../schemas/trabajoSchema'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
 import type { TTrabajo, TTrabajoConCliente, TEstadoTrabajo } from '../types'
 import { ESTADO_SIGUIENTE as SIGUIENTE } from '../types'
@@ -48,32 +48,32 @@ export const trabajosService = {
       return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
     }
 
-    const { empleada_ids, ...trabajoData } = parsed.data
-
     const { data, error } = await supabase
       .from('honorarios_anuales')
-      .insert(trabajoData)
+      .insert(parsed.data)
       .select()
       .single()
 
     if (error) {
       if (error.code === '23505') {
-        return { ok: false, error: 'Ya existe un trabajo de ese tipo para ese cliente y año', code: 'CONFLICT' }
+        return {
+          ok: false,
+          error: 'Ya existe un trabajo de ese tipo para ese cliente y año',
+          code: 'CONFLICT',
+        }
       }
       return { ok: false, error: error.message, code: 'DB_ERROR' }
-    }
-
-    if (empleada_ids?.length) {
-      const { error: assignError } = await (supabase as any)
-        .from('honorarios_anuales_empleadas')
-        .insert(empleada_ids.map((id) => ({ honorario_anual_id: data.id, empleada_id: id })))
-      if (assignError) return { ok: false, error: assignError.message, code: 'DB_ERROR' }
     }
 
     return { ok: true, data: data as TTrabajo }
   },
 
-  async avanzarEstado(id: string, honorario?: number, notas?: string): Promise<ServiceResult<TTrabajo>> {
+  async avanzarEstado(
+    id: string,
+    honorario?: number,
+    tipo_comprobante?: string,
+    notas?: string
+  ): Promise<ServiceResult<TTrabajo>> {
     const { data: actual, error: fetchError } = await supabase
       .from('honorarios_anuales')
       .select('estado, honorario')
@@ -83,14 +83,25 @@ export const trabajosService = {
     if (fetchError) return { ok: false, error: fetchError.message, code: 'DB_ERROR' }
 
     const siguiente = SIGUIENTE[actual.estado as TEstadoTrabajo]
-    if (!siguiente) return { ok: false, error: 'El trabajo ya está en el estado final', code: 'VALIDATION_ERROR' }
+    if (!siguiente)
+      return { ok: false, error: 'El trabajo ya está en el estado final', code: 'VALIDATION_ERROR' }
 
     if (siguiente === 'COBRADO' && !honorario && !actual.honorario) {
-      return { ok: false, error: 'Ingresá el honorario antes de marcar como cobrado', code: 'VALIDATION_ERROR' }
+      return {
+        ok: false,
+        error: 'Ingresá el honorario antes de marcar como cobrado',
+        code: 'VALIDATION_ERROR',
+      }
     }
 
-    const update: { estado: TEstadoTrabajo; honorario?: number; notas?: string } = { estado: siguiente }
+    const update: {
+      estado: TEstadoTrabajo
+      honorario?: number
+      tipo_comprobante?: string
+      notas?: string
+    } = { estado: siguiente }
     if (honorario) update.honorario = honorario
+    if (tipo_comprobante) update.tipo_comprobante = tipo_comprobante
     if (notas) update.notas = notas
 
     const { data, error } = await supabase
@@ -115,7 +126,12 @@ export const trabajosService = {
 
     const estados: TEstadoTrabajo[] = ['PENDIENTE', 'EN_PROCESO', 'FINALIZADO', 'COBRADO']
     const idx = estados.indexOf(actual.estado as TEstadoTrabajo)
-    if (idx <= 0) return { ok: false, error: 'No se puede retroceder desde Pendiente', code: 'VALIDATION_ERROR' }
+    if (idx <= 0)
+      return {
+        ok: false,
+        error: 'No se puede retroceder desde Pendiente',
+        code: 'VALIDATION_ERROR',
+      }
 
     const { data, error } = await supabase
       .from('honorarios_anuales')
@@ -128,7 +144,10 @@ export const trabajosService = {
     return { ok: true, data: data as TTrabajo }
   },
 
-  async update(id: string, fields: { honorario?: number; notas?: string; asignado_a?: string }): Promise<ServiceResult<TTrabajo>> {
+  async update(
+    id: string,
+    fields: { honorario?: number; notas?: string; asignado_a?: string }
+  ): Promise<ServiceResult<TTrabajo>> {
     const { data, error } = await supabase
       .from('honorarios_anuales')
       .update(fields)
@@ -141,10 +160,7 @@ export const trabajosService = {
   },
 
   async eliminar(id: string): Promise<ServiceResult<null>> {
-    const { error } = await supabase
-      .from('honorarios_anuales')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabase.from('honorarios_anuales').delete().eq('id', id)
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: null }

@@ -1,10 +1,11 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { clienteSchema, type TClienteForm } from '../schemas/clienteSchema'
 import { useCrearCliente, useActualizarCliente } from '../hooks/useClientes'
+import { useUsuarios } from '@/modules/auth/hooks/useUsuarios'
 import { Input } from '@/shared/components/ui/input'
 import { Textarea } from '@/shared/components/ui/textarea'
 import { Button } from '@/shared/components/ui/button'
@@ -21,13 +22,14 @@ export function ClienteForm({ cliente }: Props) {
   const crear = useCrearCliente()
   const actualizar = useActualizarCliente(cliente?.id ?? '')
   const isPending = crear.isPending || actualizar.isPending
+  const { data: usuarios = [] } = useUsuarios()
 
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<TClienteForm>({
-    resolver: zodResolver(clienteSchema),
+    resolver: zodResolver(clienteSchema) as unknown as Resolver<TClienteForm>,
     defaultValues: cliente
       ? {
           nombre: cliente.nombre,
@@ -37,6 +39,7 @@ export function ClienteForm({ cliente }: Props) {
           email: cliente.email ?? '',
           localidad: cliente.localidad ?? '',
           notas: cliente.notas ?? '',
+          responsable_id: cliente.responsable_id ?? '',
         }
       : { nombre: '', cuit: '' },
   })
@@ -48,7 +51,7 @@ export function ClienteForm({ cliente }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-2xl">
+    <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-5">
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Input
@@ -93,6 +96,27 @@ export function ClienteForm({ cliente }: Props) {
           disabled={isPending}
           {...register('telefono')}
         />
+        <div>
+          <label
+            htmlFor="responsable_id"
+            className="text-foreground mb-1 block text-sm font-medium"
+          >
+            Responsable
+          </label>
+          <select
+            id="responsable_id"
+            disabled={isPending}
+            className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none disabled:opacity-50"
+            {...register('responsable_id')}
+          >
+            <option value="">Sin asignar</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="sm:col-span-2">
           <Input
             id="email"

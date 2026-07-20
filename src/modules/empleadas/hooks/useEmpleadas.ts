@@ -3,7 +3,16 @@ import { empleadasService } from '../services/empleadasService'
 import { trabajosRealizadosService } from '../services/trabajosRealizadosService'
 import { comisionesService } from '../services/comisionesService'
 import { toast } from 'sonner'
-import type { TEmpleadaForm, TLiquidacionEmpleadaForm, TPagoEmpleadaForm, TComisionConfigForm, TRegistroPuntajeForm, TRegistroHorasForm, TPuntosTrabajoConfigForm, TValoresPuntoTipoForm } from '../schemas/empleadaSchema'
+import type {
+  TEmpleadaForm,
+  TLiquidacionEmpleadaForm,
+  TPagoEmpleadaForm,
+  TComisionConfigForm,
+  TRegistroPuntajeForm,
+  TRegistroHorasForm,
+  TPuntosTrabajoConfigForm,
+  TValoresPuntoTipoForm,
+} from '../schemas/empleadaSchema'
 import type {
   TAprobarTrabajoForm,
   TImportarComisionesForm,
@@ -26,7 +35,10 @@ export function useCrearEmpleada() {
   return useMutation({
     mutationFn: (form: TEmpleadaForm) => empleadasService.create(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Empleada creada')
       qc.invalidateQueries({ queryKey: ['empleadas'] })
     },
@@ -38,7 +50,10 @@ export function useEliminarEmpleada() {
   return useMutation({
     mutationFn: (id: string) => empleadasService.softDelete(id),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Empleada eliminada')
       qc.invalidateQueries({ queryKey: ['empleadas'] })
     },
@@ -62,7 +77,10 @@ export function useCrearLiquidacionEmpleada(empleadaId: string) {
   return useMutation({
     mutationFn: (form: TLiquidacionEmpleadaForm) => empleadasService.crearLiquidacion(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Concepto agregado')
       qc.invalidateQueries({ queryKey: ['liquidaciones_empleadas', empleadaId] })
       qc.invalidateQueries({ queryKey: ['resumen_periodo'] })
@@ -75,7 +93,10 @@ export function useEliminarLiquidacionEmpleada(empleadaId: string) {
   return useMutation({
     mutationFn: (id: string) => empleadasService.eliminarLiquidacion(id),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Concepto eliminado')
       qc.invalidateQueries({ queryKey: ['liquidaciones_empleadas', empleadaId] })
       qc.invalidateQueries({ queryKey: ['resumen_periodo'] })
@@ -100,7 +121,10 @@ export function useRegistrarPagoEmpleada(empleadaId: string) {
   return useMutation({
     mutationFn: (form: TPagoEmpleadaForm) => empleadasService.registrarPago(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Pago registrado')
       qc.invalidateQueries({ queryKey: ['pagos_empleadas', empleadaId] })
       qc.invalidateQueries({ queryKey: ['resumen_periodo'] })
@@ -119,7 +143,11 @@ export function useResumenPeriodo(anio: number, mes: number) {
   })
 }
 
-export function useTrabajosRealizados(periodoAnio: number, periodoMes: number, empleadaId?: string) {
+export function useTrabajosRealizados(
+  periodoAnio: number,
+  periodoMes: number,
+  empleadaId?: string
+) {
   return useQuery({
     queryKey: ['trabajos_realizados', periodoAnio, periodoMes, empleadaId ?? 'all'],
     queryFn: async () => {
@@ -139,7 +167,10 @@ export function useCargarTrabajo() {
   return useMutation({
     mutationFn: (form: TTrabajoRealizadoForm) => trabajosRealizadosService.crear(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       const n = r.data.length
       toast.success(n > 1 ? `${n} trabajos cargados` : 'Trabajo cargado')
       qc.invalidateQueries({ queryKey: ['trabajos_realizados'] })
@@ -152,7 +183,10 @@ export function useAprobarTrabajo() {
   return useMutation({
     mutationFn: (form: TAprobarTrabajoForm) => trabajosRealizadosService.aprobar(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Trabajo aprobado')
       qc.invalidateQueries({ queryKey: ['trabajos_realizados'] })
     },
@@ -162,12 +196,33 @@ export function useAprobarTrabajo() {
 export function useImportarComisiones() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (form: TImportarComisionesForm) => trabajosRealizadosService.importarComisiones(form),
+    mutationFn: (form: TImportarComisionesForm) =>
+      trabajosRealizadosService.importarComisiones(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success(`Se importaron ${r.data.length} comisiones`)
       qc.invalidateQueries({ queryKey: ['trabajos_realizados'] })
       qc.invalidateQueries({ queryKey: ['liquidaciones_empleadas'] })
+      qc.invalidateQueries({ queryKey: ['resumen_periodo'] })
+    },
+  })
+}
+
+export function useImportarComisionIndividual(empleadaId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (trabajoId: string) =>
+      trabajosRealizadosService.importarComisionIndividual(trabajoId),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      qc.invalidateQueries({ queryKey: ['trabajos_realizados'] })
+      qc.invalidateQueries({ queryKey: ['liquidaciones_empleadas', empleadaId] })
       qc.invalidateQueries({ queryKey: ['resumen_periodo'] })
     },
   })
@@ -178,7 +233,10 @@ export function useActualizarEmpleada(empleadaId: string) {
   return useMutation({
     mutationFn: (form: Partial<TEmpleadaForm>) => empleadasService.update(empleadaId, form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Datos actualizados')
       qc.invalidateQueries({ queryKey: ['empleadas'] })
       qc.invalidateQueries({ queryKey: ['empleada', empleadaId] })
@@ -217,7 +275,10 @@ export function useSaveComisionConfig(empleadaId: string) {
   return useMutation({
     mutationFn: (form: TComisionConfigForm) => comisionesService.saveConfig(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Configuración guardada')
       qc.invalidateQueries({ queryKey: ['comision_config', empleadaId] })
     },
@@ -255,7 +316,10 @@ export function useAgregarPuntaje(empleadaId: string, periodoMes: number, period
   return useMutation({
     mutationFn: (form: TRegistroPuntajeForm) => comisionesService.agregarPuntaje(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Puntaje registrado')
       qc.invalidateQueries({ queryKey: ['puntaje_periodo', empleadaId, periodoAnio, periodoMes] })
       qc.invalidateQueries({ queryKey: ['preview_puntaje', empleadaId, periodoAnio, periodoMes] })
@@ -268,7 +332,10 @@ export function useEliminarPuntaje(empleadaId: string, periodoMes: number, perio
   return useMutation({
     mutationFn: (id: string) => comisionesService.eliminarPuntaje(id),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Registro eliminado')
       qc.invalidateQueries({ queryKey: ['puntaje_periodo', empleadaId, periodoAnio, periodoMes] })
       qc.invalidateQueries({ queryKey: ['preview_puntaje', empleadaId, periodoAnio, periodoMes] })
@@ -288,20 +355,56 @@ export function usePreviewPuntaje(empleadaId: string, periodoMes: number, period
   })
 }
 
-export function useConfirmarComisionPuntaje(empleadaId: string, periodoMes: number, periodoAnio: number) {
+export function useConfirmarComisionPuntaje(
+  empleadaId: string,
+  periodoMes: number,
+  periodoAnio: number
+) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: () => comisionesService.confirmarComisionPuntaje(empleadaId, periodoMes, periodoAnio),
+    mutationFn: () =>
+      comisionesService.confirmarComisionPuntaje(empleadaId, periodoMes, periodoAnio),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       if (r.data.comision_generada > 0) {
-        toast.success(`Comisión de ${r.data.comision_generada} confirmada y agregada a la liquidación`)
+        toast.success('Comisión registrada — podés importarla a la liquidación cuando quieras')
       } else {
         toast.success(`Saldo actualizado. Puntos acumulados: ${r.data.puntos_restantes}`)
       }
       qc.invalidateQueries({ queryKey: ['puntaje_periodo', empleadaId, periodoAnio, periodoMes] })
       qc.invalidateQueries({ queryKey: ['saldo_puntaje', empleadaId] })
       qc.invalidateQueries({ queryKey: ['preview_puntaje', empleadaId, periodoAnio, periodoMes] })
+      qc.invalidateQueries({ queryKey: ['comisiones_registradas', empleadaId] })
+    },
+  })
+}
+
+export function useComisionesRegistradas(empleadaId: string) {
+  return useQuery({
+    queryKey: ['comisiones_registradas', empleadaId],
+    queryFn: async () => {
+      const r = await comisionesService.getComisionesRegistradas(empleadaId)
+      if (!r.ok) throw new Error(r.error)
+      return r.data
+    },
+    enabled: !!empleadaId,
+  })
+}
+
+export function useLiquidarComision(empleadaId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (registroId: string) => comisionesService.liquidarComision(registroId),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success('Comisión importada a la liquidación')
+      qc.invalidateQueries({ queryKey: ['comisiones_registradas', empleadaId] })
       qc.invalidateQueries({ queryKey: ['liquidaciones_empleadas', empleadaId] })
       qc.invalidateQueries({ queryKey: ['resumen_periodo'] })
     },
@@ -327,7 +430,10 @@ export function useAgregarHoras(empleadaId: string, periodoMes: number, periodoA
   return useMutation({
     mutationFn: (form: TRegistroHorasForm) => comisionesService.agregarHoras(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Horas registradas')
       qc.invalidateQueries({ queryKey: ['horas_periodo', empleadaId, periodoAnio, periodoMes] })
     },
@@ -339,7 +445,10 @@ export function useEliminarHoras(empleadaId: string, periodoMes: number, periodo
   return useMutation({
     mutationFn: (id: string) => comisionesService.eliminarHoras(id),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Registro eliminado')
       qc.invalidateQueries({ queryKey: ['horas_periodo', empleadaId, periodoAnio, periodoMes] })
     },
@@ -362,7 +471,11 @@ export function useCalcularProduccion(empleadaId: string, periodoMes: number, pe
   return useQuery({
     queryKey: ['calcular_produccion', empleadaId, periodoAnio, periodoMes],
     queryFn: async () => {
-      const r = await comisionesService.calcularComisionProduccion(empleadaId, periodoMes, periodoAnio)
+      const r = await comisionesService.calcularComisionProduccion(
+        empleadaId,
+        periodoMes,
+        periodoAnio
+      )
       if (!r.ok) throw new Error(r.error)
       return r.data
     },
@@ -386,9 +499,13 @@ export function usePuntosTrabajoConfig(clienteId?: string) {
 export function useUpsertPuntosTrabajoConfig() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (form: TPuntosTrabajoConfigForm) => comisionesService.upsertPuntosTrabajoConfig(form),
+    mutationFn: (form: TPuntosTrabajoConfigForm) =>
+      comisionesService.upsertPuntosTrabajoConfig(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Configuración guardada')
       qc.invalidateQueries({ queryKey: ['puntos_trabajo_config'] })
     },
@@ -400,7 +517,10 @@ export function useDeletePuntosTrabajoConfig() {
   return useMutation({
     mutationFn: (id: string) => comisionesService.deletePuntosTrabajoConfig(id),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Configuración eliminada')
       qc.invalidateQueries({ queryKey: ['puntos_trabajo_config'] })
     },
@@ -425,7 +545,10 @@ export function useUpsertValoresPuntoTipo() {
   return useMutation({
     mutationFn: (form: TValoresPuntoTipoForm) => comisionesService.upsertValoresPuntoTipo(form),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Valor guardado')
       qc.invalidateQueries({ queryKey: ['valores_punto_tipo'] })
       qc.invalidateQueries({ queryKey: ['preview_puntaje'] })
@@ -438,7 +561,10 @@ export function useDeleteValoresPuntoTipo() {
   return useMutation({
     mutationFn: (id: string) => comisionesService.deleteValoresPuntoTipo(id),
     onSuccess: (r) => {
-      if (!r.ok) { toast.error(r.error); return }
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
       toast.success('Valor eliminado')
       qc.invalidateQueries({ queryKey: ['valores_punto_tipo'] })
     },

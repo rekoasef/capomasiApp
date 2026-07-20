@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
+import { toast } from 'sonner'
 import {
   useLiquidacionesEmpleada,
   useCrearLiquidacionEmpleada,
@@ -13,14 +16,14 @@ import {
 } from '../hooks/useEmpleadas'
 import { liquidacionEmpleadaSchema, pagoEmpleadaSchema } from '../schemas/empleadaSchema'
 import type { TLiquidacionEmpleadaForm, TPagoEmpleadaForm } from '../schemas/empleadaSchema'
-import type { TLiquidacionEmpleada, TPagoEmpleada } from '../types'
+import type { TLiquidacionEmpleada, TPagoEmpleada, TEmpleada } from '../types'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, KeyRound, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth/useAuth'
 import { useParametros } from '@/shared/hooks/useParametros'
 import {
@@ -30,10 +33,24 @@ import {
 import { ImportarComisionesModal } from './ImportarComisionesModal'
 import { LegajoSection } from './LegajoSection'
 import { ComisionesSection } from './ComisionesSection'
+import { supabase } from '@/lib/supabase/client'
 
-const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const MESES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
 
-type Tab = 'legajo' | 'comisiones' | 'liquidacion'
+type Tab = 'legajo' | 'comisiones' | 'liquidacion' | 'cuenta'
 
 interface Props {
   empleadaId: string
@@ -41,32 +58,42 @@ interface Props {
 
 export function EmpleadaDetalle({ empleadaId }: Props) {
   const [tab, setTab] = useState<Tab>('legajo')
+  const { isAdmin } = useAuth()
   const { data: empleada, isLoading: loadingEmpleada } = useEmpleadaById(empleadaId)
 
   if (loadingEmpleada) {
-    return <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-none" />)}</div>
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-10 w-full rounded-none" />
+        ))}
+      </div>
+    )
   }
 
   if (!empleada) {
-    return <p className="text-sm text-danger">No se encontró la empleada.</p>
+    return <p className="text-danger text-sm">No se encontró la empleada.</p>
   }
+
+  const tabs = [
+    { id: 'legajo' as Tab, label: 'Legajo' },
+    { id: 'comisiones' as Tab, label: 'Comisiones' },
+    { id: 'liquidacion' as Tab, label: 'Liquidación' },
+    ...(isAdmin ? [{ id: 'cuenta' as Tab, label: 'Cuenta' }] : []),
+  ]
 
   return (
     <div className="space-y-6">
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-border">
-        {([
-          { id: 'legajo',      label: 'Legajo'     },
-          { id: 'comisiones',  label: 'Comisiones' },
-          { id: 'liquidacion', label: 'Liquidación' },
-        ] as { id: Tab; label: string }[]).map((t) => (
+      <div className="border-border flex gap-0 border-b">
+        {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`-mb-px border-b-2 px-5 py-2.5 text-sm font-medium transition-colors ${
               tab === t.id
                 ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                : 'text-muted-foreground hover:text-foreground hover:border-border border-transparent'
             }`}
           >
             {t.label}
@@ -75,17 +102,13 @@ export function EmpleadaDetalle({ empleadaId }: Props) {
       </div>
 
       {/* Content */}
-      {tab === 'legajo' && (
-        <LegajoSection empleada={empleada} />
-      )}
+      {tab === 'legajo' && <LegajoSection empleada={empleada} />}
 
-      {tab === 'comisiones' && (
-        <ComisionesSection empleada={empleada} />
-      )}
+      {tab === 'comisiones' && <ComisionesSection empleada={empleada} />}
 
-      {tab === 'liquidacion' && (
-        <LiquidacionTab empleadaId={empleadaId} />
-      )}
+      {tab === 'liquidacion' && <LiquidacionTab empleadaId={empleadaId} />}
+
+      {tab === 'cuenta' && isAdmin && <CuentaSection empleada={empleada} />}
     </div>
   )
 }
@@ -93,40 +116,50 @@ export function EmpleadaDetalle({ empleadaId }: Props) {
 // ── Tab: Liquidación ──────────────────────────────────────────
 
 function LiquidacionTab({ empleadaId }: { empleadaId: string }) {
-  const hoy  = new Date()
+  const hoy = new Date()
   const [anio, setAnio] = useState(hoy.getFullYear())
-  const [mes,  setMes]  = useState(hoy.getMonth() + 1)
+  const [mes, setMes] = useState(hoy.getMonth() + 1)
 
   const ANIOS = Array.from({ length: 4 }, (_, i) => hoy.getFullYear() - i)
 
-  const { data: liquidaciones, isLoading: loadingLiq, error: errorLiq } = useLiquidacionesEmpleada(empleadaId, anio)
-  const { data: pagos,         isLoading: loadingPag, error: errorPag  } = usePagosEmpleada(empleadaId, anio)
+  const {
+    data: liquidaciones,
+    isLoading: loadingLiq,
+    error: errorLiq,
+  } = useLiquidacionesEmpleada(empleadaId, anio)
+  const { data: pagos, isLoading: loadingPag, error: errorPag } = usePagosEmpleada(empleadaId, anio)
 
   const liquidacionesMes = (liquidaciones ?? []).filter((l) => l.periodo_mes === mes)
-  const pagosMes         = (pagos ?? []).filter((p) => p.periodo_mes === mes)
+  const pagosMes = (pagos ?? []).filter((p) => p.periodo_mes === mes)
 
-  const totalHaberes    = liquidacionesMes.filter((l) => l.tipo_concepto === 'HABER').reduce((s, l) => s + Number(l.importe), 0)
-  const totalDescuentos = liquidacionesMes.filter((l) => l.tipo_concepto === 'DESCUENTO').reduce((s, l) => s + Number(l.importe), 0)
-  const neto            = totalHaberes - totalDescuentos
-  const totalPagado     = pagosMes.reduce((s, p) => s + Number(p.importe), 0)
-  const saldo           = neto - totalPagado
+  const totalHaberes = liquidacionesMes
+    .filter((l) => l.tipo_concepto === 'HABER')
+    .reduce((s, l) => s + Number(l.importe), 0)
+  const totalDescuentos = liquidacionesMes
+    .filter((l) => l.tipo_concepto === 'DESCUENTO')
+    .reduce((s, l) => s + Number(l.importe), 0)
+  const neto = totalHaberes - totalDescuentos
+  const totalPagado = pagosMes.reduce((s, p) => s + Number(p.importe), 0)
+  const saldo = neto - totalPagado
 
   if (errorLiq || errorPag) {
-    return <p className="text-sm text-danger">{errorLiq?.message ?? errorPag?.message}</p>
+    return <p className="text-danger text-sm">{errorLiq?.message ?? errorPag?.message}</p>
   }
 
   return (
     <div className="space-y-6">
       {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-4 border border-border bg-muted/30 px-4 py-3">
+      <div className="border-border bg-muted/30 flex flex-wrap items-center gap-4 border px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Año</span>
+          <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+            Año
+          </span>
           <div className="flex gap-1">
             {ANIOS.map((a) => (
               <button
                 key={a}
                 onClick={() => setAnio(a)}
-                className={`px-2.5 py-1 text-xs font-semibold border transition-colors ${
+                className={`border px-2.5 py-1 text-xs font-semibold transition-colors ${
                   a === anio
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
@@ -138,23 +171,34 @@ function LiquidacionTab({ empleadaId }: { empleadaId: string }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Mes</span>
+          <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+            Mes
+          </span>
           <select
             value={mes}
             onChange={(e) => setMes(Number(e.target.value))}
-            className="border border-border bg-surface px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            className="border-border bg-surface focus:ring-primary border px-2 py-1 text-xs focus:ring-1 focus:outline-none"
           >
-            {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            {MESES.map((m, i) => (
+              <option key={i} value={i + 1}>
+                {m}
+              </option>
+            ))}
           </select>
         </div>
       </div>
 
       {/* Resumen del período */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <ResumenCard label="Haberes"    value={totalHaberes} />
+        <ResumenCard label="Haberes" value={totalHaberes} />
         <ResumenCard label="Descuentos" value={totalDescuentos} className="text-danger" />
-        <ResumenCard label="Neto"       value={neto}  bold />
-        <ResumenCard label="Pendiente"  value={saldo} bold className={saldo > 0 ? 'text-danger' : 'text-success'} />
+        <ResumenCard label="Neto" value={neto} bold />
+        <ResumenCard
+          label="Pendiente"
+          value={saldo}
+          bold
+          className={saldo > 0 ? 'text-danger' : 'text-success'}
+        />
       </div>
 
       {/* Liquidaciones */}
@@ -182,7 +226,10 @@ function LiquidacionTab({ empleadaId }: { empleadaId: string }) {
 // ── ResumenCard ──────────────────────────────────────────────
 
 function ResumenCard({
-  label, value, bold, className,
+  label,
+  value,
+  bold,
+  className,
 }: {
   label: string
   value: number
@@ -190,8 +237,10 @@ function ResumenCard({
   className?: string
 }) {
   return (
-    <div className="border border-border bg-surface px-4 py-3">
-      <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">{label}</p>
+    <div className="border-border bg-surface border px-4 py-3">
+      <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+        {label}
+      </p>
       <p className={`mt-1 text-base tabular-nums ${bold ? 'font-bold' : ''} ${className ?? ''}`}>
         {formatMoney(value)}
       </p>
@@ -202,7 +251,11 @@ function ResumenCard({
 // ── LiquidacionesSection ─────────────────────────────────────
 
 function LiquidacionesSection({
-  empleadaId, mes, anio, items, isLoading,
+  empleadaId,
+  mes,
+  anio,
+  items,
+  isLoading,
 }: {
   empleadaId: string
   mes: number
@@ -214,7 +267,7 @@ function LiquidacionesSection({
   const [showForm, setShowForm] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const crear    = useCrearLiquidacionEmpleada(empleadaId)
+  const crear = useCrearLiquidacionEmpleada(empleadaId)
   const eliminar = useEliminarLiquidacionEmpleada(empleadaId)
   const { data: conceptosHaber = FALLBACK_CONCEPTOS_HABER_EMPLEADA } = useParametros({
     categorias: ['CONCEPTO_HABER_EMPLEADA', 'CONCEPTO_EMPLEADA_HABER'],
@@ -231,7 +284,14 @@ function LiquidacionesSection({
 
   const form = useForm<TLiquidacionEmpleadaForm>({
     resolver: zodResolver(liquidacionEmpleadaSchema),
-    defaultValues: { empleada_id: empleadaId, tipo_concepto: 'HABER', periodo_mes: mes, periodo_anio: anio, concepto: '', importe: 0 },
+    defaultValues: {
+      empleada_id: empleadaId,
+      tipo_concepto: 'HABER',
+      periodo_mes: mes,
+      periodo_anio: anio,
+      concepto: '',
+      importe: 0,
+    },
   })
 
   const tipoConcepto = form.watch('tipo_concepto')
@@ -243,7 +303,14 @@ function LiquidacionesSection({
       {
         onSuccess: (r) => {
           if (r.ok) {
-            form.reset({ empleada_id: empleadaId, tipo_concepto: 'HABER', periodo_mes: mes, periodo_anio: anio, concepto: '', importe: 0 })
+            form.reset({
+              empleada_id: empleadaId,
+              tipo_concepto: 'HABER',
+              periodo_mes: mes,
+              periodo_anio: anio,
+              concepto: '',
+              importe: 0,
+            })
             setShowForm(false)
           }
         },
@@ -254,7 +321,9 @@ function LiquidacionesSection({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Liquidación — {MESES[mes - 1]} {anio}</h3>
+        <h3 className="text-sm font-semibold">
+          Liquidación — {MESES[mes - 1]} {anio}
+        </h3>
         <div className="flex gap-2">
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setShowImportModal(true)}>
@@ -262,29 +331,46 @@ function LiquidacionesSection({
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => setShowForm((v) => !v)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />Agregar concepto
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Agregar concepto
           </Button>
         </div>
       </div>
 
       {showForm && (
-        <form onSubmit={onSubmit} className="border border-border bg-surface p-4 space-y-3">
+        <form onSubmit={onSubmit} className="border-border bg-surface space-y-3 border p-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div>
-              <label className="block text-[11px] font-semibold tracking-wide uppercase text-muted-foreground mb-1">Tipo</label>
-              <select {...form.register('tipo_concepto')} className="w-full border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+              <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+                Tipo
+              </label>
+              <select
+                {...form.register('tipo_concepto')}
+                className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              >
                 <option value="HABER">Haber</option>
                 <option value="DESCUENTO">Descuento</option>
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-[11px] font-semibold tracking-wide uppercase text-muted-foreground mb-1">Concepto *</label>
-              <select {...form.register('concepto')} className="w-full border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+              <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+                Concepto *
+              </label>
+              <select
+                {...form.register('concepto')}
+                className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              >
                 <option value="">Seleccionar...</option>
-                {conceptos.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                {conceptos.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
               </select>
               {form.formState.errors.concepto && (
-                <p className="mt-1 text-[11px] text-danger">{form.formState.errors.concepto.message}</p>
+                <p className="text-danger mt-1 text-[11px]">
+                  {form.formState.errors.concepto.message}
+                </p>
               )}
             </div>
             <Input
@@ -298,43 +384,70 @@ function LiquidacionesSection({
           </div>
           <Input label="Observaciones" {...form.register('observaciones')} />
           <div className="flex gap-2">
-            <Button type="submit" size="sm" disabled={crear.isPending}>{crear.isPending ? 'Guardando...' : 'Guardar'}</Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" disabled={crear.isPending}>
+              {crear.isPending ? 'Guardando...' : 'Guardar'}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>
+              Cancelar
+            </Button>
           </div>
         </form>
       )}
 
       {isLoading ? (
-        <div className="space-y-px">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-none" />)}</div>
+        <div className="space-y-px">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-none" />
+          ))}
+        </div>
       ) : !items.length ? (
-        <p className="py-6 text-center text-xs tracking-widest uppercase text-muted-foreground">Sin conceptos para este período</p>
+        <p className="text-muted-foreground py-6 text-center text-xs tracking-widest uppercase">
+          Sin conceptos para este período
+        </p>
       ) : (
-        <div className="overflow-x-auto border border-border">
+        <div className="border-border overflow-x-auto border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b-2 border-border bg-muted/50">
-                <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Concepto</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Tipo</th>
-                <th className="px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Importe</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Observaciones</th>
+              <tr className="border-border bg-muted/50 border-b-2">
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Concepto
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Tipo
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Importe
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Observaciones
+                </th>
                 <th className="w-10" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-border bg-surface">
+            <tbody className="divide-border bg-surface divide-y">
               {items.map((l) => (
                 <tr key={l.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-2.5 font-medium">{l.concepto}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`text-[10px] font-bold tracking-widest uppercase ${l.tipo_concepto === 'HABER' ? 'text-success' : 'text-danger'}`}>
+                    <span
+                      className={`text-[10px] font-bold tracking-widest uppercase ${l.tipo_concepto === 'HABER' ? 'text-success' : 'text-danger'}`}
+                    >
                       {l.tipo_concepto === 'HABER' ? 'Haber' : 'Descuento'}
                     </span>
                   </td>
-                  <td className={`px-4 py-2.5 text-right tabular-nums ${l.tipo_concepto === 'DESCUENTO' ? 'text-danger' : ''}`}>
+                  <td
+                    className={`px-4 py-2.5 text-right tabular-nums ${l.tipo_concepto === 'DESCUENTO' ? 'text-danger' : ''}`}
+                  >
                     {formatMoney(Number(l.importe))}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.observaciones ?? '—'}</td>
+                  <td className="text-muted-foreground px-4 py-2.5 text-xs">
+                    {l.observaciones ?? '—'}
+                  </td>
                   <td className="px-4 py-2.5">
-                    <button onClick={() => setDeleteId(l.id)} className="p-1 text-muted-foreground hover:text-danger">
+                    <button
+                      onClick={() => setDeleteId(l.id)}
+                      className="text-muted-foreground hover:text-danger p-1"
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </td>
@@ -350,7 +463,10 @@ function LiquidacionesSection({
         title="Eliminar concepto"
         description="Se eliminará este ítem de la liquidación."
         confirmLabel="Eliminar"
-        onConfirm={() => { if (deleteId) eliminar.mutate(deleteId); setDeleteId(null) }}
+        onConfirm={() => {
+          if (deleteId) eliminar.mutate(deleteId)
+          setDeleteId(null)
+        }}
         onCancel={() => setDeleteId(null)}
         isPending={eliminar.isPending}
       />
@@ -369,7 +485,12 @@ function LiquidacionesSection({
 // ── PagosSection ─────────────────────────────────────────────
 
 function PagosSection({
-  empleadaId, mes, anio, items, isLoading, totalPagado,
+  empleadaId,
+  mes,
+  anio,
+  items,
+  isLoading,
+  totalPagado,
 }: {
   empleadaId: string
   mes: number
@@ -384,12 +505,12 @@ function PagosSection({
   const form = useForm<TPagoEmpleadaForm>({
     resolver: zodResolver(pagoEmpleadaSchema),
     defaultValues: {
-      empleada_id:  empleadaId,
-      periodo_mes:  mes,
+      empleada_id: empleadaId,
+      periodo_mes: mes,
       periodo_anio: anio,
-      tipo_pago:    'TRANSFERENCIA',
-      importe:      0,
-      fecha_pago:   toLocalDateInputValue(),
+      tipo_pago: 'TRANSFERENCIA',
+      importe: 0,
+      fecha_pago: toLocalDateInputValue(),
     },
   })
 
@@ -400,8 +521,11 @@ function PagosSection({
         onSuccess: (r) => {
           if (r.ok) {
             form.reset({
-              empleada_id: empleadaId, periodo_mes: mes, periodo_anio: anio,
-              tipo_pago: 'TRANSFERENCIA', importe: 0,
+              empleada_id: empleadaId,
+              periodo_mes: mes,
+              periodo_anio: anio,
+              tipo_pago: 'TRANSFERENCIA',
+              importe: 0,
               fecha_pago: toLocalDateInputValue(),
             })
             setShowForm(false)
@@ -417,20 +541,28 @@ function PagosSection({
         <h3 className="text-sm font-semibold">
           Pagos — {MESES[mes - 1]} {anio}
           {totalPagado > 0 && (
-            <span className="ml-2 text-xs font-normal text-muted-foreground">Total: {formatMoney(totalPagado)}</span>
+            <span className="text-muted-foreground ml-2 text-xs font-normal">
+              Total: {formatMoney(totalPagado)}
+            </span>
           )}
         </h3>
         <Button size="sm" variant="outline" onClick={() => setShowForm((v) => !v)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />Registrar pago
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Registrar pago
         </Button>
       </div>
 
       {showForm && (
-        <form onSubmit={onSubmit} className="border border-border bg-surface p-4 space-y-3">
+        <form onSubmit={onSubmit} className="border-border bg-surface space-y-3 border p-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div>
-              <label className="block text-[11px] font-semibold tracking-wide uppercase text-muted-foreground mb-1">Tipo *</label>
-              <select {...form.register('tipo_pago')} className="w-full border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+              <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+                Tipo *
+              </label>
+              <select
+                {...form.register('tipo_pago')}
+                className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              >
                 <option value="TRANSFERENCIA">Transferencia</option>
                 <option value="EFECTIVO">Efectivo</option>
                 <option value="CHEQUE">Cheque</option>
@@ -454,41 +586,203 @@ function PagosSection({
           </div>
           <Input label="Notas" {...form.register('notas')} />
           <div className="flex gap-2">
-            <Button type="submit" size="sm" disabled={registrar.isPending}>{registrar.isPending ? 'Guardando...' : 'Guardar'}</Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" disabled={registrar.isPending}>
+              {registrar.isPending ? 'Guardando...' : 'Guardar'}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>
+              Cancelar
+            </Button>
           </div>
         </form>
       )}
 
       {isLoading ? (
-        <div className="space-y-px">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-none" />)}</div>
+        <div className="space-y-px">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-none" />
+          ))}
+        </div>
       ) : !items.length ? (
-        <p className="py-6 text-center text-xs tracking-widest uppercase text-muted-foreground">Sin pagos registrados para este período</p>
+        <p className="text-muted-foreground py-6 text-center text-xs tracking-widest uppercase">
+          Sin pagos registrados para este período
+        </p>
       ) : (
-        <div className="overflow-x-auto border border-border">
+        <div className="border-border overflow-x-auto border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b-2 border-border bg-muted/50">
-                <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Fecha</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Tipo</th>
-                <th className="px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Importe</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Notas</th>
+              <tr className="border-border bg-muted/50 border-b-2">
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Fecha
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Tipo
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Importe
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Notas
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border bg-surface">
+            <tbody className="divide-border bg-surface divide-y">
               {items.map((p) => (
                 <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-2.5 tabular-nums">{formatDate(p.fecha_pago)}</td>
                   <td className="px-4 py-2.5">
-                    <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">{p.tipo_pago}</span>
+                    <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+                      {p.tipo_pago}
+                    </span>
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums font-medium">{formatMoney(Number(p.importe))}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{p.notas ?? '—'}</td>
+                  <td className="px-4 py-2.5 text-right font-medium tabular-nums">
+                    {formatMoney(Number(p.importe))}
+                  </td>
+                  <td className="text-muted-foreground px-4 py-2.5 text-xs">{p.notas ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── CuentaSection ─────────────────────────────────────────────
+
+const cuentaSchema = z.object({
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'Mínimo 6 caracteres'),
+})
+type TCuentaForm = z.infer<typeof cuentaSchema>
+
+function CuentaSection({ empleada }: { empleada: TEmpleada }) {
+  const qc = useQueryClient()
+  const [showForm, setShowForm] = useState(false)
+
+  const { data: usuario, isLoading: loadingUsuario } = useQuery({
+    queryKey: ['usuario', empleada.usuario_id],
+    queryFn: async () => {
+      if (!empleada.usuario_id) return null
+      const { data } = await supabase
+        .from('usuarios')
+        .select('email, nombre, activo')
+        .eq('id', empleada.usuario_id)
+        .single()
+      return data
+    },
+    enabled: !!empleada.usuario_id,
+  })
+
+  const crear = useMutation({
+    mutationFn: async (data: TCuentaForm) => {
+      const res = await fetch('/api/admin/crear-usuario-empleada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empleada_id: empleada.id, ...data }),
+      })
+      const json = await res.json()
+      if (!json.ok) throw new Error(json.error)
+      return json as { ok: true; email: string }
+    },
+    onSuccess: () => {
+      toast.success('Cuenta creada correctamente')
+      setShowForm(false)
+      qc.invalidateQueries({ queryKey: ['empleada', empleada.id] })
+      qc.invalidateQueries({ queryKey: ['empleadas'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const form = useForm<TCuentaForm>({
+    resolver: zodResolver(cuentaSchema),
+    defaultValues: { email: '', password: '' },
+  })
+
+  const tieneCuenta = !!empleada.usuario_id
+
+  return (
+    <div className="max-w-md space-y-5">
+      <div>
+        <p className="text-muted-foreground mb-3 text-[10px] font-bold tracking-widest uppercase">
+          Acceso al sistema
+        </p>
+
+        {loadingUsuario ? (
+          <Skeleton className="h-12 w-full rounded-none" />
+        ) : tieneCuenta ? (
+          <div className="border-success/30 bg-success/5 flex items-start gap-3 border px-4 py-3">
+            <CheckCircle2 className="text-success mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="text-success text-sm font-medium">Cuenta activa</p>
+              <p className="text-muted-foreground mt-0.5 text-xs">{usuario?.email ?? '—'}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="border-border bg-muted/20 flex items-start gap-3 border px-4 py-3">
+            <KeyRound className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Sin cuenta de acceso</p>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                Esta empleada todavía no puede ingresar al sistema.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {!tieneCuenta && !showForm && (
+        <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
+          <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+          Crear cuenta de acceso
+        </Button>
+      )}
+
+      {!tieneCuenta && showForm && (
+        <form
+          onSubmit={form.handleSubmit((data) => crear.mutate(data))}
+          className="border-border bg-surface space-y-3 border p-4"
+        >
+          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+            Nueva cuenta — {empleada.nombre}
+          </p>
+          <Input
+            label="Email *"
+            type="email"
+            autoComplete="off"
+            disabled={crear.isPending}
+            error={form.formState.errors.email?.message}
+            {...form.register('email')}
+          />
+          <Input
+            label="Contraseña *"
+            type="password"
+            autoComplete="new-password"
+            disabled={crear.isPending}
+            error={form.formState.errors.password?.message}
+            {...form.register('password')}
+          />
+          <p className="text-muted-foreground text-[11px]">
+            Comunicá estas credenciales a la empleada de forma directa.
+          </p>
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={crear.isPending}>
+              {crear.isPending ? 'Creando...' : 'Crear cuenta'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={crear.isPending}
+              onClick={() => {
+                setShowForm(false)
+                form.reset()
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </form>
       )}
     </div>
   )

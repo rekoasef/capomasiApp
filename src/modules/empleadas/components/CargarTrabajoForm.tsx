@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/lib/auth/useAuth'
 import { clientesService } from '@/modules/clientes/services/clientesService'
 import { useEmpleadas, useCargarTrabajo } from '../hooks/useEmpleadas'
-import { trabajoRealizadoSchema, type TTrabajoRealizadoForm } from '../schemas/trabajoRealizadoSchema'
+import {
+  trabajoRealizadoSchema,
+  type TTrabajoRealizadoForm,
+} from '../schemas/trabajoRealizadoSchema'
 import { Input } from '@/shared/components/ui/input'
 import { Select } from '@/shared/components/ui/select'
 import { Textarea } from '@/shared/components/ui/textarea'
@@ -46,11 +49,8 @@ export function CargarTrabajoForm({ onSuccess, onCancel }: Props) {
   const [selectedEmpleadaIds, setSelectedEmpleadaIds] = useState<string[]>([])
   const [empleadasError, setEmpleadasError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!isAdmin && empleadaPropia?.id) {
-      setSelectedEmpleadaIds([empleadaPropia.id])
-    }
-  }, [isAdmin, empleadaPropia?.id])
+  // Para no-admin la selección está fija a la propia empleada (no hay toggle en la UI)
+  const empleadaIds = isAdmin ? selectedEmpleadaIds : empleadaPropia ? [empleadaPropia.id] : []
 
   const toggleEmpleada = (id: string) => {
     setEmpleadasError(null)
@@ -80,13 +80,13 @@ export function CargarTrabajoForm({ onSuccess, onCancel }: Props) {
   }))
 
   async function onSubmit(data: TTrabajoRealizadoForm) {
-    if (selectedEmpleadaIds.length === 0) {
+    if (empleadaIds.length === 0) {
       setEmpleadasError('Seleccioná al menos una empleada')
       return
     }
     const payload = {
       ...data,
-      empleada_ids: selectedEmpleadaIds,
+      empleada_ids: empleadaIds,
       cliente_id: data.cliente_id || null,
     }
     const r = await crear.mutateAsync(payload)
@@ -104,8 +104,9 @@ export function CargarTrabajoForm({ onSuccess, onCancel }: Props) {
 
   if (!isAdmin && !empleadaPropia) {
     return (
-      <div className="rounded-md border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
-        No hay una empleada vinculada a tu usuario. Un admin tiene que asociarla antes de que puedas cargar trabajos.
+      <div className="border-danger/30 bg-danger/5 text-danger rounded-md border p-4 text-sm">
+        No hay una empleada vinculada a tu usuario. Un admin tiene que asociarla antes de que puedas
+        cargar trabajos.
       </div>
     )
   }
@@ -114,7 +115,7 @@ export function CargarTrabajoForm({ onSuccess, onCancel }: Props) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {isAdmin && (
         <div>
-          <p className="mb-1.5 text-xs font-medium text-foreground">Empleadas *</p>
+          <p className="text-foreground mb-1.5 text-xs font-medium">Empleadas *</p>
           <div className="flex flex-wrap gap-2">
             {empleadas.map((e) => {
               const selected = selectedEmpleadaIds.includes(e.id)
@@ -124,7 +125,7 @@ export function CargarTrabajoForm({ onSuccess, onCancel }: Props) {
                   type="button"
                   disabled={crear.isPending}
                   onClick={() => toggleEmpleada(e.id)}
-                  className={`px-3 py-1 text-xs font-medium border transition-colors disabled:opacity-50 ${
+                  className={`border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
                     selected
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
@@ -135,9 +136,7 @@ export function CargarTrabajoForm({ onSuccess, onCancel }: Props) {
               )
             })}
           </div>
-          {empleadasError && (
-            <p className="mt-1 text-xs text-danger">{empleadasError}</p>
-          )}
+          {empleadasError && <p className="text-danger mt-1 text-xs">{empleadasError}</p>}
         </div>
       )}
 
@@ -185,7 +184,13 @@ export function CargarTrabajoForm({ onSuccess, onCancel }: Props) {
           {crear.isPending ? 'Guardando...' : 'Guardar trabajo'}
         </Button>
         {onCancel && (
-          <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={crear.isPending}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onCancel}
+            disabled={crear.isPending}
+          >
             Cancelar
           </Button>
         )}

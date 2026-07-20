@@ -10,11 +10,7 @@ import type {
   TImportarComisionesForm,
   TTrabajoRealizadoForm,
 } from '../schemas/trabajoRealizadoSchema'
-import type {
-  TLiquidacionEmpleada,
-  TTrabajoRealizado,
-  TTrabajoRealizadoDetalle,
-} from '../types'
+import type { TLiquidacionEmpleada, TTrabajoRealizado, TTrabajoRealizadoDetalle } from '../types'
 
 export const trabajosRealizadosService = {
   async crear(form: unknown): Promise<ServiceResult<TTrabajoRealizado[]>> {
@@ -29,14 +25,10 @@ export const trabajosRealizadosService = {
     }
 
     const rows = empleada_ids.map((empleada_id) => mapTrabajoInsert({ ...rest, empleada_id }))
-    const db = supabase as any
-    const { data, error } = await db
-      .from('trabajos_realizados')
-      .insert(rows)
-      .select()
+    const { data, error } = await supabase.from('trabajos_realizados').insert(rows).select()
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: data as TTrabajoRealizado[] }
+    return { ok: true, data: data as unknown as TTrabajoRealizado[] }
   },
 
   async getByPeriodo(params: {
@@ -44,15 +36,16 @@ export const trabajosRealizadosService = {
     periodo_anio: number
     empleada_id?: string
   }): Promise<ServiceResult<TTrabajoRealizadoDetalle[]>> {
-    const db = supabase as any
-    let query = db
+    let query = supabase
       .from('trabajos_realizados')
-      .select(`
+      .select(
+        `
         *,
         empleadas(nombre, tipo_comision),
         clientes(nombre),
         liquidaciones_empleadas(id, concepto, importe)
-      `)
+      `
+      )
       .eq('periodo_mes', params.periodo_mes)
       .eq('periodo_anio', params.periodo_anio)
 
@@ -64,7 +57,7 @@ export const trabajosRealizadosService = {
       .order('fecha', { ascending: false })
       .order('created_at', { ascending: false })
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: (data ?? []) as TTrabajoRealizadoDetalle[] }
+    return { ok: true, data: (data ?? []) as unknown as TTrabajoRealizadoDetalle[] }
   },
 
   async aprobar(form: unknown): Promise<ServiceResult<TTrabajoRealizado>> {
@@ -73,17 +66,16 @@ export const trabajosRealizadosService = {
       return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
     }
 
-    const db = supabase as any
-    const { data, error } = await db.rpc('fn_aprobar_trabajo_realizado', {
+    const { data, error } = await supabase.rpc('fn_aprobar_trabajo_realizado', {
       p_trabajo_id: parsed.data.trabajo_id,
       p_genera_comision: parsed.data.genera_comision,
       p_importe_comision: parsed.data.genera_comision
-        ? parsed.data.importe_comision ?? undefined
+        ? (parsed.data.importe_comision ?? undefined)
         : undefined,
     })
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: data as TTrabajoRealizado }
+    return { ok: true, data: data as unknown as TTrabajoRealizado }
   },
 
   async importarComisiones(form: unknown): Promise<ServiceResult<TLiquidacionEmpleada[]>> {
@@ -92,19 +84,32 @@ export const trabajosRealizadosService = {
       return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
     }
 
-    const db = supabase as any
-    const { data, error } = await db.rpc('fn_importar_comisiones_trabajos', {
+    const { data, error } = await supabase.rpc('fn_importar_comisiones_trabajos', {
       p_empleada_id: parsed.data.empleada_id,
       p_periodo_mes: parsed.data.periodo_mes,
       p_periodo_anio: parsed.data.periodo_anio,
     })
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: (data ?? []) as TLiquidacionEmpleada[] }
+    return { ok: true, data: (data ?? []) as unknown as TLiquidacionEmpleada[] }
+  },
+
+  async importarComisionIndividual(
+    trabajoId: string
+  ): Promise<ServiceResult<{ liquidacion_id: string | null }>> {
+    const { data, error } = await supabase.rpc('fn_importar_comision_trabajo_individual', {
+      p_trabajo_id: trabajoId,
+    })
+
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    const row = Array.isArray(data) ? data[0] : data
+    return { ok: true, data: { liquidacion_id: row?.liquidacion_id ?? null } }
   },
 }
 
-function mapTrabajoInsert(data: Omit<TTrabajoRealizadoForm, 'empleada_ids'> & { empleada_id: string }) {
+function mapTrabajoInsert(
+  data: Omit<TTrabajoRealizadoForm, 'empleada_ids'> & { empleada_id: string }
+) {
   const fecha = new Date(`${data.fecha}T00:00:00`)
   return {
     empleada_id: data.empleada_id,

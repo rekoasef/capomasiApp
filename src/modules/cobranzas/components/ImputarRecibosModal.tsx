@@ -1,14 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import {
-  useRecibosDisponiblesCliente,
-  useImputar,
-} from '../hooks/useCobranzas'
-import {
-  calcularSaldoPendiente,
-  calcularTotalImputado,
-} from '../services/calcularSaldo'
+import { useRecibosDisponiblesCliente, useImputar } from '../hooks/useCobranzas'
+import { calcularSaldoPendiente, calcularTotalImputado } from '../services/calcularSaldo'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
@@ -32,7 +26,11 @@ export function ImputarRecibosModal({ liquidacion, clienteId, onClose }: Props) 
   const imputar = useImputar(clienteId)
 
   const imputado = calcularTotalImputado(liquidacion.imputaciones)
-  const saldoLiq = calcularSaldoPendiente(liquidacion.importe_liquidado, liquidacion.imputaciones)
+  const saldoLiq = calcularSaldoPendiente(
+    liquidacion.importe_liquidado,
+    liquidacion.imputaciones,
+    liquidacion.importe_facturado
+  )
 
   const [seleccion, setSeleccion] = useState<Map<string, number>>(new Map())
 
@@ -63,27 +61,32 @@ export function ImputarRecibosModal({ liquidacion, clienteId, onClose }: Props) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-2xl rounded-lg border border-border bg-surface p-6 shadow-lg">
+      <div className="border-border bg-surface relative z-10 w-full max-w-2xl rounded-lg border p-6 shadow-lg">
         <div className="mb-4">
           <h2 className="text-base font-semibold">Imputar recibos a la liquidación</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-sm">
             {liquidacion.tipo_servicio} · {formatDate(liquidacion.fecha_liquidacion)} ·{' '}
-            <span className="font-medium text-foreground">{formatMoney(liquidacion.importe_liquidado)}</span>
+            <span className="text-foreground font-medium">
+              {formatMoney(liquidacion.importe_facturado ?? liquidacion.importe_liquidado)}
+            </span>
             {imputado > 0 && (
-              <> · ya imputado: <span className="text-success">{formatMoney(imputado)}</span></>
+              <>
+                {' '}
+                · ya imputado: <span className="text-success">{formatMoney(imputado)}</span>
+              </>
             )}
-            {' · '}saldo: <span className="font-semibold text-danger">{formatMoney(saldoLiq)}</span>
+            {' · '}saldo: <span className="text-danger font-semibold">{formatMoney(saldoLiq)}</span>
           </p>
         </div>
 
         {isLoading ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Cargando recibos…</p>
+          <p className="text-muted-foreground py-6 text-center text-sm">Cargando recibos…</p>
         ) : disponibles.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
+          <p className="text-muted-foreground py-6 text-center text-sm">
             Este cliente no tiene recibos disponibles para imputar.
           </p>
         ) : (
-          <div className="max-h-80 space-y-2 overflow-y-auto rounded-md border border-border p-3">
+          <div className="border-border max-h-80 space-y-2 overflow-y-auto rounded-md border p-3">
             {disponibles.map((rec) => {
               const valor = seleccion.get(rec.id) ?? 0
               const max = Math.min(rec.saldo_libre, saldoLiq)
@@ -94,9 +97,11 @@ export function ImputarRecibosModal({ liquidacion, clienteId, onClose }: Props) 
                       {rec.numero_recibo ? `${rec.numero_recibo} · ` : ''}
                       {formatDate(rec.fecha)} · {TIPO_LABEL[rec.tipo_pago]}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs">
                       Importe {formatMoney(rec.importe)} · libre{' '}
-                      <span className="font-semibold text-success">{formatMoney(rec.saldo_libre)}</span>
+                      <span className="text-success font-semibold">
+                        {formatMoney(rec.saldo_libre)}
+                      </span>
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -131,17 +136,21 @@ export function ImputarRecibosModal({ liquidacion, clienteId, onClose }: Props) 
         <div className="mt-3 flex items-center justify-between text-xs">
           <span className="text-muted-foreground">
             A imputar:{' '}
-            <span className="font-semibold text-foreground">{formatMoney(totalSeleccionado)}</span>
+            <span className="text-foreground font-semibold">{formatMoney(totalSeleccionado)}</span>
           </span>
           {exceso && (
-            <span className="font-semibold text-danger">
-              Excede el saldo de la liquidación
-            </span>
+            <span className="text-danger font-semibold">Excede el saldo de la liquidación</span>
           )}
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={onClose} disabled={imputar.isPending}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onClose}
+            disabled={imputar.isPending}
+          >
             Cancelar
           </Button>
           <Button

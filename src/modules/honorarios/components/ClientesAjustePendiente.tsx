@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { useHonorariosConAjustePendiente } from '../hooks/useHonorarios'
-import { useAplicarAjuste } from '../hooks/useHonorarios'
 import { AplicarAjusteForm } from './AplicarAjusteForm'
 import { DataTable } from '@/shared/components/DataTable'
 import { Badge } from '@/shared/components/ui/badge'
@@ -24,7 +23,9 @@ export function ClientesAjustePendiente() {
       render: ({ honorario }: { honorario: THonorarioConCliente; mesesTranscurridos: number }) => (
         <div>
           <p className="font-medium">{honorario.clientes.nombre}</p>
-          <p className="text-xs text-muted-foreground font-mono">{formatCuit(honorario.clientes.cuit)}</p>
+          <p className="text-muted-foreground font-mono text-xs">
+            {formatCuit(honorario.clientes.cuit)}
+          </p>
         </div>
       ),
     },
@@ -44,7 +45,13 @@ export function ClientesAjustePendiente() {
     {
       key: 'meses',
       header: 'Vencimiento',
-      render: ({ honorario, mesesTranscurridos }: { honorario: THonorarioConCliente; mesesTranscurridos: number }) => (
+      render: ({
+        honorario,
+        mesesTranscurridos,
+      }: {
+        honorario: THonorarioConCliente
+        mesesTranscurridos: number
+      }) => (
         <Badge variant="destructive">
           {mesesTranscurridos}m / {honorario.frecuencia_ajuste_meses}m
         </Badge>
@@ -78,13 +85,13 @@ export function ClientesAjustePendiente() {
   return (
     <div className="space-y-4">
       {!isLoading && !pendientes.length ? (
-        <div className="flex h-40 items-center justify-center rounded-md border border-border text-sm text-muted-foreground">
+        <div className="border-border text-muted-foreground flex h-40 items-center justify-center rounded-md border text-sm">
           No hay clientes con ajuste pendiente
         </div>
       ) : (
         <>
           {!isLoading && (
-            <div className="flex items-center gap-2 text-sm text-warning font-medium">
+            <div className="text-warning flex items-center gap-2 text-sm font-medium">
               <AlertTriangle className="h-4 w-4" />
               {pendientes.length} cliente{pendientes.length !== 1 ? 's' : ''} con ajuste vencido
             </div>
@@ -97,7 +104,7 @@ export function ClientesAjustePendiente() {
             onRowClick={({ honorario }) => router.push(`/clientes/${honorario.cliente_id}`)}
           />
           {expanded && (
-            <div className="rounded-md border border-border bg-muted/20 p-4">
+            <div className="border-border bg-muted/20 rounded-md border p-4">
               <h3 className="mb-3 text-sm font-semibold">Aplicar ajuste</h3>
               <AplicarAjusteForm
                 clienteId={expanded}

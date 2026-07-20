@@ -3,6 +3,9 @@ import { createServerClient } from '@supabase/ssr'
 
 const PUBLIC_ROUTES = ['/login']
 
+// Debe coincidir con adminOnly en src/shared/components/layout/Sidebar.tsx
+const ADMIN_ONLY_PREFIXES = ['/empleadas', '/fondos', '/proveedores', '/vencimientos', '/reportes']
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -37,6 +40,18 @@ export async function proxy(request: NextRequest) {
 
   if (user && PUBLIC_ROUTES.includes(pathname)) {
     return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  if (user && ADMIN_ONLY_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    const { data: usuario } = await supabase
+      .from('usuarios')
+      .select('rol')
+      .eq('id', user.id)
+      .single()
+
+    if (usuario?.rol !== 'admin') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
   }
 
   return response

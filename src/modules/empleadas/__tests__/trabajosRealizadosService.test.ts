@@ -51,7 +51,7 @@ describe('trabajosRealizadosService.crear', () => {
     })
 
     const result = await trabajosRealizadosService.crear({
-      empleada_id: UUID,
+      empleada_ids: [UUID],
       fecha: '2026-04-28',
       cliente_id: null,
       tipo_trabajo: 'BALANCE',
@@ -71,10 +71,12 @@ describe('trabajosRealizadosService.getByPeriodo', () => {
     chain.eq = jest.fn().mockReturnThis()
     chain.order = jest.fn()
     chain.order.mockImplementationOnce(() => chain)
-    chain.order.mockImplementationOnce(() => Promise.resolve({
-      data: [{ id: 't-1', periodo_mes: 4, periodo_anio: 2026 }],
-      error: null,
-    }))
+    chain.order.mockImplementationOnce(() =>
+      Promise.resolve({
+        data: [{ id: 't-1', periodo_mes: 4, periodo_anio: 2026 }],
+        error: null,
+      })
+    )
 
     const result = await trabajosRealizadosService.getByPeriodo({
       periodo_mes: 4,

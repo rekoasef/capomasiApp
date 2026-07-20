@@ -50,20 +50,29 @@ export function ClavesCliente({ clienteId }: Props) {
   }
 
   function openEdit(clave: TClave) {
-    reset({ tipo: clave.tipo, usuario: clave.usuario ?? '', clave: clave.clave, notas: clave.notas ?? '' })
+    reset({
+      tipo: clave.tipo,
+      usuario: clave.usuario ?? '',
+      clave: clave.clave,
+      notas: clave.notas ?? '',
+    })
     setEditing(clave)
     setShowForm(true)
   }
 
   async function onSubmit(data: TClaveForm) {
     const result = await guardar.mutateAsync(data)
-    if (result.ok) { setShowForm(false); reset() }
+    if (result.ok) {
+      setShowForm(false)
+      reset()
+    }
   }
 
   function toggleReveal(id: string) {
     setRevealed((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
@@ -72,7 +81,7 @@ export function ClavesCliente({ clienteId }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <KeyRound className="h-4 w-4 text-muted-foreground" />
+          <KeyRound className="text-muted-foreground h-4 w-4" />
           <h3 className="text-sm font-semibold">Claves fiscales</h3>
         </div>
         <Button size="sm" variant="outline" onClick={openNew}>
@@ -81,28 +90,28 @@ export function ClavesCliente({ clienteId }: Props) {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Cargando...</p>
+        <p className="text-muted-foreground text-sm">Cargando...</p>
       ) : !claves.length ? (
-        <p className="text-sm text-muted-foreground">Sin claves cargadas.</p>
+        <p className="text-muted-foreground text-sm">Sin claves cargadas.</p>
       ) : (
-        <div className="divide-y divide-border rounded-md border border-border">
+        <div className="divide-border border-border divide-y rounded-md border">
           {claves.map((c) => (
             <div key={c.id} className="flex items-center justify-between px-4 py-3">
               <div className="space-y-0.5">
                 <p className="text-sm font-medium">{c.tipo}</p>
-                {c.usuario && <p className="text-xs text-muted-foreground">Usuario: {c.usuario}</p>}
+                {c.usuario && <p className="text-muted-foreground text-xs">Usuario: {c.usuario}</p>}
                 <div className="flex items-center gap-1.5">
-                  <p className="font-mono text-sm">
-                    {revealed.has(c.id) ? c.clave : '••••••••'}
-                  </p>
+                  <p className="font-mono text-sm">{revealed.has(c.id) ? c.clave : '••••••••'}</p>
                   <button
                     onClick={() => toggleReveal(c.id)}
                     className="text-muted-foreground hover:text-foreground"
                     title={revealed.has(c.id) ? 'Ocultar' : 'Mostrar'}
                   >
-                    {revealed.has(c.id)
-                      ? <EyeOff className="h-3.5 w-3.5" />
-                      : <Eye className="h-3.5 w-3.5" />}
+                    {revealed.has(c.id) ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -125,10 +134,8 @@ export function ClavesCliente({ clienteId }: Props) {
       )}
 
       {showForm && (
-        <div className="rounded-md border border-border bg-muted/20 p-4">
-          <h4 className="mb-4 text-sm font-semibold">
-            {editing ? 'Editar clave' : 'Nueva clave'}
-          </h4>
+        <div className="border-border bg-muted/20 rounded-md border p-4">
+          <h4 className="mb-4 text-sm font-semibold">{editing ? 'Editar clave' : 'Nueva clave'}</h4>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
             <Select
               id="tipo"
@@ -172,7 +179,10 @@ export function ClavesCliente({ clienteId }: Props) {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => { setShowForm(false); reset() }}
+                onClick={() => {
+                  setShowForm(false)
+                  reset()
+                }}
                 disabled={guardar.isPending}
               >
                 Cancelar
@@ -187,7 +197,10 @@ export function ClavesCliente({ clienteId }: Props) {
         title="Eliminar clave"
         description={`¿Eliminás la clave de ${toDelete?.tipo}?`}
         confirmLabel="Eliminar"
-        onConfirm={async () => { await eliminar.mutateAsync(toDelete!.id); setToDelete(null) }}
+        onConfirm={async () => {
+          await eliminar.mutateAsync(toDelete!.id)
+          setToDelete(null)
+        }}
         onCancel={() => setToDelete(null)}
         isPending={eliminar.isPending}
       />

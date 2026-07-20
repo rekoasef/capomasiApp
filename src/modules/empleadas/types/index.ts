@@ -120,14 +120,22 @@ export interface TRegistroPuntaje {
   created_at: string
 }
 
+export type TTipoVencimientoConfig = 'MENSUAL' | 'ANUAL' | 'A_DEMANDA'
+
 export interface TPuntosTrabajoConfig {
   id: string
   cliente_id: string
   tipo_trabajo: string
   puntos: number
   activo: boolean
+  empleada_id: string | null
+  tipo_vencimiento: TTipoVencimientoConfig
+  dia_vencimiento_mensual: number | null
+  mes_vencimiento_anual: number | null
+  dia_vencimiento_anual: number | null
   created_at: string
   clientes?: { nombre: string } | null
+  empleadas?: { nombre: string; apellido: string | null } | null
 }
 
 export interface TValoresPuntoTipo {
@@ -173,5 +181,19 @@ export interface TResumenComisionPuntaje {
 export interface TConfirmacionPuntaje {
   comision_generada: number
   puntos_restantes: number
+  registro_id: string | null
+}
+
+export interface TComisionPuntajeRegistrada {
+  id: string
+  empleada_id: string
+  periodo_mes: number
+  periodo_anio: number
+  importe: number
+  puntos_total: number
+  estado: 'PENDIENTE' | 'LIQUIDADA'
   liquidacion_id: string | null
+  confirmada_at: string
+  liquidada_at: string | null
+  notas: string | null
 }

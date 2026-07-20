@@ -8,14 +8,12 @@ import {
   diasDesdeEmision,
   categorizarEdadDeuda,
 } from '../services/calcularSaldo'
-import { ImputarRecibosModal } from './ImputarRecibosModal'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { useAuth } from '@/lib/auth/useAuth'
-import type { TLiquidacionConImputaciones } from '../types'
 
 const ESTADO_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente',
@@ -45,7 +43,6 @@ export function LiquidacionesCliente({ clienteId }: Props) {
   const anular = useAnularLiquidacion(clienteId)
   const { isAdmin } = useAuth()
 
-  const [imputarLiquidacion, setImputarLiquidacion] = useState<TLiquidacionConImputaciones | null>(null)
   const [anularId, setAnularId] = useState<string | null>(null)
 
   if (isLoading) {
@@ -57,50 +54,99 @@ export function LiquidacionesCliente({ clienteId }: Props) {
       </div>
     )
   }
-  if (error) return <p className="text-sm text-danger">{error.message}</p>
-  if (!data?.length) return <p className="py-8 text-center text-sm text-muted-foreground">Sin liquidaciones registradas</p>
+  if (error) return <p className="text-danger text-sm">{error.message}</p>
+  if (!data?.length)
+    return (
+      <p className="text-muted-foreground py-8 text-center text-sm">
+        Sin liquidaciones registradas
+      </p>
+    )
 
   return (
     <>
-      <div className="overflow-x-auto rounded-md border border-border">
+      <div className="border-border overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/40">
+          <thead className="border-border bg-muted/40 border-b">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fecha</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tipo / Detalle</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Importe</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Imputado</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saldo</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estado</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Antigüedad</th>
+              <th className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase">
+                Fecha
+              </th>
+              <th className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase">
+                Tipo / Detalle
+              </th>
+              <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
+                Importe
+              </th>
+              <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
+                Imputado
+              </th>
+              <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
+                Saldo
+              </th>
+              <th className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase">
+                Estado
+              </th>
+              <th className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase">
+                Antigüedad
+              </th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border bg-surface">
+          <tbody className="divide-border bg-surface divide-y">
             {data.map((liq) => {
               const imputado = calcularTotalImputado(liq.imputaciones)
-              const saldo = calcularSaldoPendiente(liq.importe_liquidado, liq.imputaciones)
+              const saldo = calcularSaldoPendiente(
+                liq.importe_liquidado,
+                liq.imputaciones,
+                liq.importe_facturado
+              )
               const dias = diasDesdeEmision(liq.fecha_liquidacion)
               const edad = categorizarEdadDeuda(dias)
               const pendiente = liq.estado !== 'COBRADA' && liq.estado !== 'ANULADA'
 
+              const importeCliente = liq.importe_facturado ?? liq.importe_liquidado
+              const tieneIva =
+                liq.importe_facturado != null && liq.importe_facturado !== liq.importe_liquidado
+
               return (
                 <tr key={liq.id}>
-                  <td className="px-3 py-2 text-muted-foreground">{formatDate(liq.fecha_liquidacion)}</td>
+                  <td className="text-muted-foreground px-3 py-2">
+                    {formatDate(liq.fecha_liquidacion)}
+                  </td>
                   <td className="px-3 py-2">
                     <span className="font-medium">{liq.tipo_servicio}</span>
-                    {liq.detalle && <span className="ml-1 text-xs text-muted-foreground">— {liq.detalle}</span>}
+                    {liq.tipo_comprobante && (
+                      <span className="text-muted-foreground ml-1.5 text-[10px] font-medium tracking-wide">
+                        {liq.tipo_comprobante.replace('_', ' ')}
+                      </span>
+                    )}
+                    {liq.detalle && (
+                      <span className="text-muted-foreground ml-1 text-xs">— {liq.detalle}</span>
+                    )}
                     {liq.periodo_mes && liq.periodo_anio && (
-                      <span className="ml-1 text-xs text-muted-foreground">({liq.periodo_mes} {liq.periodo_anio})</span>
+                      <span className="text-muted-foreground ml-1 text-xs">
+                        ({liq.periodo_mes} {liq.periodo_anio})
+                      </span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-right font-medium">{formatMoney(liq.importe_liquidado)}</td>
-                  <td className="px-3 py-2 text-right text-success">
-                    {imputado > 0 ? formatMoney(imputado) : <span className="text-muted-foreground">—</span>}
+                  <td className="px-3 py-2 text-right">
+                    <span className="font-medium">{formatMoney(importeCliente)}</span>
+                    {tieneIva && (
+                      <div className="text-muted-foreground text-[10px]">
+                        base {formatMoney(liq.importe_liquidado)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="text-success px-3 py-2 text-right">
+                    {imputado > 0 ? (
+                      formatMoney(imputado)
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right">
                     {pendiente ? (
-                      <span className="font-semibold text-danger">{formatMoney(saldo)}</span>
+                      <span className="text-danger font-semibold">{formatMoney(saldo)}</span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -110,22 +156,24 @@ export function LiquidacionesCliente({ clienteId }: Props) {
                   </td>
                   <td className="px-3 py-2">
                     {pendiente ? (
-                      <span className={`text-xs font-medium ${edad === '90+' ? 'text-danger' : edad === '61-90' ? 'text-warning' : 'text-muted-foreground'}`}>
+                      <span
+                        className={`text-xs font-medium ${edad === '90+' ? 'text-danger' : edad === '61-90' ? 'text-warning' : 'text-muted-foreground'}`}
+                      >
                         {EDAD_LABELS[edad]}
                       </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
-                      {pendiente && (
-                        <Button type="button" size="sm" variant="outline" onClick={() => setImputarLiquidacion(liq)}>
-                          Imputar
-                        </Button>
-                      )}
                       {isAdmin && liq.estado !== 'ANULADA' && (
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setAnularId(liq.id)}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setAnularId(liq.id)}
+                        >
                           Anular
                         </Button>
                       )}
@@ -137,14 +185,6 @@ export function LiquidacionesCliente({ clienteId }: Props) {
           </tbody>
         </table>
       </div>
-
-      {imputarLiquidacion && (
-        <ImputarRecibosModal
-          liquidacion={imputarLiquidacion}
-          clienteId={clienteId}
-          onClose={() => setImputarLiquidacion(null)}
-        />
-      )}
 
       <ConfirmDialog
         open={!!anularId}

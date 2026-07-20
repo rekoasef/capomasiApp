@@ -22,6 +22,17 @@ export const authService = {
     await supabase.auth.signOut()
   },
 
+  async getAll(): Promise<ServiceResult<TUsuario[]>> {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('activo', true)
+      .order('nombre')
+
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: (data ?? []) as TUsuario[] }
+  },
+
   async getProfile(): Promise<ServiceResult<TUsuario>> {
     const {
       data: { user },
@@ -29,11 +40,7 @@ export const authService = {
 
     if (!user) return { ok: false, error: 'No autenticado', code: 'UNAUTHORIZED' }
 
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('id', user.id)
-      .single()
+    const { data, error } = await supabase.from('usuarios').select('*').eq('id', user.id).single()
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: data as TUsuario }

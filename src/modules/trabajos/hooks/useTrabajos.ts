@@ -40,25 +40,40 @@ export function useTrabajosPendientes() {
   })
 }
 
-export function useCrearTrabajo(clienteId: string) {
+export function useCrearTrabajo() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (form: unknown) => trabajosService.create(form),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Trabajo registrado')
       qc.invalidateQueries({ queryKey: ['trabajos'] })
     },
   })
 }
 
-export function useAvanzarEstado(clienteId?: string) {
+export function useAvanzarEstado() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, honorario, notas }: { id: string; honorario?: number; notas?: string }) =>
-      trabajosService.avanzarEstado(id, honorario, notas),
+    mutationFn: ({
+      id,
+      honorario,
+      tipo_comprobante,
+      notas,
+    }: {
+      id: string
+      honorario?: number
+      tipo_comprobante?: string
+      notas?: string
+    }) => trabajosService.avanzarEstado(id, honorario, tipo_comprobante, notas),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Estado actualizado')
       qc.invalidateQueries({ queryKey: ['trabajos'] })
     },
@@ -70,7 +85,10 @@ export function useRetrocederEstado() {
   return useMutation({
     mutationFn: (id: string) => trabajosService.retrocederEstado(id),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Estado revertido')
       qc.invalidateQueries({ queryKey: ['trabajos'] })
     },
@@ -82,7 +100,10 @@ export function useEliminarTrabajo() {
   return useMutation({
     mutationFn: (id: string) => trabajosService.eliminar(id),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Trabajo eliminado')
       qc.invalidateQueries({ queryKey: ['trabajos'] })
     },

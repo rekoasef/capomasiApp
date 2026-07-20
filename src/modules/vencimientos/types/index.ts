@@ -1,10 +1,69 @@
+// ── Vencimientos fiscales de clientes ────────────────────────────────────────
+
+export type TEstadoAvance = 'PENDIENTE' | 'INICIADO' | 'EN_PROCESO' | 'TERMINADO' | 'APROBADO'
+
+export const ESTADO_AVANCE_LABEL: Record<TEstadoAvance, string> = {
+  PENDIENTE: 'Pendiente',
+  INICIADO: 'Iniciado',
+  EN_PROCESO: 'En proceso',
+  TERMINADO: 'Terminado',
+  APROBADO: 'Aprobado',
+}
+
+// Progresión para empleadas — APROBADO lo gestiona solo el admin
+export const ESTADO_AVANCE_SIGUIENTE: Record<TEstadoAvance, TEstadoAvance | null> = {
+  PENDIENTE: 'INICIADO',
+  INICIADO: 'EN_PROCESO',
+  EN_PROCESO: 'TERMINADO',
+  TERMINADO: null,
+  APROBADO: null,
+}
+
+export interface TVencimientoFiscal {
+  id: string
+  cliente_id: string | null
+  empleada_id: string | null
+  tipo_vencimiento: string
+  fecha_vencimiento: string
+  descripcion: string
+  ambito: 'CLIENTE' | 'ESTUDIO' | 'PERSONAL'
+  completado: boolean
+  completado_at: string | null
+  completado_by: string | null
+  estado_avance: TEstadoAvance
+  observaciones_empleada: string | null
+  facturado: boolean
+  liquidacion_id: string | null
+  puntos_config_id: string | null
+  puntos_snapshot: number | null
+  notas: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface TVencimientoFiscalConCliente extends TVencimientoFiscal {
+  clientes: { nombre: string; cuit: string } | null
+  empleadas: { nombre: string; apellido: string | null } | null
+}
+
+export interface TVencimientosFiscalesFilters {
+  mes?: number
+  anio?: number
+  empleadaId?: string
+  estadoAvance?: TEstadoAvance | 'TODOS'
+  soloSinFacturar?: boolean
+  ambito?: 'CLIENTE' | 'ESTUDIO'
+}
+
+// ── Gastos recurrentes de Paola ───────────────────────────────────────────────
+
 export type TMedioPagoGasto = 'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'TARJETA'
 
 export const MEDIOS_PAGO_GASTO: { value: TMedioPagoGasto; label: string }[] = [
   { value: 'TRANSFERENCIA', label: 'Transferencia' },
-  { value: 'EFECTIVO',      label: 'Efectivo' },
-  { value: 'CHEQUE',        label: 'Cheque' },
-  { value: 'TARJETA',       label: 'Tarjeta' },
+  { value: 'EFECTIVO', label: 'Efectivo' },
+  { value: 'CHEQUE', label: 'Cheque' },
+  { value: 'TARJETA', label: 'Tarjeta' },
 ]
 
 export interface TCategoriaGasto {

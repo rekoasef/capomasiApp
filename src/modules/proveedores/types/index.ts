@@ -41,3 +41,12 @@ export interface TPagoProveedor {
   notas: string | null
   created_at: string
 }
+
+export interface TCuentaCorrienteProveedor {
+  proveedor_id: string
+  proveedor_nombre: string
+  total_comprado: number
+  total_pagado: number
+  saldo_pendiente: number
+  compras_pendientes: number
+}
