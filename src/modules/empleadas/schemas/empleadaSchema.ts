@@ -72,6 +72,7 @@ export const puntosTrabajoConfigSchema = z
     tipo_trabajo: z.string().min(1, 'Tipo de trabajo requerido'),
     puntos: nonnegInput('Los puntos deben ser 0 o más'),
     activo: z.boolean().default(true),
+    facturar_aparte: z.boolean().default(true),
     empleada_id: z.preprocess(
       (v) => (v === '' || v === null || v === undefined ? null : v),
       z.string().uuid().nullable()

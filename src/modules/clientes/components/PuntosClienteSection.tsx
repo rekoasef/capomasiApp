@@ -60,6 +60,7 @@ const DEFAULT_VALUES = (clienteId: string): TPuntosTrabajoConfigForm => ({
   tipo_trabajo: '',
   puntos: 0,
   activo: true,
+  facturar_aparte: true,
   empleada_id: null,
   tipo_vencimiento: 'A_DEMANDA',
   dia_vencimiento_mensual: null,
@@ -107,6 +108,7 @@ export function PuntosClienteSection({ clienteId }: Props) {
         ambito: 'CLIENTE',
         puntos_config_id: r.data.id,
         puntos_snapshot: Number(data.puntos),
+        facturar_aparte: data.facturar_aparte,
       } as Parameters<typeof vencimientosFiscalesService.create>[0])
       if (!vResult.ok) {
         toast.error(`Trabajo guardado, pero no se pudo crear el vencimiento: ${vResult.error}`)
@@ -213,6 +215,19 @@ export function PuntosClienteSection({ clienteId }: Props) {
             </div>
           </div>
 
+          {/* Facturación aparte del abono — independiente de los puntos de comisión */}
+          <label className="border-border bg-muted/20 flex items-start gap-2 border p-3 text-sm">
+            <input type="checkbox" className="mt-0.5" {...form.register('facturar_aparte')} />
+            <span>
+              <span className="block font-medium">Facturar aparte del abono mensual</span>
+              <span className="text-muted-foreground block text-xs">
+                Si está tildado, este trabajo entra a la Cola de Facturación al aprobarse. Destildá
+                esto si ya está incluido en el abono mensual del cliente (no se le cobra aparte).
+                Esto no afecta los puntos de comisión de la empleada.
+              </span>
+            </span>
+          </label>
+
           {/* Campos condicionales según tipo */}
           {tipoVencimiento === 'MENSUAL' && (
             <div className="max-w-xs">
@@ -316,6 +331,11 @@ export function PuntosClienteSection({ clienteId }: Props) {
                   {c.empleadas && (
                     <span className="text-muted-foreground text-[11px]">
                       → {c.empleadas.nombre}
+                    </span>
+                  )}
+                  {!c.facturar_aparte && (
+                    <span className="border-border text-muted-foreground border px-1.5 py-0.5 text-[11px]">
+                      Incluido en abono
                     </span>
                   )}
                 </div>

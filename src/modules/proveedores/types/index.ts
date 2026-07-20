@@ -16,7 +16,7 @@ export interface TProveedor {
 
 export interface TCompraProveedor {
   id: string
-  proveedor_id: string
+  proveedor_id: string | null
   fecha: string
   concepto: string
   nro_comprobante: string | null
@@ -27,7 +27,7 @@ export interface TCompraProveedor {
   created_by: string | null
   created_at: string
   updated_at: string
-  proveedores?: { nombre: string }
+  proveedores?: { nombre: string } | null
 }
 
 export interface TPagoProveedor {

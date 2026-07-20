@@ -1,5 +1,5 @@
 export type TEstadoLiquidacion = 'PENDIENTE' | 'PARCIALMENTE_COBRADA' | 'COBRADA' | 'ANULADA'
-export type TTipoPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'USD'
+export type TTipoPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'USD' | 'COMPENSACION'
 
 export type TLiquidacion = {
   id: string

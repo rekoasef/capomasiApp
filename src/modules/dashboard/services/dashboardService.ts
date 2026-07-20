@@ -23,46 +23,73 @@ export const dashboardService = {
     const hoy = getHoy()
     const en7 = getEn7Dias()
 
-    const [ingresosResult, deudaResult, trabajosResult, colaResult, proxResult, vencidosResult] =
-      await Promise.all([
-        supabase
-          .from('v_ingresos_mensuales')
-          .select('mes, cantidad_liquidaciones, total_liquidado, total_facturado')
-          .order('mes', { ascending: false })
-          .limit(6),
+    const [
+      ingresosResult,
+      resultadoResult,
+      deudaResult,
+      trabajosResult,
+      colaResult,
+      proxResult,
+      vencidosResult,
+      impuestosPersonalesResult,
+    ] = await Promise.all([
+      supabase
+        .from('v_ingresos_mensuales')
+        .select(
+          'mes, cantidad_liquidaciones, total_liquidado, total_facturado, ingreso_base_negro, facturado_cliente_neto, iva_facturado'
+        )
+        .order('mes', { ascending: false })
+        .limit(6),
 
-        supabase.from('v_cuenta_corriente').select('saldo_pendiente').gt('saldo_pendiente', 0),
+      supabase
+        .from('v_resultado_mensual')
+        .select(
+          'mes, total_ingresos, gasto_sueldos, gasto_proveedores, gasto_manual_estudio, resultado'
+        )
+        .order('mes', { ascending: false })
+        .limit(1),
 
-        supabase
-          .from('honorarios_anuales')
-          .select('estado')
-          .in('estado', ['PENDIENTE', 'EN_PROCESO']),
+      supabase.from('v_cuenta_corriente').select('saldo_pendiente').gt('saldo_pendiente', 0),
 
-        supabase
-          .from('vencimientos')
-          .select('id', { count: 'exact', head: true })
-          .in('ambito', ['CLIENTE', 'ESTUDIO'])
-          .eq('estado_avance', 'TERMINADO')
-          .eq('facturado', false),
+      supabase
+        .from('honorarios_anuales')
+        .select('estado')
+        .in('estado', ['PENDIENTE', 'EN_PROCESO']),
 
-        supabase
-          .from('vencimientos')
-          .select('id', { count: 'exact', head: true })
-          .in('ambito', ['CLIENTE', 'ESTUDIO'])
-          .eq('completado', false)
-          .gte('fecha_vencimiento', hoy)
-          .lte('fecha_vencimiento', en7),
+      supabase
+        .from('vencimientos')
+        .select('id', { count: 'exact', head: true })
+        .in('ambito', ['CLIENTE', 'ESTUDIO'])
+        .eq('estado_avance', 'TERMINADO')
+        .eq('facturado', false),
 
-        supabase
-          .from('vencimientos')
-          .select('id', { count: 'exact', head: true })
-          .in('ambito', ['CLIENTE', 'ESTUDIO'])
-          .eq('completado', false)
-          .lt('fecha_vencimiento', hoy),
-      ])
+      supabase
+        .from('vencimientos')
+        .select('id', { count: 'exact', head: true })
+        .in('ambito', ['CLIENTE', 'ESTUDIO'])
+        .eq('completado', false)
+        .gte('fecha_vencimiento', hoy)
+        .lte('fecha_vencimiento', en7),
+
+      supabase
+        .from('vencimientos')
+        .select('id', { count: 'exact', head: true })
+        .in('ambito', ['CLIENTE', 'ESTUDIO'])
+        .eq('completado', false)
+        .lt('fecha_vencimiento', hoy),
+
+      supabase
+        .from('vencimientos')
+        .select('id', { count: 'exact', head: true })
+        .eq('ambito', 'PERSONAL')
+        .eq('completado', false)
+        .lte('fecha_vencimiento', hoy),
+    ])
 
     if (ingresosResult.error)
       return { ok: false, error: ingresosResult.error.message, code: 'DB_ERROR' }
+    if (resultadoResult.error)
+      return { ok: false, error: resultadoResult.error.message, code: 'DB_ERROR' }
     if (deudaResult.error) return { ok: false, error: deudaResult.error.message, code: 'DB_ERROR' }
 
     const rawMeses = ingresosResult.data ?? []
@@ -71,17 +98,40 @@ export const dashboardService = {
       cantidad_liquidaciones: r.cantidad_liquidaciones ?? 0,
       total_liquidado: r.total_liquidado ?? 0,
       total_facturado: r.total_facturado ?? 0,
+      ingreso_base_negro: r.ingreso_base_negro ?? 0,
+      facturado_cliente_neto: r.facturado_cliente_neto ?? 0,
+      iva_facturado: r.iva_facturado ?? 0,
     }))
 
-    const mesActual = meses[0] ?? { total_liquidado: 0, total_facturado: 0 }
+    const mesActual = meses[0] ?? {
+      total_liquidado: 0,
+      total_facturado: 0,
+      ingreso_base_negro: 0,
+      facturado_cliente_neto: 0,
+      iva_facturado: 0,
+    }
     const deudores = deudaResult.data ?? []
     const trabajos = (trabajosResult.data ?? []) as { estado: string }[]
+
+    const resultadoRow = resultadoResult.data?.[0]
+    const resultadoMesActual = {
+      mes: resultadoRow?.mes ?? '',
+      total_ingresos: resultadoRow?.total_ingresos ?? 0,
+      gasto_sueldos: resultadoRow?.gasto_sueldos ?? 0,
+      gasto_proveedores: resultadoRow?.gasto_proveedores ?? 0,
+      gasto_manual_estudio: resultadoRow?.gasto_manual_estudio ?? 0,
+      resultado: resultadoRow?.resultado ?? 0,
+    }
 
     return {
       ok: true,
       data: {
         ingresos_mes_actual: mesActual.total_liquidado,
         facturado_mes_actual: mesActual.total_facturado,
+        ingreso_base_negro_mes_actual: mesActual.ingreso_base_negro,
+        facturado_cliente_neto_mes_actual: mesActual.facturado_cliente_neto,
+        iva_facturado_mes_actual: mesActual.iva_facturado,
+        resultado_mes_actual: resultadoMesActual,
         deuda_total_clientes: deudores.reduce((sum, r) => sum + (r.saldo_pendiente ?? 0), 0),
         clientes_deudores: deudores.length,
         ultimos_6_meses: meses,
@@ -90,6 +140,7 @@ export const dashboardService = {
         cola_facturacion: colaResult.count ?? 0,
         vencimientos_proximos_7_dias: proxResult.count ?? 0,
         vencimientos_vencidos: vencidosResult.count ?? 0,
+        impuestos_personales_vencidos: impuestosPersonalesResult.count ?? 0,
       },
     }
   },

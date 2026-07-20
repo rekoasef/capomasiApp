@@ -11,7 +11,10 @@ export const proveedorSchema = z.object({
 })
 
 export const compraProveedorSchema = z.object({
-  proveedor_id: z.string().uuid(),
+  proveedor_id: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : v),
+    z.string().uuid().nullable()
+  ),
   fecha: z.string().date(),
   concepto: z.string().min(2, 'Concepto requerido'),
   nro_comprobante: z.string().optional().nullable(),

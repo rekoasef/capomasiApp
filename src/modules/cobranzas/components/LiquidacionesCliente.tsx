@@ -8,6 +8,7 @@ import {
   diasDesdeEmision,
   categorizarEdadDeuda,
 } from '../services/calcularSaldo'
+import { filtrarLiquidacionesPorFecha } from '../services/cuentaCorrientePdfService'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
@@ -36,14 +37,16 @@ const EDAD_LABELS: Record<string, string> = {
   '90+': '+90 días',
 }
 
-type Props = { clienteId: string }
+type Props = { clienteId: string; desde?: string; hasta?: string }
 
-export function LiquidacionesCliente({ clienteId }: Props) {
-  const { data, isLoading, error } = useLiquidacionesCliente(clienteId)
+export function LiquidacionesCliente({ clienteId, desde, hasta }: Props) {
+  const { data: raw, isLoading, error } = useLiquidacionesCliente(clienteId)
   const anular = useAnularLiquidacion(clienteId)
   const { isAdmin } = useAuth()
 
   const [anularId, setAnularId] = useState<string | null>(null)
+
+  const data = raw ? filtrarLiquidacionesPorFecha(raw, desde, hasta) : raw
 
   if (isLoading) {
     return (
@@ -58,7 +61,7 @@ export function LiquidacionesCliente({ clienteId }: Props) {
   if (!data?.length)
     return (
       <p className="text-muted-foreground py-8 text-center text-sm">
-        Sin liquidaciones registradas
+        Sin liquidaciones registradas{desde || hasta ? ' en el período seleccionado' : ''}
       </p>
     )
 

@@ -8,10 +8,11 @@ import { Skeleton } from '@/shared/components/ui/skeleton'
 
 type Props = {
   anio: number
+  mes?: number
 }
 
-export function IngresosPorTipoTable({ anio }: Props) {
-  const { data, isLoading } = useIngresosPorTipo(anio)
+export function IngresosPorTipoTable({ anio, mes }: Props) {
+  const { data, isLoading } = useIngresosPorTipo(anio, mes)
   const { data: tipos = FALLBACK_TIPOS_SERVICIO } = useParametros({
     categorias: ['TIPO_SERVICIO'],
     fallback: FALLBACK_TIPOS_SERVICIO,

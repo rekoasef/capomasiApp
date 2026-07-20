@@ -128,6 +128,7 @@ export interface TPuntosTrabajoConfig {
   tipo_trabajo: string
   puntos: number
   activo: boolean
+  facturar_aparte: boolean
   empleada_id: string | null
   tipo_vencimiento: TTipoVencimientoConfig
   dia_vencimiento_mensual: number | null

@@ -15,33 +15,33 @@ export function useAniosDisponibles() {
   })
 }
 
-export function useIngresosMensuales(anio?: number) {
+export function useIngresosMensuales(anio?: number, mes?: number) {
   return useQuery({
-    queryKey: ['reportes', 'ingresos-mensuales', anio],
+    queryKey: ['reportes', 'ingresos-mensuales', anio, mes],
     queryFn: async () => {
-      const result = await reportesService.getIngresosMensuales(anio)
+      const result = await reportesService.getIngresosMensuales(anio, mes)
       if (!result.ok) throw new Error(result.error)
       return result.data
     },
   })
 }
 
-export function useIngresosPorTipo(anio?: number) {
+export function useIngresosPorTipo(anio?: number, mes?: number) {
   return useQuery({
-    queryKey: ['reportes', 'ingresos-por-tipo', anio],
+    queryKey: ['reportes', 'ingresos-por-tipo', anio, mes],
     queryFn: async () => {
-      const result = await reportesService.getIngresosPorTipo(anio)
+      const result = await reportesService.getIngresosPorTipo(anio, mes)
       if (!result.ok) throw new Error(result.error)
       return result.data
     },
   })
 }
 
-export function useIngresosPorEmpleada(anio?: number) {
+export function useIngresosPorEmpleada(anio?: number, mes?: number) {
   return useQuery({
-    queryKey: ['reportes', 'ingresos-por-empleada', anio],
+    queryKey: ['reportes', 'ingresos-por-empleada', anio, mes],
     queryFn: async () => {
-      const result = await reportesService.getIngresosPorEmpleada(anio)
+      const result = await reportesService.getIngresosPorEmpleada(anio, mes)
       if (!result.ok) throw new Error(result.error)
       return result.data
     },

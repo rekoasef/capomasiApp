@@ -17,6 +17,7 @@ type TPuntoConfigRow = {
   empleada_id: string | null
   tipo_trabajo: string
   puntos: number
+  facturar_aparte: boolean
   tipo_vencimiento: string
   dia_vencimiento_mensual: number | null
   mes_vencimiento_anual: number | null
@@ -89,6 +90,7 @@ export const vencimientosFiscalesService = {
       .in('ambito', ['CLIENTE', 'ESTUDIO'])
       .eq('estado_avance', 'APROBADO')
       .eq('facturado', false)
+      .eq('facturar_aparte', true)
       .order('fecha_vencimiento')
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
@@ -105,11 +107,12 @@ export const vencimientosFiscalesService = {
       return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
     }
 
-    // Permitir campos extra (puntos_config_id, puntos_snapshot) cuando se crea desde config A_DEMANDA
+    // Permitir campos extra (puntos_config_id, puntos_snapshot, facturar_aparte) cuando se crea desde config A_DEMANDA
     const formRecord = form && typeof form === 'object' ? (form as Record<string, unknown>) : {}
     const extra = {
       puntos_config_id: (formRecord.puntos_config_id as string | undefined) ?? null,
       puntos_snapshot: (formRecord.puntos_snapshot as number | undefined) ?? null,
+      facturar_aparte: (formRecord.facturar_aparte as boolean | undefined) ?? true,
     }
 
     const { data, error } = await supabase
@@ -202,7 +205,7 @@ export const vencimientosFiscalesService = {
     const { data: configs, error: configErr } = await supabase
       .from('puntos_trabajo_config')
       .select(
-        'id, cliente_id, empleada_id, tipo_trabajo, puntos, tipo_vencimiento, dia_vencimiento_mensual, mes_vencimiento_anual, dia_vencimiento_anual, created_at'
+        'id, cliente_id, empleada_id, tipo_trabajo, puntos, facturar_aparte, tipo_vencimiento, dia_vencimiento_mensual, mes_vencimiento_anual, dia_vencimiento_anual, created_at'
       )
       .eq('activo', true)
       .in('tipo_vencimiento', ['MENSUAL', 'ANUAL'])
@@ -270,6 +273,7 @@ export const vencimientosFiscalesService = {
           estado_avance: 'PENDIENTE',
           puntos_config_id: c.id,
           puntos_snapshot: c.puntos,
+          facturar_aparte: c.facturar_aparte,
         }
       })
 

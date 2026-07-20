@@ -36,6 +36,7 @@ export interface TVencimientoFiscal {
   liquidacion_id: string | null
   puntos_config_id: string | null
   puntos_snapshot: number | null
+  facturar_aparte: boolean | null
   notas: string | null
   created_by: string | null
   created_at: string
@@ -71,6 +72,7 @@ export interface TCategoriaGasto {
   nombre: string
   color: string | null
   activo: boolean
+  ambito: 'PERSONAL' | 'ESTUDIO'
   created_by: string | null
   created_at: string
   updated_at: string

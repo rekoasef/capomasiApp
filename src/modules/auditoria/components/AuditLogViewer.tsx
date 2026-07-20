@@ -3,6 +3,7 @@
 import { Fragment, useState } from 'react'
 import { useAuth } from '@/lib/auth/useAuth'
 import { useAuditLog } from '../hooks/useAuditoria'
+import type { TAuditLog } from '../types'
 import { Badge } from '@/shared/components/ui/badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { ChevronDown, ChevronRight } from 'lucide-react'

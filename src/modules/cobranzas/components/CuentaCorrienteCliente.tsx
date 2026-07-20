@@ -1,16 +1,28 @@
 'use client'
 
 import { useState } from 'react'
-import { useCuentaCorrienteCliente } from '../hooks/useCobranzas'
+import { pdf } from '@react-pdf/renderer'
+import {
+  useCuentaCorrienteCliente,
+  useLiquidacionesCliente,
+  useRecibosCliente,
+} from '../hooks/useCobranzas'
 import { LiquidacionesCliente } from './LiquidacionesCliente'
 import { NuevaLiquidacionForm } from './NuevaLiquidacionForm'
 import { RegistrarReciboForm } from './RegistrarReciboForm'
 import { RecibosCliente } from './RecibosCliente'
+import { CuentaCorrientePdfDocument } from './CuentaCorrientePdfDocument'
+import {
+  filtrarLiquidacionesPorFecha,
+  filtrarRecibosPorFecha,
+  nombreArchivoCuentaCorriente,
+} from '../services/cuentaCorrientePdfService'
 import { Button } from '@/shared/components/ui/button'
+import { Input } from '@/shared/components/ui/input'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { formatMoney } from '@/shared/utils/formatters'
 import { useAuth } from '@/lib/auth/useAuth'
-import { Plus, Receipt } from 'lucide-react'
+import { Plus, Receipt, Download } from 'lucide-react'
 
 type Props = { clienteId: string }
 type Tab = 'liquidaciones' | 'recibos'
@@ -33,8 +45,8 @@ function StatCard({
           ? 'text-warning'
           : 'text-foreground'
   return (
-    <div className="rounded-md border border-border bg-surface p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="border-border bg-surface rounded-md border p-4">
+      <p className="text-muted-foreground text-xs">{label}</p>
       <p className={`mt-1 text-lg font-bold ${color}`}>{value}</p>
     </div>
   )
@@ -42,14 +54,47 @@ function StatCard({
 
 export function CuentaCorrienteCliente({ clienteId }: Props) {
   const { data: cc, isLoading } = useCuentaCorrienteCliente(clienteId)
+  const { data: liquidaciones } = useLiquidacionesCliente(clienteId)
+  const { data: recibos } = useRecibosCliente(clienteId)
   const { isAdmin } = useAuth()
   const [showLiqForm, setShowLiqForm] = useState(false)
   const [showReciboForm, setShowReciboForm] = useState(false)
   const [tab, setTab] = useState<Tab>('liquidaciones')
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
+  const [generandoPdf, setGenerandoPdf] = useState(false)
 
   if (isLoading) return <Skeleton className="h-24 w-full" />
 
   const saldoFavor = cc?.saldo_a_favor ?? 0
+
+  const handleDescargarPdf = async () => {
+    if (!cc) return
+    setGenerandoPdf(true)
+    try {
+      const liqFiltradas = filtrarLiquidacionesPorFecha(liquidaciones ?? [], desde, hasta)
+      const recibosFiltrados = filtrarRecibosPorFecha(recibos ?? [], desde, hasta)
+      const blob = await pdf(
+        <CuentaCorrientePdfDocument
+          clienteNombre={cc.cliente_nombre}
+          cc={cc}
+          liquidaciones={liqFiltradas}
+          recibos={recibosFiltrados}
+          desde={desde || undefined}
+          hasta={hasta || undefined}
+        />
+      ).toBlob()
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = nombreArchivoCuentaCorriente(cc.cliente_nombre)
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setGenerandoPdf(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -67,21 +112,47 @@ export function CuentaCorrienteCliente({ clienteId }: Props) {
             value={formatMoney(saldoFavor)}
             variant={saldoFavor > 0 ? 'warning' : 'default'}
           />
-          <StatCard
-            label="Liquidaciones pend."
-            value={String(cc.liquidaciones_pendientes)}
-          />
+          <StatCard label="Liquidaciones pend." value={String(cc.liquidaciones_pendientes)} />
         </div>
       )}
 
+      <div className="border-border bg-muted/20 flex flex-wrap items-end gap-2 rounded-md border p-3">
+        <div className="w-36">
+          <Input
+            label="Desde"
+            type="date"
+            value={desde}
+            onChange={(e) => setDesde(e.target.value)}
+          />
+        </div>
+        <div className="w-36">
+          <Input
+            label="Hasta"
+            type="date"
+            value={hasta}
+            onChange={(e) => setHasta(e.target.value)}
+          />
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={handleDescargarPdf}
+          disabled={generandoPdf || !cc}
+        >
+          <Download className="mr-1.5 h-3.5 w-3.5" />
+          {generandoPdf ? 'Generando...' : 'Descargar PDF'}
+        </Button>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1 rounded-md border border-border bg-muted/30 p-1">
+        <div className="border-border bg-muted/30 flex gap-1 rounded-md border p-1">
           <button
             type="button"
             onClick={() => setTab('liquidaciones')}
             className={`rounded px-3 py-1 text-sm transition ${
               tab === 'liquidaciones'
-                ? 'bg-surface font-medium text-foreground shadow-sm'
+                ? 'bg-surface text-foreground font-medium shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -92,7 +163,7 @@ export function CuentaCorrienteCliente({ clienteId }: Props) {
             onClick={() => setTab('recibos')}
             className={`rounded px-3 py-1 text-sm transition ${
               tab === 'recibos'
-                ? 'bg-surface font-medium text-foreground shadow-sm'
+                ? 'bg-surface text-foreground font-medium shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -114,8 +185,20 @@ export function CuentaCorrienteCliente({ clienteId }: Props) {
         </div>
       </div>
 
-      {tab === 'liquidaciones' && <LiquidacionesCliente clienteId={clienteId} />}
-      {tab === 'recibos' && <RecibosCliente clienteId={clienteId} />}
+      {tab === 'liquidaciones' && (
+        <LiquidacionesCliente
+          clienteId={clienteId}
+          desde={desde || undefined}
+          hasta={hasta || undefined}
+        />
+      )}
+      {tab === 'recibos' && (
+        <RecibosCliente
+          clienteId={clienteId}
+          desde={desde || undefined}
+          hasta={hasta || undefined}
+        />
+      )}
 
       {showLiqForm && (
         <Modal title="Nueva liquidación" onClose={() => setShowLiqForm(false)}>
@@ -152,7 +235,7 @@ function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-2xl rounded-lg border border-border bg-surface p-6 shadow-lg max-h-[90vh] overflow-y-auto">
+      <div className="border-border bg-surface relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border p-6 shadow-lg">
         <h2 className="mb-4 text-base font-semibold">{title}</h2>
         {children}
       </div>

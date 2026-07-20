@@ -42,6 +42,7 @@ export const FALLBACK_TIPOS_PAGO_COBRANZAS: ParametroOption[] = [
   { value: 'EFECTIVO', label: 'Efectivo' },
   { value: 'CHEQUE', label: 'Cheque' },
   { value: 'USD', label: 'Dólares (USD)' },
+  { value: 'COMPENSACION', label: 'Compensación' },
 ]
 
 export const FALLBACK_RUBROS_PROVEEDOR: ParametroOption[] = [

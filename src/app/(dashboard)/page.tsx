@@ -64,20 +64,18 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function MesRow({ mes }: { mes: TIngresoMensual }) {
   const fecha = new Date(mes.mes + 'T12:00:00')
   const label = fecha.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
-  const tieneIva = mes.total_facturado !== mes.total_liquidado
 
   return (
     <tr className="border-border border-b last:border-0">
       <td className="py-2 pr-4 pl-4 text-sm capitalize">{label}</td>
       <td className="py-2 pr-4 text-right text-sm font-medium tabular-nums">
-        {formatMoney(mes.total_liquidado)}
+        {formatMoney(mes.ingreso_base_negro)}
       </td>
       <td className="text-muted-foreground py-2 pr-4 text-right text-sm tabular-nums">
-        {tieneIva ? (
-          formatMoney(mes.total_facturado)
-        ) : (
-          <span className="text-muted-foreground/40">—</span>
-        )}
+        {formatMoney(mes.facturado_cliente_neto)}
+      </td>
+      <td className="text-muted-foreground py-2 pr-4 text-right text-sm tabular-nums">
+        {formatMoney(mes.iva_facturado)}
       </td>
       <td className="text-muted-foreground py-2 text-right text-xs tabular-nums">
         {mes.cantidad_liquidaciones}
@@ -91,25 +89,25 @@ function AdminDashboard() {
 
   const statsMes = [
     {
-      label: 'Ingresos (base)',
-      value: formatMoney(data?.ingresos_mes_actual ?? 0),
-      sub: 'Sin IVA',
+      label: 'Ingreso base',
+      value: formatMoney(data?.ingreso_base_negro_mes_actual ?? 0),
+      sub: 'Factura C + Presupuestos',
       accent: true,
     },
     {
-      label: 'Facturado a clientes',
-      value: formatMoney(data?.facturado_mes_actual ?? 0),
-      sub: 'Con IVA si corresponde',
+      label: 'Facturado cliente',
+      value: formatMoney(data?.facturado_cliente_neto_mes_actual ?? 0),
+      sub: 'Neto — Factura A + B',
+    },
+    {
+      label: 'IVA facturado',
+      value: formatMoney(data?.iva_facturado_mes_actual ?? 0),
     },
     {
       label: 'Deuda total clientes',
       value: formatMoney(data?.deuda_total_clientes ?? 0),
       sub: `${data?.clientes_deudores ?? 0} clientes`,
       href: '/cobranzas',
-    },
-    {
-      label: 'IVA facturado',
-      value: formatMoney((data?.facturado_mes_actual ?? 0) - (data?.ingresos_mes_actual ?? 0)),
     },
   ]
 
@@ -185,6 +183,55 @@ function AdminDashboard() {
             calendario fiscal
           </Link>
         )}
+
+        {/* Alert impuestos personales sin pagar */}
+        {!isLoading && (data?.impuestos_personales_vencidos ?? 0) > 0 && (
+          <Link
+            href="/vencimientos"
+            className="border-danger/30 bg-danger/5 text-danger hover:bg-danger/10 mt-3 flex items-center gap-2 border px-4 py-2.5 text-xs font-medium transition-colors"
+          >
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {data!.impuestos_personales_vencidos} impuesto
+            {data!.impuestos_personales_vencidos !== 1 ? 's' : ''} personal
+            {data!.impuestos_personales_vencidos !== 1 ? 'es' : ''} sin marcar como pagado
+          </Link>
+        )}
+      </section>
+
+      <section>
+        <SectionTitle>Resultado del estudio</SectionTitle>
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatCard
+              label="Ingresos del mes"
+              value={formatMoney(data?.resultado_mes_actual.total_ingresos ?? 0)}
+            />
+            <StatCard
+              label="Sueldos"
+              value={formatMoney(data?.resultado_mes_actual.gasto_sueldos ?? 0)}
+            />
+            <StatCard
+              label="Proveedores + gastos"
+              value={formatMoney(
+                (data?.resultado_mes_actual.gasto_proveedores ?? 0) +
+                  (data?.resultado_mes_actual.gasto_manual_estudio ?? 0)
+              )}
+              sub="Compras a proveedores + gastos del estudio"
+            />
+            <StatCard
+              label="Resultado"
+              value={formatMoney(data?.resultado_mes_actual.resultado ?? 0)}
+              accent={(data?.resultado_mes_actual.resultado ?? 0) >= 0}
+              warning={(data?.resultado_mes_actual.resultado ?? 0) < 0}
+            />
+          </div>
+        )}
       </section>
 
       <section>
@@ -208,10 +255,13 @@ function AdminDashboard() {
                     Mes
                   </th>
                   <th className="text-muted-foreground py-2 pr-4 text-right text-[11px] font-semibold tracking-wide uppercase">
-                    Ingresos (base)
+                    Ingreso base
                   </th>
                   <th className="text-muted-foreground py-2 pr-4 text-right text-[11px] font-semibold tracking-wide uppercase">
-                    Facturado c/IVA
+                    Facturado cliente
+                  </th>
+                  <th className="text-muted-foreground py-2 pr-4 text-right text-[11px] font-semibold tracking-wide uppercase">
+                    IVA
                   </th>
                   <th className="text-muted-foreground py-2 pr-4 text-right text-[11px] font-semibold tracking-wide uppercase">
                     Liquidaciones

@@ -6,7 +6,7 @@ import type { TRecibo, TReciboDisponible, TImputacionInline } from '../types'
 type RegistrarParams = {
   cliente_id: string
   fecha: string
-  tipo_pago: 'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'USD'
+  tipo_pago: 'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'USD' | 'COMPENSACION'
   importe: number
   numero_recibo?: string
   cuenta_bancaria?: string

@@ -11,8 +11,7 @@ import {
   useSaldoPuntaje,
   useAgregarPuntaje,
   useEliminarPuntaje,
-  usePreviewPuntaje,
-  useConfirmarComisionPuntaje,
+  useAjustarSaldoPuntaje,
   useComisionesRegistradas,
   useHorasPeriodo,
   useAgregarHoras,
@@ -369,16 +368,18 @@ function ComisionPuntajePanel({
 }) {
   const [showForm, setShowForm] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [showDescontar, setShowDescontar] = useState(false)
+  const [puntosDescontar, setPuntosDescontar] = useState('')
+  const [notaDescontar, setNotaDescontar] = useState('')
 
   const { data: registros = [], isLoading } = usePuntajePeriodo(empleadaId, mes, anio)
   const { data: saldo } = useSaldoPuntaje(empleadaId)
-  const { data: preview } = usePreviewPuntaje(empleadaId, mes, anio)
+  const { data: config } = useComisionConfig(empleadaId)
   const { data: tiposParam = [] } = useParametros({ categorias: ['TIPO_SERVICIO'] })
   const { data: comisionesRegistradas = [] } = useComisionesRegistradas(empleadaId)
   const agregar = useAgregarPuntaje(empleadaId, mes, anio)
   const eliminar = useEliminarPuntaje(empleadaId, mes, anio)
-  const confirmar = useConfirmarComisionPuntaje(empleadaId, mes, anio)
+  const ajustar = useAjustarSaldoPuntaje(empleadaId)
 
   const comisionDelPeriodo = comisionesRegistradas.find(
     (c) => c.periodo_mes === mes && c.periodo_anio === anio
@@ -412,29 +413,45 @@ function ComisionPuntajePanel({
   })
 
   const totalPeriodo = registros.reduce((s, r) => s + Number(r.puntos), 0)
-  const puntosAcum = saldo?.puntos_acumulados ?? 0
-  const totalCalculado = totalPeriodo + puntosAcum
-  const umbral = preview?.umbral ?? 0
-  const comisionGenerada = preview?.comision_generada ?? 0
-  const puntosRestantes =
-    preview?.puntos_restantes ??
-    (totalCalculado >= umbral && umbral > 0 ? totalCalculado - umbral : totalCalculado)
-  const superaUmbral = totalCalculado >= umbral && umbral > 0
+  // Saldo = cuenta corriente en tiempo real (ya incluye los puntos del período actual)
+  const saldoActual = saldo?.puntos_acumulados ?? 0
+  const umbral = config?.umbral_puntaje ?? 0
+  const superaUmbral = umbral > 0 && saldoActual >= umbral
   const hayRegistrosSinTipo = registros.some((r) => !r.tipo_trabajo)
+
+  const handleDescontar = () => {
+    const puntos = Number(puntosDescontar)
+    if (!puntos || puntos <= 0) return
+    ajustar.mutate(
+      { puntos, nota: notaDescontar || undefined },
+      {
+        onSuccess: (r) => {
+          if (!r.ok) return
+          setShowDescontar(false)
+          setPuntosDescontar('')
+          setNotaDescontar('')
+        },
+      }
+    )
+  }
 
   return (
     <div className="space-y-4">
       {/* Resumen */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <SummaryCard label="Este mes" value={`${totalPeriodo} pts`} />
-        <SummaryCard label="Acumulado" value={`${puntosAcum} pts`} />
-        <SummaryCard label="Total" value={`${totalCalculado.toFixed(2)} pts`} highlight />
+        <SummaryCard label="Saldo acumulado" value={`${saldoActual.toFixed(2)} pts`} highlight />
         <SummaryCard
-          label={`Umbral (${umbral} pts)`}
-          value={superaUmbral ? formatMoney(comisionGenerada) : 'No alcanzado'}
+          label={umbral > 0 ? `Umbral de referencia (${umbral} pts)` : 'Umbral no configurado'}
+          value={superaUmbral ? 'Superado' : '—'}
           valueClassName={superaUmbral ? 'text-success' : 'text-muted-foreground'}
         />
       </div>
+      <p className="text-muted-foreground text-xs">
+        El saldo es una cuenta corriente: se acumula solo con cada trabajo aprobado. Vos decidís
+        cuánto descontar cuando liquidás (podés hacerlo en cualquier momento, no hace falta esperar
+        a superar el umbral).
+      </p>
 
       {/* Alerta registros sin tipo */}
       {hayRegistrosSinTipo && (
@@ -444,8 +461,8 @@ function ComisionPuntajePanel({
         </p>
       )}
 
-      {/* Estado comisión del período */}
-      {comisionDelPeriodo ? (
+      {/* Historial de comisiones ya registradas (sistema anterior) */}
+      {comisionDelPeriodo && (
         <div
           className={`flex items-center gap-3 border px-4 py-3 ${
             comisionDelPeriodo.estado === 'LIQUIDADA'
@@ -475,16 +492,80 @@ function ComisionPuntajePanel({
             {comisionDelPeriodo.estado === 'LIQUIDADA' ? 'Liquidada' : 'Pendiente'}
           </span>
         </div>
-      ) : superaUmbral ? (
-        <div className="border-success/30 bg-success/5 flex items-center gap-3 border px-4 py-3">
-          <p className="text-success flex-1 text-sm font-medium">
-            Umbral superado — comisión calculada: {formatMoney(comisionGenerada)}
-          </p>
-          <Button size="sm" onClick={() => setShowConfirm(true)} disabled={confirmar.isPending}>
-            Registrar comisión
-          </Button>
+      )}
+
+      {/* Descuento manual del saldo */}
+      <div className="border-border bg-surface border p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold">Descontar puntos del saldo</p>
+            <p className="text-muted-foreground text-xs">
+              Saldo disponible: {saldoActual.toFixed(2)} pts
+            </p>
+          </div>
+          {!showDescontar && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setPuntosDescontar(umbral > 0 ? String(umbral) : '')
+                setShowDescontar(true)
+              }}
+              disabled={saldoActual <= 0}
+            >
+              Descontar puntos
+            </Button>
+          )}
         </div>
-      ) : null}
+
+        {showDescontar && (
+          <div className="mt-3 space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                label="Puntos a descontar *"
+                type="number"
+                step="0.5"
+                min="0.5"
+                max={saldoActual}
+                value={puntosDescontar}
+                onChange={(e) => setPuntosDescontar(e.target.value)}
+              />
+              <Input
+                label="Nota (opcional)"
+                placeholder="Ej: liquidación julio + agosto"
+                value={notaDescontar}
+                onChange={(e) => setNotaDescontar(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleDescontar}
+                disabled={
+                  ajustar.isPending ||
+                  !puntosDescontar ||
+                  Number(puntosDescontar) <= 0 ||
+                  Number(puntosDescontar) > saldoActual
+                }
+              >
+                {ajustar.isPending ? 'Guardando...' : 'Confirmar descuento'}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setShowDescontar(false)}
+              >
+                Cancelar
+              </Button>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Esto solo ajusta el saldo de puntos. Para pagarle a la empleada, agregá el concepto
+              correspondiente en la solapa Liquidación con el importe que corresponda.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Registros */}
       <div>
@@ -598,19 +679,6 @@ function ComisionPuntajePanel({
         }}
         onCancel={() => setDeleteId(null)}
         isPending={eliminar.isPending}
-      />
-
-      <ConfirmDialog
-        open={showConfirm}
-        title="Registrar comisión por puntaje"
-        description={`Se guardará una comisión de ${formatMoney(comisionGenerada)} como pendiente de liquidación. El saldo de puntos quedará en ${puntosRestantes.toFixed(2)} pts. Podés importarla a la liquidación cuando quieras.`}
-        confirmLabel="Registrar"
-        onConfirm={() => {
-          confirmar.mutate()
-          setShowConfirm(false)
-        }}
-        onCancel={() => setShowConfirm(false)}
-        isPending={confirmar.isPending}
       />
     </div>
   )

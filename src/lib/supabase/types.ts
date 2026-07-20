@@ -55,6 +55,7 @@ export type Database = {
       categorias_gastos: {
         Row: {
           activo: boolean
+          ambito: string
           color: string | null
           created_at: string
           created_by: string | null
@@ -64,6 +65,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          ambito?: string
           color?: string | null
           created_at?: string
           created_by?: string | null
@@ -73,6 +75,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          ambito?: string
           color?: string | null
           created_at?: string
           created_by?: string | null
@@ -403,7 +406,7 @@ export type Database = {
           importe_total: number
           notas: string | null
           nro_comprobante: string | null
-          proveedor_id: string
+          proveedor_id: string | null
           tipo_comprobante: string | null
           updated_at: string
         }
@@ -417,7 +420,7 @@ export type Database = {
           importe_total: number
           notas?: string | null
           nro_comprobante?: string | null
-          proveedor_id: string
+          proveedor_id?: string | null
           tipo_comprobante?: string | null
           updated_at?: string
         }
@@ -431,7 +434,7 @@ export type Database = {
           importe_total?: number
           notas?: string | null
           nro_comprobante?: string | null
-          proveedor_id?: string
+          proveedor_id?: string | null
           tipo_comprobante?: string | null
           updated_at?: string
         }
@@ -1325,6 +1328,7 @@ export type Database = {
           dia_vencimiento_anual: number | null
           dia_vencimiento_mensual: number | null
           empleada_id: string | null
+          facturar_aparte: boolean
           id: string
           mes_vencimiento_anual: number | null
           puntos: number
@@ -1338,6 +1342,7 @@ export type Database = {
           dia_vencimiento_anual?: number | null
           dia_vencimiento_mensual?: number | null
           empleada_id?: string | null
+          facturar_aparte?: boolean
           id?: string
           mes_vencimiento_anual?: number | null
           puntos: number
@@ -1351,6 +1356,7 @@ export type Database = {
           dia_vencimiento_anual?: number | null
           dia_vencimiento_mensual?: number | null
           empleada_id?: string | null
+          facturar_aparte?: boolean
           id?: string
           mes_vencimiento_anual?: number | null
           puntos?: number
@@ -1755,6 +1761,7 @@ export type Database = {
           empleada_id: string | null
           estado_avance: string
           facturado: boolean
+          facturar_aparte: boolean | null
           fecha_vencimiento: string
           id: string
           liquidacion_id: string | null
@@ -1776,6 +1783,7 @@ export type Database = {
           empleada_id?: string | null
           estado_avance?: string
           facturado?: boolean
+          facturar_aparte?: boolean | null
           fecha_vencimiento: string
           id?: string
           liquidacion_id?: string | null
@@ -1797,6 +1805,7 @@ export type Database = {
           empleada_id?: string | null
           estado_avance?: string
           facturado?: boolean
+          facturar_aparte?: boolean | null
           fecha_vencimiento?: string
           id?: string
           liquidacion_id?: string | null
@@ -1944,6 +1953,9 @@ export type Database = {
       v_ingresos_mensuales: {
         Row: {
           cantidad_liquidaciones: number | null
+          facturado_cliente_neto: number | null
+          ingreso_base_negro: number | null
+          iva_facturado: number | null
           mes: string | null
           total_facturado: number | null
           total_liquidado: number | null
@@ -2044,6 +2056,17 @@ export type Database = {
           },
         ]
       }
+      v_resultado_mensual: {
+        Row: {
+          gasto_manual_estudio: number | null
+          gasto_proveedores: number | null
+          gasto_sueldos: number | null
+          mes: string | null
+          resultado: number | null
+          total_ingresos: number | null
+        }
+        Relationships: []
+      }
       v_saldo_fondos: {
         Row: {
           saldo_banco: number | null
@@ -2054,6 +2077,16 @@ export type Database = {
       }
     }
     Functions: {
+      fn_ajustar_saldo_puntaje: {
+        Args: {
+          p_empleada_id: string
+          p_nota?: string
+          p_puntos_a_descontar: number
+        }
+        Returns: {
+          puntos_acumulados: number
+        }[]
+      }
       fn_anular_recibo: {
         Args: { p_motivo?: string; p_recibo_id: string }
         Returns: {

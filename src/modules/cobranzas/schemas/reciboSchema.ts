@@ -9,7 +9,7 @@ export const reciboSchema = z
   .object({
     cliente_id: z.string().uuid('Cliente requerido'),
     fecha: z.string().min(1, 'Fecha requerida'),
-    tipo_pago: z.enum(['TRANSFERENCIA', 'EFECTIVO', 'CHEQUE', 'USD']),
+    tipo_pago: z.enum(['TRANSFERENCIA', 'EFECTIVO', 'CHEQUE', 'USD', 'COMPENSACION']),
     importe: z.coerce.number().positive('El importe debe ser mayor a 0'),
     numero_recibo: z.string().optional(),
     cuenta_bancaria: z.string().optional(),
@@ -33,7 +33,11 @@ export const reciboSchema = z
     }
     if (data.tipo_pago === 'CHEQUE') {
       if (!data.cheque_numero) {
-        ctx.addIssue({ code: 'custom', path: ['cheque_numero'], message: 'Número de cheque requerido' })
+        ctx.addIssue({
+          code: 'custom',
+          path: ['cheque_numero'],
+          message: 'Número de cheque requerido',
+        })
       }
       if (!data.cheque_banco) {
         ctx.addIssue({ code: 'custom', path: ['cheque_banco'], message: 'Banco requerido' })

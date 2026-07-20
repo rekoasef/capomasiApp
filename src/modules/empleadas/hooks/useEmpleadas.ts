@@ -382,6 +382,23 @@ export function useConfirmarComisionPuntaje(
   })
 }
 
+export function useAjustarSaldoPuntaje(empleadaId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ puntos, nota }: { puntos: number; nota?: string }) =>
+      comisionesService.ajustarSaldoPuntaje(empleadaId, puntos, nota),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success(`Puntos descontados. Saldo restante: ${r.data.puntos_acumulados} pts`)
+      qc.invalidateQueries({ queryKey: ['saldo_puntaje', empleadaId] })
+      qc.invalidateQueries({ queryKey: ['preview_puntaje', empleadaId] })
+    },
+  })
+}
+
 export function useComisionesRegistradas(empleadaId: string) {
   return useQuery({
     queryKey: ['comisiones_registradas', empleadaId],

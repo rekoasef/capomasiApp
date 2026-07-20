@@ -181,13 +181,13 @@ export function ProveedoresOverview() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
-                    Proveedor *
+                    Proveedor
                   </label>
                   <select
                     {...compraForm.register('proveedor_id')}
                     className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
                   >
-                    <option value="">Seleccionar...</option>
+                    <option value="">Sin proveedor (gasto suelto)</option>
                     {proveedores?.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.nombre}
@@ -301,7 +301,11 @@ export function ProveedoresOverview() {
                           </button>
                         </td>
                         <td className="text-muted-foreground px-4 py-2.5">{c.fecha}</td>
-                        <td className="px-4 py-2.5 font-medium">{c.proveedores?.nombre ?? '—'}</td>
+                        <td className="text-muted-foreground px-4 py-2.5 font-medium">
+                          {c.proveedores?.nombre ?? (
+                            <span className="italic">Gasto sin proveedor</span>
+                          )}
+                        </td>
                         <td className="text-muted-foreground px-4 py-2.5">{c.concepto}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
                           {formatMoney(c.importe_total)}

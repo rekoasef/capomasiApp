@@ -7,6 +7,7 @@ import {
   useImputacionesRecibo,
   useEliminarImputacion,
 } from '../hooks/useCobranzas'
+import { filtrarRecibosPorFecha } from '../services/cuentaCorrientePdfService'
 import { ImputarDesdeReciboModal } from './ImputarDesdeReciboModal'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { Button } from '@/shared/components/ui/button'
@@ -24,15 +25,17 @@ const TIPO_LABEL: Record<string, string> = {
   USD: 'USD',
 }
 
-type Props = { clienteId: string }
+type Props = { clienteId: string; desde?: string; hasta?: string }
 
-export function RecibosCliente({ clienteId }: Props) {
-  const { data, isLoading, error } = useRecibosCliente(clienteId)
+export function RecibosCliente({ clienteId, desde, hasta }: Props) {
+  const { data: raw, isLoading, error } = useRecibosCliente(clienteId)
   const anular = useAnularRecibo(clienteId)
   const { isAdmin } = useAuth()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [anularId, setAnularId] = useState<string | null>(null)
   const [imputarRecibo, setImputarRecibo] = useState<TReciboDisponible | null>(null)
+
+  const data = raw ? filtrarRecibosPorFecha(raw, desde, hasta) : raw
 
   if (isLoading) {
     return (
@@ -45,7 +48,11 @@ export function RecibosCliente({ clienteId }: Props) {
   }
   if (error) return <p className="text-danger text-sm">{error.message}</p>
   if (!data?.length) {
-    return <p className="text-muted-foreground py-8 text-center text-sm">Sin recibos registrados</p>
+    return (
+      <p className="text-muted-foreground py-8 text-center text-sm">
+        Sin recibos registrados{desde || hasta ? ' en el período seleccionado' : ''}
+      </p>
+    )
   }
 
   return (

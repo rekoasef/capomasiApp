@@ -6,10 +6,11 @@ import { Skeleton } from '@/shared/components/ui/skeleton'
 
 type Props = {
   anio: number
+  mes?: number
 }
 
-export function IngresosMensualesTable({ anio }: Props) {
-  const { data, isLoading } = useIngresosMensuales(anio)
+export function IngresosMensualesTable({ anio, mes }: Props) {
+  const { data, isLoading } = useIngresosMensuales(anio, mes)
 
   if (isLoading) {
     return (

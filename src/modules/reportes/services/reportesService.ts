@@ -9,19 +9,28 @@ import type {
 } from '../types'
 import { sumarIngresos } from './sumarIngresos'
 
-function rangoAnio(anio: number) {
+function rangoAnio(anio: number, mes?: number) {
+  if (mes) {
+    const desde = `${anio}-${String(mes).padStart(2, '0')}-01`
+    const ultimoDia = new Date(anio, mes, 0).getDate()
+    const hasta = `${anio}-${String(mes).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`
+    return { desde, hasta }
+  }
   return { desde: `${anio}-01-01`, hasta: `${anio}-12-31` }
 }
 
 export const reportesService = {
-  async getIngresosMensuales(anio?: number): Promise<ServiceResult<TIngresoMensual[]>> {
+  async getIngresosMensuales(
+    anio?: number,
+    mes?: number
+  ): Promise<ServiceResult<TIngresoMensual[]>> {
     let query = supabase
       .from('v_ingresos_mensuales')
       .select('mes, cantidad_liquidaciones, total_liquidado, total_facturado')
       .order('mes', { ascending: true })
 
     if (anio) {
-      const { desde, hasta } = rangoAnio(anio)
+      const { desde, hasta } = rangoAnio(anio, mes)
       query = query.gte('mes', desde).lte('mes', hasta)
     }
 
@@ -52,13 +61,13 @@ export const reportesService = {
     return { ok: true, data: Array.from(anios).sort((a, b) => b - a) }
   },
 
-  async getIngresosPorTipo(anio?: number): Promise<ServiceResult<TResumenTipo[]>> {
+  async getIngresosPorTipo(anio?: number, mes?: number): Promise<ServiceResult<TResumenTipo[]>> {
     let query = supabase
       .from('v_ingresos_por_tipo_mes')
       .select('mes, tipo_servicio, cantidad, total_liquidado, total_facturado')
 
     if (anio) {
-      const { desde, hasta } = rangoAnio(anio)
+      const { desde, hasta } = rangoAnio(anio, mes)
       query = query.gte('mes', desde).lte('mes', hasta)
     }
 
@@ -86,13 +95,16 @@ export const reportesService = {
     }
   },
 
-  async getIngresosPorEmpleada(anio?: number): Promise<ServiceResult<TResumenEmpleada[]>> {
+  async getIngresosPorEmpleada(
+    anio?: number,
+    mes?: number
+  ): Promise<ServiceResult<TResumenEmpleada[]>> {
     let query = supabase
       .from('v_ingresos_por_empleada_mes')
       .select('mes, empleada, cantidad, total_liquidado')
 
     if (anio) {
-      const { desde, hasta } = rangoAnio(anio)
+      const { desde, hasta } = rangoAnio(anio, mes)
       query = query.gte('mes', desde).lte('mes', hasta)
     }
 

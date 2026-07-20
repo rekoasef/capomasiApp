@@ -23,9 +23,25 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 const SIN_ANIOS: number[] = []
 
+const MESES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
+
 export default function ReportesPage() {
   const { data: anios = SIN_ANIOS } = useAniosDisponibles()
   const [anio, setAnio] = useState<number>(new Date().getFullYear())
+  const [mes, setMes] = useState<number | undefined>(undefined)
 
   // Ajuste de estado durante el render (evita el setState síncrono en un efecto).
   // anios debe ser una referencia estable cuando no cambia — por eso el
@@ -44,32 +60,44 @@ export default function ReportesPage() {
         title="Reportes"
         description="Ingresos por período, tipo de servicio y empleada"
         actions={
-          <div className="w-32">
-            <Select
-              value={String(anio)}
-              onChange={(e) => setAnio(Number(e.target.value))}
-              options={(anios.length ? anios : [anio]).map((a) => ({
-                value: String(a),
-                label: String(a),
-              }))}
-            />
+          <div className="flex gap-2">
+            <div className="w-36">
+              <Select
+                value={mes ? String(mes) : ''}
+                onChange={(e) => setMes(e.target.value ? Number(e.target.value) : undefined)}
+                options={[
+                  { value: '', label: 'Todo el año' },
+                  ...MESES.map((m, i) => ({ value: String(i + 1), label: m })),
+                ]}
+              />
+            </div>
+            <div className="w-32">
+              <Select
+                value={String(anio)}
+                onChange={(e) => setAnio(Number(e.target.value))}
+                options={(anios.length ? anios : [anio]).map((a) => ({
+                  value: String(a),
+                  label: String(a),
+                }))}
+              />
+            </div>
           </div>
         }
       />
 
       <section>
-        <SectionTitle>Ingresos mensuales — {anio}</SectionTitle>
-        <IngresosMensualesTable anio={anio} />
+        <SectionTitle>Ingresos mensuales — {mes ? `${MESES[mes - 1]} ${anio}` : anio}</SectionTitle>
+        <IngresosMensualesTable anio={anio} mes={mes} />
       </section>
 
       <section>
         <SectionTitle>Por tipo de servicio</SectionTitle>
-        <IngresosPorTipoTable anio={anio} />
+        <IngresosPorTipoTable anio={anio} mes={mes} />
       </section>
 
       <section>
         <SectionTitle>Por empleada</SectionTitle>
-        <IngresosPorEmpleadaTable anio={anio} />
+        <IngresosPorEmpleadaTable anio={anio} mes={mes} />
       </section>
 
       <section>
