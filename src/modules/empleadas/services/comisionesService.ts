@@ -20,11 +20,8 @@ import type {
   TSaldoPuntaje,
   TRegistroHoras,
   TResumenComisionHoras,
-  TResumenComisionPuntaje,
-  TConfirmacionPuntaje,
   TPuntosTrabajoConfig,
   TValoresPuntoTipo,
-  TComisionPuntajeRegistrada,
 } from '../types'
 
 export const comisionesService = {
@@ -113,55 +110,6 @@ export const comisionesService = {
     return { ok: true, data: undefined }
   },
 
-  async calcularPreviewPuntaje(
-    empleadaId: string,
-    periodoMes: number,
-    periodoAnio: number
-  ): Promise<ServiceResult<TResumenComisionPuntaje>> {
-    const { data, error } = await supabase.rpc('fn_calcular_comision_puntaje', {
-      p_empleada_id: empleadaId,
-      p_periodo_mes: periodoMes,
-      p_periodo_anio: periodoAnio,
-    })
-
-    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    const row = Array.isArray(data) ? data[0] : data
-    return {
-      ok: true,
-      data: {
-        puntos_periodo: Number(row.puntos_periodo ?? 0),
-        puntos_acumulados_prev: Number(row.puntos_acumulados_prev ?? 0),
-        puntos_total: Number(row.puntos_total ?? 0),
-        umbral: Number(row.umbral ?? 0),
-        comision_generada: Number(row.comision_generada ?? 0),
-        puntos_restantes: Number(row.puntos_restantes ?? 0),
-      },
-    }
-  },
-
-  async confirmarComisionPuntaje(
-    empleadaId: string,
-    periodoMes: number,
-    periodoAnio: number
-  ): Promise<ServiceResult<TConfirmacionPuntaje>> {
-    const { data, error } = await supabase.rpc('fn_confirmar_comision_puntaje', {
-      p_empleada_id: empleadaId,
-      p_periodo_mes: periodoMes,
-      p_periodo_anio: periodoAnio,
-    })
-
-    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    const row = Array.isArray(data) ? data[0] : data
-    return {
-      ok: true,
-      data: {
-        comision_generada: Number(row.comision_generada ?? 0),
-        puntos_restantes: Number(row.puntos_restantes ?? 0),
-        registro_id: row.registro_id ?? null,
-      },
-    }
-  },
-
   // Cuenta corriente manual: Paola decide cuántos puntos descontar del saldo
   // acumulado al liquidar (reemplaza el flujo automático de confirmar/liquidar
   // por umbral — ver docs/funcional/PUNTOS_EMPLEADAS.md).
@@ -179,32 +127,6 @@ export const comisionesService = {
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     const row = Array.isArray(data) ? data[0] : data
     return { ok: true, data: { puntos_acumulados: Number(row?.puntos_acumulados ?? 0) } }
-  },
-
-  async getComisionesRegistradas(
-    empleadaId: string
-  ): Promise<ServiceResult<TComisionPuntajeRegistrada[]>> {
-    const { data, error } = await supabase
-      .from('comisiones_puntaje_registradas')
-      .select('*')
-      .eq('empleada_id', empleadaId)
-      .order('periodo_anio', { ascending: false })
-      .order('periodo_mes', { ascending: false })
-
-    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: (data ?? []) as unknown as TComisionPuntajeRegistrada[] }
-  },
-
-  async liquidarComision(
-    registroId: string
-  ): Promise<ServiceResult<{ liquidacion_id: string | null }>> {
-    const { data, error } = await supabase.rpc('fn_liquidar_comision_puntaje', {
-      p_registro_id: registroId,
-    })
-
-    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    const row = Array.isArray(data) ? data[0] : data
-    return { ok: true, data: { liquidacion_id: row?.liquidacion_id ?? null } }
   },
 
   // ── Horas ──────────────────────────────────────────────────

@@ -1,12 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { useCheques, useActualizarEstadoCheque } from '../hooks/useFondos'
+import {
+  useCheques,
+  useActualizarEstadoCheque,
+  useConfirmarAcreditacionCheque,
+  useDesmarcarAcreditacionCheque,
+} from '../hooks/useFondos'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { Button } from '@/shared/components/ui/button'
 import { Skeleton } from '@/shared/components/ui/skeleton'
+import { PaginationControls } from '@/shared/components/PaginationControls'
 import type { TCheque } from '@/modules/cobranzas/types'
-import { Check, X, Clock3, ArrowRightLeft, Ban } from 'lucide-react'
+import { Check, X, Clock3, ArrowRightLeft, Ban, CheckCircle2, CircleDashed } from 'lucide-react'
+
+const PAGE_SIZE = 25
 
 type TEstadoFiltro = TCheque['estado'] | 'TODOS'
 
@@ -27,10 +35,18 @@ export function ChequesTable() {
   const [accionId, setAccionId] = useState<string | null>(null)
   const [nuevoEstado, setNuevoEstado] = useState<TCheque['estado'] | ''>('')
   const [fechaCobro, setFechaCobro] = useState('')
+  const [page, setPage] = useState(0)
 
-  const opts = filtro === 'TODOS' ? {} : { estado: filtro as TCheque['estado'] }
-  const { data, isLoading, error } = useCheques(opts)
+  const opts = {
+    ...(filtro === 'TODOS' ? {} : { estado: filtro as TCheque['estado'] }),
+    page,
+    pageSize: PAGE_SIZE,
+  }
+  const { data: chequesData, isLoading, error } = useCheques(opts)
+  const data = chequesData?.rows
   const actualizar = useActualizarEstadoCheque()
+  const confirmarAcreditacion = useConfirmarAcreditacionCheque()
+  const desmarcarAcreditacion = useDesmarcarAcreditacionCheque()
 
   const FILTROS: { value: TEstadoFiltro; label: string }[] = [
     { value: 'EN_CARTERA', label: 'En cartera' },
@@ -63,7 +79,10 @@ export function ChequesTable() {
         {FILTROS.map((f) => (
           <button
             key={f.value}
-            onClick={() => setFiltro(f.value)}
+            onClick={() => {
+              setFiltro(f.value)
+              setPage(0)
+            }}
             className={`border px-3 py-1.5 text-xs font-semibold transition-colors ${
               filtro === f.value
                 ? 'border-primary bg-primary/10 text-primary'
@@ -169,6 +188,9 @@ export function ChequesTable() {
                 <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
                   Tipo
                 </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-center text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Acreditado
+                </th>
                 <th className="w-24" />
               </tr>
             </thead>
@@ -191,6 +213,14 @@ export function ChequesTable() {
                       {ch.tipo === 'PROPIO' ? 'Propio' : 'Tercero'}
                     </span>
                   </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <AcreditacionToggle
+                      cheque={ch}
+                      isPending={confirmarAcreditacion.isPending || desmarcarAcreditacion.isPending}
+                      onConfirmar={() => confirmarAcreditacion.mutate(ch.id)}
+                      onDesmarcar={() => desmarcarAcreditacion.mutate(ch.id)}
+                    />
+                  </td>
                   <td className="px-4 py-2.5 text-right">
                     {ch.estado === 'EN_CARTERA' && (
                       <button
@@ -205,9 +235,59 @@ export function ChequesTable() {
               ))}
             </tbody>
           </table>
+          <PaginationControls
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={chequesData?.total ?? 0}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>
+  )
+}
+
+const ESTADOS_CONFIRMABLES: TCheque['estado'][] = ['DEPOSITADO', 'ENDOSADO', 'RECHAZADO']
+
+function AcreditacionToggle({
+  cheque,
+  isPending,
+  onConfirmar,
+  onDesmarcar,
+}: {
+  cheque: TCheque
+  isPending: boolean
+  onConfirmar: () => void
+  onDesmarcar: () => void
+}) {
+  if (!ESTADOS_CONFIRMABLES.includes(cheque.estado)) {
+    return <span className="text-muted-foreground text-xs">—</span>
+  }
+
+  if (cheque.acreditacion_confirmada) {
+    return (
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={onDesmarcar}
+        title="Acreditación confirmada — click para desmarcar"
+        className="text-success inline-flex items-center justify-center disabled:opacity-50"
+      >
+        <CheckCircle2 className="h-4 w-4" />
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={isPending}
+      onClick={onConfirmar}
+      title="Sin confirmar — click para marcar como acreditado"
+      className="text-danger inline-flex items-center justify-center disabled:opacity-50"
+    >
+      <CircleDashed className="h-4 w-4" />
+    </button>
   )
 }
 

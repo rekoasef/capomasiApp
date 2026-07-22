@@ -12,7 +12,6 @@ import {
   useAgregarPuntaje,
   useEliminarPuntaje,
   useAjustarSaldoPuntaje,
-  useComisionesRegistradas,
   useHorasPeriodo,
   useAgregarHoras,
   useEliminarHoras,
@@ -376,14 +375,9 @@ function ComisionPuntajePanel({
   const { data: saldo } = useSaldoPuntaje(empleadaId)
   const { data: config } = useComisionConfig(empleadaId)
   const { data: tiposParam = [] } = useParametros({ categorias: ['TIPO_SERVICIO'] })
-  const { data: comisionesRegistradas = [] } = useComisionesRegistradas(empleadaId)
   const agregar = useAgregarPuntaje(empleadaId, mes, anio)
   const eliminar = useEliminarPuntaje(empleadaId, mes, anio)
   const ajustar = useAjustarSaldoPuntaje(empleadaId)
-
-  const comisionDelPeriodo = comisionesRegistradas.find(
-    (c) => c.periodo_mes === mes && c.periodo_anio === anio
-  )
 
   const form = useForm<TRegistroPuntajeForm>({
     resolver: zodResolver(registroPuntajeSchema) as unknown as Resolver<TRegistroPuntajeForm>,
@@ -459,39 +453,6 @@ function ComisionPuntajePanel({
           Algunos registros no tienen tipo de trabajo — se usa el valor más reciente configurado
           como fallback. Para mayor precisión, especificá el tipo al agregar puntajes.
         </p>
-      )}
-
-      {/* Historial de comisiones ya registradas (sistema anterior) */}
-      {comisionDelPeriodo && (
-        <div
-          className={`flex items-center gap-3 border px-4 py-3 ${
-            comisionDelPeriodo.estado === 'LIQUIDADA'
-              ? 'border-success/30 bg-success/5'
-              : 'border-primary/30 bg-primary/5'
-          }`}
-        >
-          <p className="flex-1 text-sm font-medium">
-            {comisionDelPeriodo.estado === 'LIQUIDADA' ? (
-              <span className="text-success">
-                Comisión liquidada — {formatMoney(comisionDelPeriodo.importe)}
-              </span>
-            ) : (
-              <span className="text-primary">
-                Comisión registrada — {formatMoney(comisionDelPeriodo.importe)} pendiente de
-                importar en Liquidación
-              </span>
-            )}
-          </p>
-          <span
-            className={`border px-2 py-1 text-[10px] font-bold tracking-widest uppercase ${
-              comisionDelPeriodo.estado === 'LIQUIDADA'
-                ? 'border-success/30 text-success'
-                : 'border-primary/30 text-primary'
-            }`}
-          >
-            {comisionDelPeriodo.estado === 'LIQUIDADA' ? 'Liquidada' : 'Pendiente'}
-          </span>
-        </div>
       )}
 
       {/* Descuento manual del saldo */}

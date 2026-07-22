@@ -96,6 +96,8 @@ export const FALLBACK_CONCEPTOS_FONDOS: ParametroOption[] = [
   { value: 'SALDO_INICIAL', label: 'Saldo inicial' },
   { value: 'SUELDOS', label: 'Sueldos' },
   { value: 'VENTA_USD', label: 'Venta USD' },
+  { value: 'APORTE_TARALO', label: 'Aporte a Taralo' },
+  { value: 'RETIRO_TARALO', label: 'Retiro de Taralo' },
   { value: 'MOVIMIENTO', label: 'Movimiento' },
 ]
 

@@ -65,16 +65,27 @@ export const proveedoresService = {
   async getCompras(opts?: {
     proveedorId?: string
     estado?: string
-  }): Promise<ServiceResult<TCompraProveedor[]>> {
+    page?: number
+    pageSize?: number
+  }): Promise<ServiceResult<{ rows: TCompraProveedor[]; total: number }>> {
+    const pageSize = opts?.pageSize ?? 25
+    const page = opts?.page ?? 0
+    const from = page * pageSize
+    const to = from + pageSize - 1
+
     let query = supabase
       .from('compras_proveedores')
-      .select('*, proveedores(nombre)')
+      .select('*, proveedores(nombre)', { count: 'exact' })
       .order('fecha', { ascending: false })
+      .range(from, to)
     if (opts?.proveedorId) query = query.eq('proveedor_id', opts.proveedorId)
     if (opts?.estado) query = query.eq('estado', opts.estado)
-    const { data, error } = await query
+    const { data, error, count } = await query
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: (data ?? []) as unknown as TCompraProveedor[] }
+    return {
+      ok: true,
+      data: { rows: (data ?? []) as unknown as TCompraProveedor[], total: count ?? 0 },
+    }
   },
 
   async crearCompra(form: TCompraProveedorForm): Promise<ServiceResult<TCompraProveedor>> {

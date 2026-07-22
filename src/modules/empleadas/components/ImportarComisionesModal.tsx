@@ -1,12 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import {
-  useImportarComisionIndividual,
-  useTrabajosRealizados,
-  useComisionesRegistradas,
-  useLiquidarComision,
-} from '../hooks/useEmpleadas'
+import { useImportarComisionIndividual, useTrabajosRealizados } from '../hooks/useEmpleadas'
 import { Button } from '@/shared/components/ui/button'
 import { formatMoney } from '@/shared/utils/formatters'
 
@@ -40,17 +35,14 @@ export function ImportarComisionesModal({
   periodoMes,
   periodoAnio,
 }: Props) {
-  const [selectedPuntaje, setSelectedPuntaje] = useState<Set<string>>(new Set())
-  const [selectedProduccion, setSelectedProduccion] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [importing, setImporting] = useState(false)
 
-  const importarProduccion = useImportarComisionIndividual(empleadaId)
-  const liquidarPuntaje = useLiquidarComision(empleadaId)
+  const importar = useImportarComisionIndividual(empleadaId)
 
   const { data: trabajos = [] } = useTrabajosRealizados(periodoAnio, periodoMes, empleadaId)
-  const { data: comisionesPuntaje = [] } = useComisionesRegistradas(empleadaId)
 
-  const pendientesProduccion = useMemo(
+  const pendientes = useMemo(
     () =>
       trabajos.filter(
         (t) =>
@@ -62,34 +54,14 @@ export function ImportarComisionesModal({
     [trabajos]
   )
 
-  const pendientesPuntaje = useMemo(
-    () => comisionesPuntaje.filter((c) => c.estado === 'PENDIENTE'),
-    [comisionesPuntaje]
-  )
+  const totalSeleccionado = pendientes
+    .filter((t) => selected.has(t.id))
+    .reduce((s, t) => s + Number(t.importe_comision ?? 0), 0)
 
-  const hayPendientes = pendientesProduccion.length > 0 || pendientesPuntaje.length > 0
+  const allSelected = pendientes.length > 0 && selected.size === pendientes.length
 
-  const totalSeleccionado =
-    pendientesPuntaje
-      .filter((c) => selectedPuntaje.has(c.id))
-      .reduce((s, c) => s + Number(c.importe), 0) +
-    pendientesProduccion
-      .filter((t) => selectedProduccion.has(t.id))
-      .reduce((s, t) => s + Number(t.importe_comision ?? 0), 0)
-
-  const totalSeleccionados = selectedPuntaje.size + selectedProduccion.size
-
-  function togglePuntaje(id: string) {
-    setSelectedPuntaje((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function toggleProduccion(id: string) {
-    setSelectedProduccion((prev) => {
+  function toggle(id: string) {
+    setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -98,38 +70,18 @@ export function ImportarComisionesModal({
   }
 
   function toggleAll() {
-    if (
-      selectedPuntaje.size === pendientesPuntaje.length &&
-      selectedProduccion.size === pendientesProduccion.length
-    ) {
-      setSelectedPuntaje(new Set())
-      setSelectedProduccion(new Set())
-    } else {
-      setSelectedPuntaje(new Set(pendientesPuntaje.map((c) => c.id)))
-      setSelectedProduccion(new Set(pendientesProduccion.map((t) => t.id)))
-    }
+    setSelected(allSelected ? new Set() : new Set(pendientes.map((t) => t.id)))
   }
 
-  const allSelected =
-    pendientesPuntaje.length > 0 &&
-    selectedPuntaje.size === pendientesPuntaje.length &&
-    selectedProduccion.size === pendientesProduccion.length
-
   async function handleImportar() {
-    if (totalSeleccionados === 0) return
+    if (selected.size === 0) return
     setImporting(true)
     try {
-      for (const trabajo of pendientesProduccion.filter((t) => selectedProduccion.has(t.id))) {
-        const r = await importarProduccion.mutateAsync(trabajo.id)
+      for (const trabajo of pendientes.filter((t) => selected.has(t.id))) {
+        const r = await importar.mutateAsync(trabajo.id)
         if (!r.ok) return
       }
-      // Importar comisiones de puntaje seleccionadas
-      for (const id of selectedPuntaje) {
-        const r = await liquidarPuntaje.mutateAsync(id)
-        if (!r.ok) return
-      }
-      setSelectedPuntaje(new Set())
-      setSelectedProduccion(new Set())
+      setSelected(new Set())
       onClose()
     } finally {
       setImporting(false)
@@ -144,7 +96,8 @@ export function ImportarComisionesModal({
       <div className="border-border bg-surface relative z-10 w-full max-w-xl border p-6 shadow-lg">
         <h2 className="text-base font-semibold">Importar comisiones</h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Seleccioná las comisiones que querés importar a la liquidación.
+          Comisiones por producción de {MESES[periodoMes - 1]} {periodoAnio} pendientes de importar
+          a la liquidación.
         </p>
 
         {/* Totales */}
@@ -153,7 +106,7 @@ export function ImportarComisionesModal({
             <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
               Seleccionadas
             </p>
-            <p className="mt-1 text-lg font-bold">{totalSeleccionados}</p>
+            <p className="mt-1 text-lg font-bold">{selected.size}</p>
           </div>
           <div className="border-primary/30 bg-primary/5 border p-3">
             <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
@@ -165,13 +118,12 @@ export function ImportarComisionesModal({
 
         {/* Lista */}
         <div className="border-border mt-4 overflow-hidden border">
-          {!hayPendientes ? (
+          {!pendientes.length ? (
             <p className="text-muted-foreground px-4 py-6 text-center text-sm">
               No hay comisiones pendientes de importar.
             </p>
           ) : (
             <>
-              {/* Seleccionar todo */}
               <div
                 className="border-border bg-muted/30 hover:bg-muted/50 flex cursor-pointer items-center gap-3 border-b px-4 py-2.5"
                 onClick={toggleAll}
@@ -183,66 +135,25 @@ export function ImportarComisionesModal({
               </div>
 
               <div className="divide-border max-h-64 divide-y overflow-y-auto">
-                {/* Puntaje */}
-                {pendientesPuntaje.length > 0 && (
-                  <>
-                    <div className="bg-muted/20 px-4 py-1.5">
-                      <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
-                        Por puntaje
+                {pendientes.map((t) => (
+                  <div
+                    key={t.id}
+                    className="hover:bg-muted/30 flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors"
+                    onClick={() => toggle(t.id)}
+                  >
+                    <Checkbox checked={selected.has(t.id)} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">
+                        {t.tipo_trabajo}
+                        {t.clientes?.nombre ? ` · ${t.clientes.nombre}` : ''}
                       </p>
+                      <p className="text-muted-foreground truncate text-xs">{t.descripcion}</p>
                     </div>
-                    {pendientesPuntaje.map((c) => (
-                      <div
-                        key={c.id}
-                        className="hover:bg-muted/30 flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors"
-                        onClick={() => togglePuntaje(c.id)}
-                      >
-                        <Checkbox checked={selectedPuntaje.has(c.id)} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium">
-                            Comisión por objetivos — {MESES[c.periodo_mes - 1]} {c.periodo_anio}
-                          </p>
-                          <p className="text-muted-foreground text-xs">
-                            {Number(c.puntos_total).toFixed(2)} pts acumulados
-                          </p>
-                        </div>
-                        <p className="shrink-0 text-sm font-semibold tabular-nums">
-                          {formatMoney(c.importe)}
-                        </p>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {/* Producción */}
-                {pendientesProduccion.length > 0 && (
-                  <>
-                    <div className="bg-muted/20 px-4 py-1.5">
-                      <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
-                        Por producción — {MESES[periodoMes - 1]} {periodoAnio}
-                      </p>
-                    </div>
-                    {pendientesProduccion.map((t) => (
-                      <div
-                        key={t.id}
-                        className="hover:bg-muted/30 flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors"
-                        onClick={() => toggleProduccion(t.id)}
-                      >
-                        <Checkbox checked={selectedProduccion.has(t.id)} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium">
-                            {t.tipo_trabajo}
-                            {t.clientes?.nombre ? ` · ${t.clientes.nombre}` : ''}
-                          </p>
-                          <p className="text-muted-foreground truncate text-xs">{t.descripcion}</p>
-                        </div>
-                        <p className="shrink-0 text-sm font-semibold tabular-nums">
-                          {formatMoney(Number(t.importe_comision ?? 0))}
-                        </p>
-                      </div>
-                    ))}
-                  </>
-                )}
+                    <p className="shrink-0 text-sm font-semibold tabular-nums">
+                      {formatMoney(Number(t.importe_comision ?? 0))}
+                    </p>
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -256,12 +167,12 @@ export function ImportarComisionesModal({
             type="button"
             size="sm"
             onClick={handleImportar}
-            disabled={importing || totalSeleccionados === 0}
+            disabled={importing || selected.size === 0}
           >
             {importing
               ? 'Importando...'
-              : totalSeleccionados > 0
-                ? `Importar ${totalSeleccionados} ${totalSeleccionados === 1 ? 'comisión' : 'comisiones'}`
+              : selected.size > 0
+                ? `Importar ${selected.size} ${selected.size === 1 ? 'comisión' : 'comisiones'}`
                 : 'Importar a liquidación'}
           </Button>
         </div>

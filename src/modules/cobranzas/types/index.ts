@@ -98,6 +98,9 @@ export type TCheque = {
   cliente_id: string | null
   cuenta_bancaria: string | null
   notas: string | null
+  acreditacion_confirmada: boolean
+  acreditacion_confirmada_at: string | null
+  acreditacion_confirmada_by: string | null
   created_at: string
   updated_at: string
 }

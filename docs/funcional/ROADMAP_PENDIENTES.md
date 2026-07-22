@@ -52,3 +52,9 @@ Bajo impacto visual para Paola, pero cierra deuda técnica real.
 ---
 
 **Las 5 fases del roadmap están cerradas (2026-07-12).** Deuda de lint no urgente pendiente (ver memoria del proyecto) para una sesión de mantenimiento aparte.
+
+## Fase 6 — Ajustes post-demo (2026-07-16) ✅
+
+Demo en vivo con Paola sobre la plataforma casi terminada. Surgieron 10 ajustes puntuales, detallados en [`REUNION_2026-07-16_DEMO.md`](./REUNION_2026-07-16_DEMO.md). **Los 9 ítems técnicos están implementados** (migraciones `0040` a `0048`, aplicadas a la DB real de `SistemaEstudio`).
+
+Único pendiente, de **carga de datos** (no de código): que Paola dicte la lista completa de tipos de trabajo anuales faltantes (DDJJ de convenio multilateral, IIBB, participación en sociedades, etc.) para cargarlos en `parametros`.

@@ -116,6 +116,7 @@ export interface TProximoVencimiento {
   categoria_id: string
   categoria_nombre: string
   categoria_color: string | null
+  categoria_ambito: 'PERSONAL' | 'ESTUDIO'
   dias_restantes: number
 }
 
@@ -131,6 +132,7 @@ export interface TPagoGastoDetalle {
   categoria_id: string
   categoria_nombre: string
   categoria_color: string | null
+  categoria_ambito: 'PERSONAL' | 'ESTUDIO'
   gasto_recurrente_id: string | null
   gasto_descripcion: string | null
   anio: number
@@ -144,6 +146,7 @@ export interface TPagosGastosFilters {
   gastoRecurrenteId?: string
   anio?: number
   mes?: number
+  ambito?: 'PERSONAL' | 'ESTUDIO'
 }
 
 export interface TResumenCategoria {

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { auditoriaService } from '../services/auditoriaService'
 
-export function useAuditLog(opts?: { tabla?: string; limit?: number }) {
+export function useAuditLog(opts?: { tabla?: string; page?: number; pageSize?: number }) {
   return useQuery({
     queryKey: ['audit_log', opts],
     queryFn: async () => {

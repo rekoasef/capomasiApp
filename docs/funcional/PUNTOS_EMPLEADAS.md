@@ -1,8 +1,12 @@
 # Sistema de Puntos y Premios — Empleadas
 
 Documento funcional del sistema de puntos para bonificaciones de empleadas.  
-**Estado:** planificado, pendiente implementación.  
+**Estado:** implementado.  
 **Confirmado por Paola:** 2026-05-29.
+
+> ⚠️ **Corrección 2026-07-16:** las secciones 6 y 7 de este documento describían un corte **automático** del umbral (15,5 pts/mes) al liquidar. En la demo del 2026-07-16 Paola pidió que el sistema funcione como una **cuenta corriente manual**: los puntos se acumulan solos en tiempo real (sin resetearse mes a mes) y es ella quien decide, al liquidar, cuántos puntos descontar — puede acumular varios meses y descontar múltiplos del umbral de una sola vez. Implementado en la migración `0043_comisiones_cuenta_corriente_manual.sql` (triggers que mantienen `saldo_puntaje_empleadas` en tiempo real + `fn_ajustar_saldo_puntaje` para el descuento manual) y expuesto en `ComisionesSection.tsx`. El umbral queda solo como referencia visual, no como corte automático.
+>
+> **Actualización 2026-07-22:** el flujo viejo (`confirmarComisionPuntaje`/`calcularPreviewPuntaje`/`getComisionesRegistradas`/`liquidarComision` y la tabla `comisiones_puntaje_registradas`) se sacó por completo de la aplicación — ya no queda ningún botón, hook ni service method que lo use (estaba generando confusión real: convivía visualmente con la cuenta corriente nueva en la ficha de la empleada y en el modal "Importar comisiones"). Las funciones RPC viejas (`fn_confirmar_comision_puntaje`, `fn_liquidar_comision_puntaje`, `fn_calcular_comision_puntaje`) y la tabla siguen existiendo en la base (no se tocó el schema), pero nada en el código las llama. Ver [`REUNION_2026-07-16_DEMO.md`](./REUNION_2026-07-16_DEMO.md) ítem 5.
 
 ---
 
@@ -16,13 +20,13 @@ Además, existe un tipo de premio adicional basado en porcentaje sobre un monto 
 
 ## 2. Tipos de trabajo que generan puntos
 
-| Tipo de trabajo | Notas |
-|-----------------|-------|
-| Balance | Por empresa/cliente |
-| Ganancias Persona Física | Por persona |
-| Saldo Técnico — Secretaría de Industria | Por empresa |
-| Saldo Técnico — AFIP | Por empresa |
-| Exportaciones | Por empresa |
+| Tipo de trabajo                         | Notas               |
+| --------------------------------------- | ------------------- |
+| Balance                                 | Por empresa/cliente |
+| Ganancias Persona Física                | Por persona         |
+| Saldo Técnico — Secretaría de Industria | Por empresa         |
+| Saldo Técnico — AFIP                    | Por empresa         |
+| Exportaciones                           | Por empresa         |
 
 **No todos los trabajos generan puntos.** Solo los tipos listados. Registrar un honorario mensual o un pago, por ejemplo, no genera puntos.
 
@@ -38,11 +42,11 @@ Paola asigna cuántos puntos vale cada tipo de trabajo según la complejidad del
 
 Esta configuración vive en la tabla `puntos_trabajo_config` (nueva):
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `cliente_id` | uuid FK | El cliente/empresa al que corresponde el trabajo |
+| Campo          | Tipo    | Descripción                                      |
+| -------------- | ------- | ------------------------------------------------ |
+| `cliente_id`   | uuid FK | El cliente/empresa al que corresponde el trabajo |
 | `tipo_trabajo` | varchar | El tipo de trabajo (Balance, Ganancias PF, etc.) |
-| `puntos` | decimal | Puntos asignados por Paola |
+| `puntos`       | decimal | Puntos asignados por Paola                       |
 
 ---
 
@@ -56,11 +60,11 @@ Cada tipo de punto tiene un valor en pesos que Paola puede cambiar en cada liqui
 
 El valor es global por tipo (no varía por cliente ni por empleada). Vive en la tabla `valores_punto_tipo` (nueva):
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `tipo_trabajo` | varchar | El tipo de trabajo |
-| `valor_por_punto` | decimal | Valor monetario por punto |
-| `vigente_desde` | date | Permite cambiar el valor sin pisar períodos anteriores |
+| Campo             | Tipo    | Descripción                                            |
+| ----------------- | ------- | ------------------------------------------------------ |
+| `tipo_trabajo`    | varchar | El tipo de trabajo                                     |
+| `valor_por_punto` | decimal | Valor monetario por punto                              |
+| `vigente_desde`   | date    | Permite cambiar el valor sin pisar períodos anteriores |
 
 ---
 
@@ -82,18 +86,20 @@ La empleada **no carga puntos manualmente**. El historial se construye solo a pa
 
 ---
 
-## 6. Cuenta corriente de puntos (umbral = 15,5 pts/mes)
+## 6. Cuenta corriente de puntos (umbral = 15,5 pts/mes) — ⚠️ superado, ver nota al inicio
 
 Los puntos se acumulan hasta superar el umbral. Cuando se supera, se generan "unidades" de bonificación (una por cada 15,5 puntos completados). Los puntos restantes se arrastran.
 
+**Esta sección describe el diseño original (corte automático). En producción funciona distinto: ver la corrección 2026-07-16 al inicio del documento.**
+
 ### Ejemplo
 
-| Mes | Puntos del mes | Acumulado | Unidades cobradas | Saldo restante |
-|-----|----------------|-----------|-------------------|----------------|
-| Enero | 10 | 10 | 0 | 10 |
-| Febrero | 20 | 30 | 1 (15,5 pts) | 14,5 |
-| Marzo | 5 | 19,5 | 1 (15,5 pts) | 4 |
-| Abril | 25 | 29 | 1 (15,5 pts) | 13,5 |
+| Mes     | Puntos del mes | Acumulado | Unidades cobradas | Saldo restante |
+| ------- | -------------- | --------- | ----------------- | -------------- |
+| Enero   | 10             | 10        | 0                 | 10             |
+| Febrero | 20             | 30        | 1 (15,5 pts)      | 14,5           |
+| Marzo   | 5              | 19,5      | 1 (15,5 pts)      | 4              |
+| Abril   | 25             | 29        | 1 (15,5 pts)      | 13,5           |
 
 **Pago diferido:** Paola puede optar por no pagar en el mes en que se supera el umbral y acumular para pagar varios períodos juntos. El sistema lo permite: al confirmar la liquidación, se descuentan los puntos correspondientes a las unidades que se paguen en ese momento.
 
@@ -136,39 +142,39 @@ Este premio no tiene config previa — Paola lo ingresa manualmente en cada liqu
 
 ### Tablas nuevas
 
-| Tabla | Descripción |
-|-------|-------------|
-| `puntos_trabajo_config` | (cliente, tipo_trabajo) → puntos |
-| `valores_punto_tipo` | tipo_trabajo → valor_por_punto, con vigencia |
+| Tabla                   | Descripción                                  |
+| ----------------------- | -------------------------------------------- |
+| `puntos_trabajo_config` | (cliente, tipo_trabajo) → puntos             |
+| `valores_punto_tipo`    | tipo_trabajo → valor_por_punto, con vigencia |
 
 ### Funciones modificadas
 
-| Función | Cambio |
-|---------|--------|
+| Función                        | Cambio                                                                                                                                 |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `fn_aprobar_trabajo_realizado` | Eliminar ingreso manual de importe_comision. Buscar puntos en `puntos_trabajo_config` y auto-insertar en `registros_puntaje_empleadas` |
-| `fn_calcular_comision_puntaje` | Usar `valores_punto_tipo` por tipo en vez del `valor` único de `comisiones_config` |
+| `fn_calcular_comision_puntaje` | Usar `valores_punto_tipo` por tipo en vez del `valor` único de `comisiones_config`                                                     |
 
 ### UI nueva (solo admin)
 
-| Pantalla | Descripción |
-|----------|-------------|
-| Config puntos por trabajo | Paola asigna puntos a cada (cliente, tipo_trabajo) |
-| Config valores por tipo | Paola setea cuánto vale cada punto antes de cada liquidación |
+| Pantalla                  | Descripción                                                  |
+| ------------------------- | ------------------------------------------------------------ |
+| Config puntos por trabajo | Paola asigna puntos a cada (cliente, tipo_trabajo)           |
+| Config valores por tipo   | Paola setea cuánto vale cada punto antes de cada liquidación |
 
 ### UI simplificada
 
-| Componente | Cambio |
-|------------|--------|
+| Componente      | Cambio                                                                   |
+| --------------- | ------------------------------------------------------------------------ |
 | Aprobar trabajo | Se elimina el campo manual de importe_comision (ya no se ingresa a mano) |
 
 ---
 
 ## 10. Tablas existentes que se reutilizan (sin cambios)
 
-| Tabla | Rol en este sistema |
-|-------|---------------------|
-| `trabajos_realizados` | Registro de trabajos completados por empleada |
-| `registros_puntaje_empleadas` | Puntos generados por período |
-| `saldo_puntaje_empleadas` | Saldo acumulado de puntos |
-| `comisiones_config` | Umbral (15,5) y tipo de comisión por empleada |
-| `liquidaciones_empleadas` | Destino final de la bonificación confirmada |
+| Tabla                         | Rol en este sistema                           |
+| ----------------------------- | --------------------------------------------- |
+| `trabajos_realizados`         | Registro de trabajos completados por empleada |
+| `registros_puntaje_empleadas` | Puntos generados por período                  |
+| `saldo_puntaje_empleadas`     | Saldo acumulado de puntos                     |
+| `comisiones_config`           | Umbral (15,5) y tipo de comisión por empleada |
+| `liquidaciones_empleadas`     | Destino final de la bonificación confirmada   |

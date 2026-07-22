@@ -6,7 +6,10 @@ import { useAuditLog } from '../hooks/useAuditoria'
 import type { TAuditLog } from '../types'
 import { Badge } from '@/shared/components/ui/badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
+import { PaginationControls } from '@/shared/components/PaginationControls'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+
+const PAGE_SIZE = 25
 
 const TABLAS_AUDITADAS = [
   'clientes',
@@ -158,8 +161,14 @@ function CambiosDetalle({ registro }: { registro: TAuditLog }) {
 export function AuditLogViewer() {
   const { isAdmin } = useAuth()
   const [tabla, setTabla] = useState('')
+  const [page, setPage] = useState(0)
   const [expandedId, setExpandedId] = useState<number | null>(null)
-  const { data: registros, isLoading, error } = useAuditLog({ tabla: tabla || undefined })
+  const { data, isLoading, error } = useAuditLog({
+    tabla: tabla || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+  })
+  const registros = data?.rows
 
   if (!isAdmin) return null
 
@@ -169,12 +178,15 @@ export function AuditLogViewer() {
         <div>
           <h3 className="text-base font-semibold">Registro de auditoría</h3>
           <p className="text-muted-foreground mt-0.5 text-xs">
-            Últimos 100 cambios registrados en el sistema
+            Historial completo de cambios registrados en el sistema
           </p>
         </div>
         <select
           value={tabla}
-          onChange={(e) => setTabla(e.target.value)}
+          onChange={(e) => {
+            setTabla(e.target.value)
+            setPage(0)
+          }}
           className="border-border bg-surface text-foreground focus:ring-primary border px-2.5 py-1.5 text-xs font-medium focus:ring-1 focus:outline-none"
         >
           <option value="">Todas las tablas</option>
@@ -255,6 +267,12 @@ export function AuditLogViewer() {
               })}
             </tbody>
           </table>
+          <PaginationControls
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={data?.total ?? 0}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>

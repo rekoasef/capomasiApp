@@ -95,6 +95,9 @@ export type Database = {
       }
       cheques: {
         Row: {
+          acreditacion_confirmada: boolean
+          acreditacion_confirmada_at: string | null
+          acreditacion_confirmada_by: string | null
           banco: string
           cliente_id: string | null
           created_at: string
@@ -112,6 +115,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acreditacion_confirmada?: boolean
+          acreditacion_confirmada_at?: string | null
+          acreditacion_confirmada_by?: string | null
           banco: string
           cliente_id?: string | null
           created_at?: string
@@ -129,6 +135,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acreditacion_confirmada?: boolean
+          acreditacion_confirmada_at?: string | null
+          acreditacion_confirmada_by?: string | null
           banco?: string
           cliente_id?: string | null
           created_at?: string
@@ -146,6 +155,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: 'cheques_acreditacion_confirmada_by_fkey'
+            columns: ['acreditacion_confirmada_by']
+            isOneToOne: false
+            referencedRelation: 'usuarios'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'cheques_cliente_id_fkey'
             columns: ['cliente_id']
@@ -546,8 +562,11 @@ export type Database = {
           fecha: string
           id: string
           importe_banco: number | null
+          importe_cheques_cartera: number | null
           importe_efectivo: number | null
+          importe_taralo: number | null
           importe_usd: number | null
+          notas: string | null
           nro_comprobante: string | null
           referencia_id: string | null
           referencia_tipo: string | null
@@ -562,8 +581,11 @@ export type Database = {
           fecha: string
           id?: string
           importe_banco?: number | null
+          importe_cheques_cartera?: number | null
           importe_efectivo?: number | null
+          importe_taralo?: number | null
           importe_usd?: number | null
+          notas?: string | null
           nro_comprobante?: string | null
           referencia_id?: string | null
           referencia_tipo?: string | null
@@ -578,8 +600,11 @@ export type Database = {
           fecha?: string
           id?: string
           importe_banco?: number | null
+          importe_cheques_cartera?: number | null
           importe_efectivo?: number | null
+          importe_taralo?: number | null
           importe_usd?: number | null
+          notas?: string | null
           nro_comprobante?: string | null
           referencia_id?: string | null
           referencia_tipo?: string | null
@@ -1984,6 +2009,7 @@ export type Database = {
       v_pagos_gastos_detalle: {
         Row: {
           anio: number | null
+          categoria_ambito: string | null
           categoria_color: string | null
           categoria_id: string | null
           categoria_nombre: string | null
@@ -2003,6 +2029,7 @@ export type Database = {
       }
       v_proximos_vencimientos: {
         Row: {
+          categoria_ambito: string | null
           categoria_color: string | null
           categoria_id: string | null
           categoria_nombre: string | null
@@ -2070,7 +2097,9 @@ export type Database = {
       v_saldo_fondos: {
         Row: {
           saldo_banco: number | null
+          saldo_cheques_cartera: number | null
           saldo_efectivo: number | null
+          saldo_taralo: number | null
           saldo_usd: number | null
         }
         Relationships: []

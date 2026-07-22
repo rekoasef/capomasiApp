@@ -343,45 +343,6 @@ export function useEliminarPuntaje(empleadaId: string, periodoMes: number, perio
   })
 }
 
-export function usePreviewPuntaje(empleadaId: string, periodoMes: number, periodoAnio: number) {
-  return useQuery({
-    queryKey: ['preview_puntaje', empleadaId, periodoAnio, periodoMes],
-    queryFn: async () => {
-      const r = await comisionesService.calcularPreviewPuntaje(empleadaId, periodoMes, periodoAnio)
-      if (!r.ok) throw new Error(r.error)
-      return r.data
-    },
-    enabled: !!empleadaId,
-  })
-}
-
-export function useConfirmarComisionPuntaje(
-  empleadaId: string,
-  periodoMes: number,
-  periodoAnio: number
-) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: () =>
-      comisionesService.confirmarComisionPuntaje(empleadaId, periodoMes, periodoAnio),
-    onSuccess: (r) => {
-      if (!r.ok) {
-        toast.error(r.error)
-        return
-      }
-      if (r.data.comision_generada > 0) {
-        toast.success('Comisión registrada — podés importarla a la liquidación cuando quieras')
-      } else {
-        toast.success(`Saldo actualizado. Puntos acumulados: ${r.data.puntos_restantes}`)
-      }
-      qc.invalidateQueries({ queryKey: ['puntaje_periodo', empleadaId, periodoAnio, periodoMes] })
-      qc.invalidateQueries({ queryKey: ['saldo_puntaje', empleadaId] })
-      qc.invalidateQueries({ queryKey: ['preview_puntaje', empleadaId, periodoAnio, periodoMes] })
-      qc.invalidateQueries({ queryKey: ['comisiones_registradas', empleadaId] })
-    },
-  })
-}
-
 export function useAjustarSaldoPuntaje(empleadaId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -394,36 +355,6 @@ export function useAjustarSaldoPuntaje(empleadaId: string) {
       }
       toast.success(`Puntos descontados. Saldo restante: ${r.data.puntos_acumulados} pts`)
       qc.invalidateQueries({ queryKey: ['saldo_puntaje', empleadaId] })
-      qc.invalidateQueries({ queryKey: ['preview_puntaje', empleadaId] })
-    },
-  })
-}
-
-export function useComisionesRegistradas(empleadaId: string) {
-  return useQuery({
-    queryKey: ['comisiones_registradas', empleadaId],
-    queryFn: async () => {
-      const r = await comisionesService.getComisionesRegistradas(empleadaId)
-      if (!r.ok) throw new Error(r.error)
-      return r.data
-    },
-    enabled: !!empleadaId,
-  })
-}
-
-export function useLiquidarComision(empleadaId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (registroId: string) => comisionesService.liquidarComision(registroId),
-    onSuccess: (r) => {
-      if (!r.ok) {
-        toast.error(r.error)
-        return
-      }
-      toast.success('Comisión importada a la liquidación')
-      qc.invalidateQueries({ queryKey: ['comisiones_registradas', empleadaId] })
-      qc.invalidateQueries({ queryKey: ['liquidaciones_empleadas', empleadaId] })
-      qc.invalidateQueries({ queryKey: ['resumen_periodo'] })
     },
   })
 }

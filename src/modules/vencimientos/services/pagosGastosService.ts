@@ -72,30 +72,60 @@ function buildResumen(anio: number, pagos: TPagoGastoDetalle[]): TResumenAnualGa
     total,
     porCategoria: Array.from(categorias.values()).sort((a, b) => b.total - a.total),
     porGasto: Array.from(gastos.values()).sort((a, b) => b.total - a.total),
-    mensualPorGasto: Array.from(mensual.values()).sort((a, b) => a.mes - b.mes || b.total - a.total),
+    mensualPorGasto: Array.from(mensual.values()).sort(
+      (a, b) => a.mes - b.mes || b.total - a.total
+    ),
   }
 }
 
 export const pagosGastosService = {
   async getHistorial(filters?: TPagosGastosFilters): Promise<ServiceResult<TPagoGastoDetalle[]>> {
     const range = normalizeFilters(filters)
-    let query = supabase
-      .from('v_pagos_gastos_detalle')
-      .select('*')
+    let query = supabase.from('v_pagos_gastos_detalle').select('*')
 
     if (range.desde) query = query.gte('fecha_pago', range.desde)
     if (range.hasta) query = query.lte('fecha_pago', range.hasta)
     if (filters?.categoriaId) query = query.eq('categoria_id', filters.categoriaId)
-    if (filters?.gastoRecurrenteId) query = query.eq('gasto_recurrente_id', filters.gastoRecurrenteId)
+    if (filters?.gastoRecurrenteId)
+      query = query.eq('gasto_recurrente_id', filters.gastoRecurrenteId)
+    if (filters?.ambito) query = query.eq('categoria_ambito', filters.ambito)
 
     const { data, error } = await query.order('fecha_pago', { ascending: false })
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: (data ?? []) as TPagoGastoDetalle[] }
   },
 
+  // Versión paginada de getHistorial, para la tabla de la UI. getHistorial (sin
+  // paginar) se sigue usando para el resumen/gráfico, que necesitan el total real.
+  async getHistorialPaginado(
+    filters?: TPagosGastosFilters & { page?: number; pageSize?: number }
+  ): Promise<ServiceResult<{ rows: TPagoGastoDetalle[]; total: number }>> {
+    const pageSize = filters?.pageSize ?? 25
+    const page = filters?.page ?? 0
+    const from = page * pageSize
+    const to = from + pageSize - 1
+
+    const range = normalizeFilters(filters)
+    let query = supabase.from('v_pagos_gastos_detalle').select('*', { count: 'exact' })
+
+    if (range.desde) query = query.gte('fecha_pago', range.desde)
+    if (range.hasta) query = query.lte('fecha_pago', range.hasta)
+    if (filters?.categoriaId) query = query.eq('categoria_id', filters.categoriaId)
+    if (filters?.gastoRecurrenteId)
+      query = query.eq('gasto_recurrente_id', filters.gastoRecurrenteId)
+    if (filters?.ambito) query = query.eq('categoria_ambito', filters.ambito)
+
+    const { data, error, count } = await query
+      .order('fecha_pago', { ascending: false })
+      .range(from, to)
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: { rows: (data ?? []) as TPagoGastoDetalle[], total: count ?? 0 } }
+  },
+
   async registrar(form: TPagoGastoForm): Promise<ServiceResult<TPagoGasto>> {
     const parsed = pagoGastoSchema.safeParse(form)
-    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
 
     const { data, error } = await supabase.rpc('fn_registrar_pago_gasto', {
       p_categoria_id: parsed.data.categoria_id,
@@ -114,7 +144,8 @@ export const pagosGastosService = {
 
   async update(id: string, form: TPagoGastoForm): Promise<ServiceResult<TPagoGasto>> {
     const parsed = pagoGastoSchema.safeParse(form)
-    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
 
     const { data, error } = await supabase
       .from('pagos_gastos')
@@ -127,7 +158,10 @@ export const pagosGastosService = {
     return { ok: true, data: data as TPagoGasto }
   },
 
-  async getResumenAnual(anio: number, filters?: Omit<TPagosGastosFilters, 'anio' | 'mes'>): Promise<ServiceResult<TResumenAnualGastos>> {
+  async getResumenAnual(
+    anio: number,
+    filters?: Omit<TPagosGastosFilters, 'anio' | 'mes'>
+  ): Promise<ServiceResult<TResumenAnualGastos>> {
     const result = await pagosGastosService.getHistorial({ ...filters, anio })
     if (!result.ok) return { ok: false, error: result.error, code: result.code }
     return { ok: true, data: buildResumen(anio, result.data) }

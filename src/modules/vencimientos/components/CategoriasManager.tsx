@@ -67,63 +67,91 @@ export function CategoriasManager() {
   if (isLoading) return <Skeleton className="h-48 w-full rounded-none" />
   if (error) return <p className="text-danger text-sm">{error.message}</p>
 
+  const personales = categorias?.filter((c) => c.ambito === 'PERSONAL') ?? []
+  const estudio = categorias?.filter((c) => c.ambito === 'ESTUDIO') ?? []
+
+  const renderCategoria = (categoria: TCategoriaGasto) => (
+    <div
+      key={categoria.id}
+      className="bg-surface hover:bg-muted/25 flex items-center gap-3 px-4 py-3"
+    >
+      <span
+        className="border-border h-4 w-4 border"
+        style={{ backgroundColor: categoria.color ?? 'transparent' }}
+      />
+      <div className="min-w-0 flex-1">
+        <p
+          className={`text-sm font-semibold ${!categoria.activo ? 'text-muted-foreground line-through' : ''}`}
+        >
+          {categoria.nombre}
+        </p>
+        <p className="text-muted-foreground text-xs">{categoria.activo ? 'Activa' : 'Inactiva'}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => startEdit(categoria)}
+        className="text-muted-foreground hover:bg-muted hover:text-foreground p-1.5"
+        title="Editar"
+      >
+        <Edit2 className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => actualizar.mutate({ id: categoria.id, form: { activo: !categoria.activo } })}
+        className="text-muted-foreground hover:bg-muted hover:text-foreground p-1.5"
+        title={categoria.activo ? 'Desactivar' : 'Activar'}
+      >
+        <Power className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setDeleteId(categoria.id)}
+        className="text-muted-foreground hover:bg-danger/10 hover:text-danger p-1.5"
+        title="Eliminar"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  )
+
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="divide-border border-border divide-y border">
+      <div className="space-y-5">
         {!categorias?.length ? (
-          <p className="text-muted-foreground py-10 text-center text-xs tracking-widest uppercase">
+          <p className="text-muted-foreground border-border border py-10 text-center text-xs tracking-widest uppercase">
             Sin categorías
           </p>
         ) : (
-          categorias.map((categoria) => (
-            <div
-              key={categoria.id}
-              className="bg-surface hover:bg-muted/25 flex items-center gap-3 px-4 py-3"
-            >
-              <span
-                className="border-border h-4 w-4 border"
-                style={{ backgroundColor: categoria.color ?? 'transparent' }}
-              />
-              <div className="min-w-0 flex-1">
-                <p
-                  className={`text-sm font-semibold ${!categoria.activo ? 'text-muted-foreground line-through' : ''}`}
-                >
-                  {categoria.nombre}
+          <>
+            <section>
+              <h2 className="text-muted-foreground mb-2 text-[11px] font-bold tracking-[0.16em] uppercase">
+                Gastos personales
+              </h2>
+              {personales.length ? (
+                <div className="divide-border border-border divide-y border">
+                  {personales.map(renderCategoria)}
+                </div>
+              ) : (
+                <p className="text-muted-foreground border-border border px-4 py-3 text-xs">
+                  Sin categorías personales
                 </p>
-                <p className="text-muted-foreground text-xs">
-                  {categoria.activo ? 'Activa' : 'Inactiva'}
-                  {' · '}
-                  {categoria.ambito === 'ESTUDIO' ? 'Gasto del estudio' : 'Gasto personal'}
+              )}
+            </section>
+            <section>
+              <h2 className="text-muted-foreground mb-2 text-[11px] font-bold tracking-[0.16em] uppercase">
+                Gastos del estudio
+              </h2>
+              {estudio.length ? (
+                <div className="divide-border border-border divide-y border">
+                  {estudio.map(renderCategoria)}
+                </div>
+              ) : (
+                <p className="text-muted-foreground border-border border px-4 py-3 text-xs">
+                  Sin categorías del estudio
                 </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => startEdit(categoria)}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground p-1.5"
-                title="Editar"
-              >
-                <Edit2 className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  actualizar.mutate({ id: categoria.id, form: { activo: !categoria.activo } })
-                }
-                className="text-muted-foreground hover:bg-muted hover:text-foreground p-1.5"
-                title={categoria.activo ? 'Desactivar' : 'Activar'}
-              >
-                <Power className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeleteId(categoria.id)}
-                className="text-muted-foreground hover:bg-danger/10 hover:text-danger p-1.5"
-                title="Eliminar"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))
+              )}
+            </section>
+          </>
         )}
       </div>
 

@@ -169,32 +169,3 @@ export interface TResumenComisionHoras {
   valor_hora: number
   total_pagar: number
 }
-
-export interface TResumenComisionPuntaje {
-  puntos_periodo: number
-  puntos_acumulados_prev: number
-  puntos_total: number
-  umbral: number
-  comision_generada: number
-  puntos_restantes: number
-}
-
-export interface TConfirmacionPuntaje {
-  comision_generada: number
-  puntos_restantes: number
-  registro_id: string | null
-}
-
-export interface TComisionPuntajeRegistrada {
-  id: string
-  empleada_id: string
-  periodo_mes: number
-  periodo_anio: number
-  importe: number
-  puntos_total: number
-  estado: 'PENDIENTE' | 'LIQUIDADA'
-  liquidacion_id: string | null
-  confirmada_at: string
-  liquidada_at: string | null
-  notas: string | null
-}

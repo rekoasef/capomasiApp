@@ -26,6 +26,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
+import { PaginationControls } from '@/shared/components/PaginationControls'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react'
@@ -52,9 +53,17 @@ const ESTADO_LABEL: Record<string, string> = {
   ANULADA: 'Anulada',
 }
 
+const COMPRAS_PAGE_SIZE = 25
+
 export function ProveedoresOverview() {
   const { data: proveedores, isLoading: loadingProv } = useProveedores()
-  const { data: compras, isLoading: loadingComp, error } = useComprasProveedores()
+  const [comprasPage, setComprasPage] = useState(0)
+  const {
+    data: comprasData,
+    isLoading: loadingComp,
+    error,
+  } = useComprasProveedores({ page: comprasPage, pageSize: COMPRAS_PAGE_SIZE })
+  const compras = comprasData?.rows
   const {
     data: cuentaCorriente,
     isLoading: loadingCC,
@@ -349,6 +358,12 @@ export function ProveedoresOverview() {
                   ))}
                 </tbody>
               </table>
+              <PaginationControls
+                page={comprasPage}
+                pageSize={COMPRAS_PAGE_SIZE}
+                total={comprasData?.total ?? 0}
+                onPageChange={setComprasPage}
+              />
             </div>
           )}
         </div>
