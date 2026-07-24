@@ -116,6 +116,7 @@ export interface TRegistroPuntaje {
   descripcion: string
   puntos: number
   tipo_trabajo: string | null
+  valor_generado: number | null
   created_by: string | null
   created_at: string
 }
@@ -147,9 +148,15 @@ export interface TValoresPuntoTipo {
   created_at: string
 }
 
+// valor_acumulado es la plata real que quedó pendiente de pagar, en
+// paralelo a puntos_acumulados — cada punto guarda su valor en pesos
+// al generarse (fn_calcular_valor_generado_puntaje) y ambos contadores
+// bajan juntos al descontar (fn_ajustar_saldo_puntaje), no se recalcula
+// un promedio sobre el historial completo.
 export interface TSaldoPuntaje {
   empleada_id: string
   puntos_acumulados: number
+  valor_acumulado: number
   updated_at: string
 }
 

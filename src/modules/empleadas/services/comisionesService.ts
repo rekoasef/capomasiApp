@@ -110,23 +110,34 @@ export const comisionesService = {
     return { ok: true, data: undefined }
   },
 
-  // Cuenta corriente manual: Paola decide cuántos puntos descontar del saldo
-  // acumulado al liquidar (reemplaza el flujo automático de confirmar/liquidar
-  // por umbral — ver docs/funcional/PUNTOS_EMPLEADAS.md).
+  // Cuenta corriente manual: Paola decide cuántos puntos Y cuánta plata
+  // descontar del saldo acumulado al liquidar (reemplaza el flujo automático
+  // de confirmar/liquidar por umbral — ver docs/funcional/PUNTOS_EMPLEADAS.md).
+  // Los dos números bajan juntos pero de forma independiente: no hace falta
+  // que el monto sea proporcional a los puntos, es un ajuste manual como el
+  // de puntos.
   async ajustarSaldoPuntaje(
     empleadaId: string,
     puntosADescontar: number,
+    montoADescontar: number,
     nota?: string
-  ): Promise<ServiceResult<{ puntos_acumulados: number }>> {
+  ): Promise<ServiceResult<{ puntos_acumulados: number; valor_acumulado: number }>> {
     const { data, error } = await supabase.rpc('fn_ajustar_saldo_puntaje', {
       p_empleada_id: empleadaId,
       p_puntos_a_descontar: puntosADescontar,
+      p_monto_a_descontar: montoADescontar,
       p_nota: nota,
     })
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     const row = Array.isArray(data) ? data[0] : data
-    return { ok: true, data: { puntos_acumulados: Number(row?.puntos_acumulados ?? 0) } }
+    return {
+      ok: true,
+      data: {
+        puntos_acumulados: Number(row?.puntos_acumulados ?? 0),
+        valor_acumulado: Number(row?.valor_acumulado ?? 0),
+      },
+    }
   },
 
   // ── Horas ──────────────────────────────────────────────────

@@ -1563,6 +1563,7 @@ export type Database = {
           periodo_mes: number
           puntos: number
           tipo_trabajo: string | null
+          valor_generado: number | null
         }
         Insert: {
           created_at?: string
@@ -1574,6 +1575,7 @@ export type Database = {
           periodo_mes: number
           puntos: number
           tipo_trabajo?: string | null
+          valor_generado?: number | null
         }
         Update: {
           created_at?: string
@@ -1585,6 +1587,7 @@ export type Database = {
           periodo_mes?: number
           puntos?: number
           tipo_trabajo?: string | null
+          valor_generado?: number | null
         }
         Relationships: [
           {
@@ -1608,16 +1611,19 @@ export type Database = {
           empleada_id: string
           puntos_acumulados: number
           updated_at: string
+          valor_acumulado: number
         }
         Insert: {
           empleada_id: string
           puntos_acumulados?: number
           updated_at?: string
+          valor_acumulado?: number
         }
         Update: {
           empleada_id?: string
           puntos_acumulados?: number
           updated_at?: string
+          valor_acumulado?: number
         }
         Relationships: [
           {
@@ -2106,16 +2112,29 @@ export type Database = {
       }
     }
     Functions: {
-      fn_ajustar_saldo_puntaje: {
-        Args: {
-          p_empleada_id: string
-          p_nota?: string
-          p_puntos_a_descontar: number
-        }
-        Returns: {
-          puntos_acumulados: number
-        }[]
-      }
+      fn_ajustar_saldo_puntaje:
+        | {
+            Args: {
+              p_empleada_id: string
+              p_monto_a_descontar?: number
+              p_nota?: string
+              p_puntos_a_descontar: number
+            }
+            Returns: {
+              puntos_acumulados: number
+              valor_acumulado: number
+            }[]
+          }
+        | {
+            Args: {
+              p_empleada_id: string
+              p_nota?: string
+              p_puntos_a_descontar: number
+            }
+            Returns: {
+              puntos_acumulados: number
+            }[]
+          }
       fn_anular_recibo: {
         Args: { p_motivo?: string; p_recibo_id: string }
         Returns: {

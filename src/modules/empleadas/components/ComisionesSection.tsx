@@ -51,11 +51,18 @@ const MESES = [
   'Diciembre',
 ]
 
-interface Props {
-  empleada: TEmpleada
+interface DescuentoPuntajePayload {
+  importe: number
+  puntos: number
+  nota?: string
 }
 
-export function ComisionesSection({ empleada }: Props) {
+interface Props {
+  empleada: TEmpleada
+  onDescontadoPuntaje?: (payload: DescuentoPuntajePayload) => void
+}
+
+export function ComisionesSection({ empleada, onDescontadoPuntaje }: Props) {
   const hoy = new Date()
   const [mes, setMes] = useState(hoy.getMonth() + 1)
   const [anio, setAnio] = useState(hoy.getFullYear())
@@ -137,7 +144,12 @@ export function ComisionesSection({ empleada }: Props) {
       )}
 
       {tipoComision === 'PUNTAJE' && (
-        <ComisionPuntajePanel empleadaId={empleada.id} mes={mes} anio={anio} />
+        <ComisionPuntajePanel
+          empleadaId={empleada.id}
+          mes={mes}
+          anio={anio}
+          onDescontado={onDescontadoPuntaje}
+        />
       )}
 
       {tipoComision === 'HORAS' && (
@@ -360,16 +372,20 @@ function ComisionPuntajePanel({
   empleadaId,
   mes,
   anio,
+  onDescontado,
 }: {
   empleadaId: string
   mes: number
   anio: number
+  onDescontado?: (payload: DescuentoPuntajePayload) => void
 }) {
   const [showForm, setShowForm] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [showDescontar, setShowDescontar] = useState(false)
   const [puntosDescontar, setPuntosDescontar] = useState('')
+  const [montoDescontar, setMontoDescontar] = useState('')
   const [notaDescontar, setNotaDescontar] = useState('')
+  const [confirmarBajoUmbral, setConfirmarBajoUmbral] = useState(false)
 
   const { data: registros = [], isLoading } = usePuntajePeriodo(empleadaId, mes, anio)
   const { data: saldo } = useSaldoPuntaje(empleadaId)
@@ -407,34 +423,56 @@ function ComisionPuntajePanel({
   })
 
   const totalPeriodo = registros.reduce((s, r) => s + Number(r.puntos), 0)
-  // Saldo = cuenta corriente en tiempo real (ya incluye los puntos del período actual)
+  // Saldo = cuenta corriente en tiempo real (ya incluye los puntos del período actual).
+  // valor_acumulado es la plata real que queda pendiente, en paralelo a los puntos —
+  // cada punto guarda su valor al generarse, no se recalcula un promedio del historial.
   const saldoActual = saldo?.puntos_acumulados ?? 0
+  const valorAcumulado = saldo?.valor_acumulado ?? 0
+  const valorPorPunto = saldoActual > 0 ? valorAcumulado / saldoActual : 0
   const umbral = config?.umbral_puntaje ?? 0
   const superaUmbral = umbral > 0 && saldoActual >= umbral
   const hayRegistrosSinTipo = registros.some((r) => !r.tipo_trabajo)
 
+  const montoSugerido = Number(puntosDescontar || 0) * valorPorPunto
+  const puntosADescontarNum = Number(puntosDescontar || 0)
+  const bajoUmbral = umbral > 0 && puntosADescontarNum > 0 && puntosADescontarNum < umbral
+
   const handleDescontar = () => {
     const puntos = Number(puntosDescontar)
     if (!puntos || puntos <= 0) return
+    const monto = Number(montoDescontar) || 0
     ajustar.mutate(
-      { puntos, nota: notaDescontar || undefined },
+      { puntos, monto, nota: notaDescontar || undefined },
       {
         onSuccess: (r) => {
           if (!r.ok) return
+          if (monto > 0) {
+            onDescontado?.({ importe: monto, puntos, nota: notaDescontar || undefined })
+          }
           setShowDescontar(false)
           setPuntosDescontar('')
+          setMontoDescontar('')
           setNotaDescontar('')
         },
       }
     )
   }
 
+  const handleConfirmarClick = () => {
+    if (bajoUmbral) {
+      setConfirmarBajoUmbral(true)
+      return
+    }
+    handleDescontar()
+  }
+
   return (
     <div className="space-y-4">
       {/* Resumen */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryCard label="Este mes" value={`${totalPeriodo} pts`} />
         <SummaryCard label="Saldo acumulado" value={`${saldoActual.toFixed(2)} pts`} highlight />
+        <SummaryCard label="Saldo en pesos" value={formatMoney(valorAcumulado)} highlight />
         <SummaryCard
           label={umbral > 0 ? `Umbral de referencia (${umbral} pts)` : 'Umbral no configurado'}
           value={superaUmbral ? 'Superado' : '—'}
@@ -442,16 +480,17 @@ function ComisionPuntajePanel({
         />
       </div>
       <p className="text-muted-foreground text-xs">
-        El saldo es una cuenta corriente: se acumula solo con cada trabajo aprobado. Vos decidís
-        cuánto descontar cuando liquidás (podés hacerlo en cualquier momento, no hace falta esperar
-        a superar el umbral).
+        El saldo es una cuenta corriente: puntos y plata se acumulan juntos con cada trabajo
+        aprobado. Vos decidís cuánto descontar de cada uno cuando liquidás (podés hacerlo en
+        cualquier momento, no hace falta esperar a superar el umbral).
       </p>
 
       {/* Alerta registros sin tipo */}
       {hayRegistrosSinTipo && (
         <p className="border-warning/40 bg-warning/5 text-warning border px-3 py-2 text-xs">
-          Algunos registros no tienen tipo de trabajo — se usa el valor más reciente configurado
-          como fallback. Para mayor precisión, especificá el tipo al agregar puntajes.
+          Algunos registros no tienen tipo de trabajo (o su tipo no tiene un valor configurado en
+          Configuración) — esos puntos no suman al saldo en pesos, solo al saldo en puntos. Para que
+          sumen plata, especificá el tipo al agregar puntajes y cargá su valor.
         </p>
       )}
 
@@ -459,9 +498,9 @@ function ComisionPuntajePanel({
       <div className="border-border bg-surface border p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold">Descontar puntos del saldo</p>
+            <p className="text-sm font-semibold">Descontar del saldo</p>
             <p className="text-muted-foreground text-xs">
-              Saldo disponible: {saldoActual.toFixed(2)} pts
+              Disponible: {saldoActual.toFixed(2)} pts · {formatMoney(valorAcumulado)}
             </p>
           </div>
           {!showDescontar && (
@@ -469,7 +508,13 @@ function ComisionPuntajePanel({
               size="sm"
               variant="outline"
               onClick={() => {
-                setPuntosDescontar(umbral > 0 ? String(umbral) : '')
+                const puntosIniciales = umbral > 0 ? umbral : 0
+                setPuntosDescontar(puntosIniciales > 0 ? String(puntosIniciales) : '')
+                setMontoDescontar(
+                  puntosIniciales > 0 && valorPorPunto > 0
+                    ? (puntosIniciales * valorPorPunto).toFixed(2)
+                    : ''
+                )
                 setShowDescontar(true)
               }}
               disabled={saldoActual <= 0}
@@ -498,10 +543,32 @@ function ComisionPuntajePanel({
                 onChange={(e) => setNotaDescontar(e.target.value)}
               />
             </div>
+            <div>
+              <Input
+                label="Monto a descontar ($)"
+                type="number"
+                step="0.01"
+                min="0"
+                value={montoDescontar}
+                onChange={(e) => setMontoDescontar(e.target.value)}
+              />
+              {montoSugerido > 0 && (
+                <p className="text-muted-foreground mt-1 text-[11px]">
+                  Sugerido: {formatMoney(montoSugerido)} (según lo que queda pendiente en el saldo).{' '}
+                  <button
+                    type="button"
+                    onClick={() => setMontoDescontar(montoSugerido.toFixed(2))}
+                    className="text-primary font-semibold hover:underline"
+                  >
+                    Usar sugerido
+                  </button>
+                </p>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button
                 size="sm"
-                onClick={handleDescontar}
+                onClick={handleConfirmarClick}
                 disabled={
                   ajustar.isPending ||
                   !puntosDescontar ||
@@ -521,8 +588,8 @@ function ComisionPuntajePanel({
               </Button>
             </div>
             <p className="text-muted-foreground text-xs">
-              Esto solo ajusta el saldo de puntos. Para pagarle a la empleada, agregá el concepto
-              correspondiente en la solapa Liquidación con el importe que corresponda.
+              Al confirmar, se te va a abrir la solapa Liquidación con el concepto ya precargado con
+              este monto — lo podés ajustar antes de guardar.
             </p>
           </div>
         )}
@@ -640,6 +707,19 @@ function ComisionPuntajePanel({
         }}
         onCancel={() => setDeleteId(null)}
         isPending={eliminar.isPending}
+      />
+
+      <ConfirmDialog
+        open={confirmarBajoUmbral}
+        title="Descontar menos del umbral"
+        description={`Vas a descontar ${puntosDescontar} pts, menos que el umbral configurado (${umbral} pts). ¿Confirmás igual?`}
+        confirmLabel="Confirmar igual"
+        onConfirm={() => {
+          setConfirmarBajoUmbral(false)
+          handleDescontar()
+        }}
+        onCancel={() => setConfirmarBajoUmbral(false)}
+        isPending={ajustar.isPending}
       />
     </div>
   )

@@ -322,7 +322,7 @@ export function useAgregarPuntaje(empleadaId: string, periodoMes: number, period
       }
       toast.success('Puntaje registrado')
       qc.invalidateQueries({ queryKey: ['puntaje_periodo', empleadaId, periodoAnio, periodoMes] })
-      qc.invalidateQueries({ queryKey: ['preview_puntaje', empleadaId, periodoAnio, periodoMes] })
+      qc.invalidateQueries({ queryKey: ['saldo_puntaje', empleadaId] })
     },
   })
 }
@@ -338,7 +338,7 @@ export function useEliminarPuntaje(empleadaId: string, periodoMes: number, perio
       }
       toast.success('Registro eliminado')
       qc.invalidateQueries({ queryKey: ['puntaje_periodo', empleadaId, periodoAnio, periodoMes] })
-      qc.invalidateQueries({ queryKey: ['preview_puntaje', empleadaId, periodoAnio, periodoMes] })
+      qc.invalidateQueries({ queryKey: ['saldo_puntaje', empleadaId] })
     },
   })
 }
@@ -346,8 +346,8 @@ export function useEliminarPuntaje(empleadaId: string, periodoMes: number, perio
 export function useAjustarSaldoPuntaje(empleadaId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ puntos, nota }: { puntos: number; nota?: string }) =>
-      comisionesService.ajustarSaldoPuntaje(empleadaId, puntos, nota),
+    mutationFn: ({ puntos, monto, nota }: { puntos: number; monto: number; nota?: string }) =>
+      comisionesService.ajustarSaldoPuntaje(empleadaId, puntos, monto, nota),
     onSuccess: (r) => {
       if (!r.ok) {
         toast.error(r.error)
@@ -499,7 +499,6 @@ export function useUpsertValoresPuntoTipo() {
       }
       toast.success('Valor guardado')
       qc.invalidateQueries({ queryKey: ['valores_punto_tipo'] })
-      qc.invalidateQueries({ queryKey: ['preview_puntaje'] })
     },
   })
 }

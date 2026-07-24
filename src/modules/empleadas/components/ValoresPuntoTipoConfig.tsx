@@ -9,10 +9,7 @@ import {
   useUpsertValoresPuntoTipo,
   useDeleteValoresPuntoTipo,
 } from '../hooks/useEmpleadas'
-import {
-  valoresPuntoTipoSchema,
-  type TValoresPuntoTipoForm,
-} from '../schemas/empleadaSchema'
+import { valoresPuntoTipoSchema, type TValoresPuntoTipoForm } from '../schemas/empleadaSchema'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
 import { Input } from '@/shared/components/ui/input'
@@ -45,7 +42,7 @@ export function ValoresPuntoTipoConfig() {
   })
 
   const valoresVigentes = valores.filter(
-    (v, i, arr) => arr.findIndex((x) => x.tipo_trabajo === v.tipo_trabajo) === i,
+    (v, i, arr) => arr.findIndex((x) => x.tipo_trabajo === v.tipo_trabajo) === i
   )
 
   return (
@@ -53,7 +50,7 @@ export function ValoresPuntoTipoConfig() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-base font-semibold">Valor del punto por tipo de trabajo</h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className="text-muted-foreground mt-0.5 text-xs">
             Cuánto vale cada punto según el tipo de trabajo. Se aplica a todas las empleadas.
           </p>
         </div>
@@ -64,15 +61,15 @@ export function ValoresPuntoTipoConfig() {
       </div>
 
       {showForm && (
-        <form onSubmit={onSubmit} className="border border-border bg-surface p-4 space-y-3">
+        <form onSubmit={onSubmit} className="border-border bg-surface space-y-3 border p-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="block text-[11px] font-semibold tracking-wide uppercase text-muted-foreground mb-1">
+              <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
                 Tipo de trabajo *
               </label>
               <select
                 {...form.register('tipo_trabajo')}
-                className="w-full border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               >
                 <option value="">Seleccionar...</option>
                 {tiposTrabajo.map((o) => (
@@ -82,7 +79,7 @@ export function ValoresPuntoTipoConfig() {
                 ))}
               </select>
               {form.formState.errors.tipo_trabajo && (
-                <p className="mt-1 text-xs text-danger">
+                <p className="text-danger mt-1 text-xs">
                   {form.formState.errors.tipo_trabajo.message}
                 </p>
               )}
@@ -106,12 +103,7 @@ export function ValoresPuntoTipoConfig() {
             <Button type="submit" size="sm" disabled={upsert.isPending}>
               {upsert.isPending ? 'Guardando...' : 'Guardar'}
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setShowForm(false)}
-            >
+            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>
               Cancelar
             </Button>
           </div>
@@ -125,38 +117,40 @@ export function ValoresPuntoTipoConfig() {
           ))}
         </div>
       ) : !valoresVigentes.length ? (
-        <p className="py-6 text-center text-xs tracking-widest uppercase text-muted-foreground">
-          Sin valores configurados. El sistema no puede calcular comisiones por puntaje.
+        <p className="text-muted-foreground py-6 text-center text-xs tracking-widest uppercase">
+          Sin valores configurados. El descuento manual de puntos no va a poder sugerir un monto.
         </p>
       ) : (
-        <div className="overflow-x-auto border border-border">
+        <div className="border-border overflow-x-auto border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b-2 border-border bg-muted/50">
-                <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">
+              <tr className="border-border bg-muted/50 border-b-2">
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
                   Tipo de trabajo
                 </th>
-                <th className="px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">
+                <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
                   Valor por punto
                 </th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase text-muted-foreground">
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
                   Vigente desde
                 </th>
                 <th className="w-10 px-4 py-2.5" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-border bg-surface">
+            <tbody className="divide-border bg-surface divide-y">
               {valoresVigentes.map((v) => (
-                <tr key={v.id} className="transition-colors hover:bg-muted/30">
+                <tr key={v.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-2.5 font-medium">{v.tipo_trabajo}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums font-bold">
+                  <td className="px-4 py-2.5 text-right font-bold tabular-nums">
                     {formatMoney(Number(v.valor_por_punto))}
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{formatDate(v.vigente_desde)}</td>
+                  <td className="text-muted-foreground px-4 py-2.5">
+                    {formatDate(v.vigente_desde)}
+                  </td>
                   <td className="w-10 px-4 py-2.5">
                     <button
                       onClick={() => setDeleteId(v.id)}
-                      className="p-1 text-muted-foreground hover:text-danger"
+                      className="text-muted-foreground hover:text-danger p-1"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -52,12 +52,19 @@ const MESES = [
 
 type Tab = 'legajo' | 'comisiones' | 'liquidacion' | 'cuenta'
 
+interface PrefillHaber {
+  importe: number
+  puntos: number
+  nota?: string
+}
+
 interface Props {
   empleadaId: string
 }
 
 export function EmpleadaDetalle({ empleadaId }: Props) {
   const [tab, setTab] = useState<Tab>('legajo')
+  const [prefillHaber, setPrefillHaber] = useState<PrefillHaber | null>(null)
   const { isAdmin } = useAuth()
   const { data: empleada, isLoading: loadingEmpleada } = useEmpleadaById(empleadaId)
 
@@ -104,9 +111,23 @@ export function EmpleadaDetalle({ empleadaId }: Props) {
       {/* Content */}
       {tab === 'legajo' && <LegajoSection empleada={empleada} />}
 
-      {tab === 'comisiones' && <ComisionesSection empleada={empleada} />}
+      {tab === 'comisiones' && (
+        <ComisionesSection
+          empleada={empleada}
+          onDescontadoPuntaje={(payload) => {
+            setPrefillHaber(payload)
+            setTab('liquidacion')
+          }}
+        />
+      )}
 
-      {tab === 'liquidacion' && <LiquidacionTab empleadaId={empleadaId} />}
+      {tab === 'liquidacion' && (
+        <LiquidacionTab
+          empleadaId={empleadaId}
+          prefillHaber={prefillHaber}
+          onConsumePrefillHaber={() => setPrefillHaber(null)}
+        />
+      )}
 
       {tab === 'cuenta' && isAdmin && <CuentaSection empleada={empleada} />}
     </div>
@@ -115,7 +136,15 @@ export function EmpleadaDetalle({ empleadaId }: Props) {
 
 // ── Tab: Liquidación ──────────────────────────────────────────
 
-function LiquidacionTab({ empleadaId }: { empleadaId: string }) {
+function LiquidacionTab({
+  empleadaId,
+  prefillHaber,
+  onConsumePrefillHaber,
+}: {
+  empleadaId: string
+  prefillHaber: PrefillHaber | null
+  onConsumePrefillHaber: () => void
+}) {
   const hoy = new Date()
   const [anio, setAnio] = useState(hoy.getFullYear())
   const [mes, setMes] = useState(hoy.getMonth() + 1)
@@ -208,6 +237,8 @@ function LiquidacionTab({ empleadaId }: { empleadaId: string }) {
         anio={anio}
         items={liquidacionesMes}
         isLoading={loadingLiq}
+        prefillHaber={prefillHaber}
+        onConsumePrefillHaber={onConsumePrefillHaber}
       />
 
       {/* Pagos */}
@@ -256,12 +287,16 @@ function LiquidacionesSection({
   anio,
   items,
   isLoading,
+  prefillHaber,
+  onConsumePrefillHaber,
 }: {
   empleadaId: string
   mes: number
   anio: number
   items: TLiquidacionEmpleada[]
   isLoading: boolean
+  prefillHaber: PrefillHaber | null
+  onConsumePrefillHaber: () => void
 }) {
   const { isAdmin } = useAuth()
   const [showForm, setShowForm] = useState(false)
@@ -296,6 +331,24 @@ function LiquidacionesSection({
 
   const tipoConcepto = form.watch('tipo_concepto')
   const conceptos = tipoConcepto === 'HABER' ? conceptosHaber : conceptosDescuento
+
+  // Viene de "Descontar puntos" en Comisiones: precarga el importe sugerido,
+  // ella lo puede ajustar antes de guardar.
+  useEffect(() => {
+    if (!prefillHaber) return
+    form.reset({
+      empleada_id: empleadaId,
+      tipo_concepto: 'HABER',
+      periodo_mes: mes,
+      periodo_anio: anio,
+      concepto: 'Premio',
+      importe: Math.round(prefillHaber.importe * 100) / 100,
+      observaciones: `Comisión por puntaje (${prefillHaber.puntos} pts descontados)${prefillHaber.nota ? ` — ${prefillHaber.nota}` : ''}`,
+    })
+    setShowForm(true)
+    onConsumePrefillHaber()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillHaber])
 
   const onSubmit = form.handleSubmit((data) => {
     crear.mutate(
