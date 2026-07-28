@@ -20,3 +20,27 @@ export const fondoMovimientoSchema = z
   )
 
 export type TFondoMovimientoForm = z.infer<typeof fondoMovimientoSchema>
+
+export const chequeManualSchema = z
+  .object({
+    tipo: z.enum(['PROPIO', 'TERCERO']),
+    numero: z.string().min(1, 'Número requerido'),
+    banco: z.string().min(1, 'Banco requerido'),
+    importe: z.number().positive('El importe debe ser mayor a 0'),
+    fecha_emision: z.string().date(),
+    fecha_cobro: z.string().date().optional().nullable(),
+    cliente_id: z.string().uuid().optional().nullable(),
+    proveedor_id: z.string().uuid().optional().nullable(),
+    cuenta_bancaria: z.string().optional().nullable(),
+    notas: z.string().optional().nullable(),
+  })
+  .refine((d) => d.tipo !== 'TERCERO' || !!d.cliente_id, {
+    message: 'Seleccioná de qué cliente es el cheque',
+    path: ['cliente_id'],
+  })
+  .refine((d) => d.tipo !== 'PROPIO' || !!d.proveedor_id, {
+    message: 'Seleccioná a qué proveedor se le pagó',
+    path: ['proveedor_id'],
+  })
+
+export type TChequeManualForm = z.infer<typeof chequeManualSchema>

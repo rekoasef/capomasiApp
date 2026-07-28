@@ -22,6 +22,7 @@ import {
   type TPagoProveedorForm,
 } from '../schemas/proveedorSchema'
 import { Input } from '@/shared/components/ui/input'
+import { Textarea } from '@/shared/components/ui/textarea'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
@@ -29,7 +30,7 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { PaginationControls } from '@/shared/components/PaginationControls'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
-import { Plus, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, StickyNote } from 'lucide-react'
 import { useAuth } from '@/lib/auth/useAuth'
 import type { TCompraProveedor } from '../types'
 import { useParametros } from '@/shared/hooks/useParametros'
@@ -238,6 +239,11 @@ export function ProveedoresOverview() {
                   ))}
                 </select>
               </div>
+              <Textarea
+                label="Notas / observaciones"
+                {...compraForm.register('notas')}
+                error={compraForm.formState.errors.notas?.message}
+              />
               <div className="flex gap-2">
                 <Button type="submit" size="sm" disabled={crearCompra.isPending}>
                   {crearCompra.isPending ? 'Guardando...' : 'Guardar'}
@@ -315,7 +321,17 @@ export function ProveedoresOverview() {
                             <span className="italic">Gasto sin proveedor</span>
                           )}
                         </td>
-                        <td className="text-muted-foreground px-4 py-2.5">{c.concepto}</td>
+                        <td className="text-muted-foreground px-4 py-2.5">
+                          <span className="inline-flex items-center gap-1.5">
+                            {c.concepto}
+                            {c.notas && (
+                              <StickyNote
+                                className="text-muted-foreground/60 h-3 w-3 shrink-0"
+                                aria-label="Tiene notas"
+                              />
+                            )}
+                          </span>
+                        </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
                           {formatMoney(c.importe_total)}
                         </td>
@@ -349,7 +365,15 @@ export function ProveedoresOverview() {
                       </tr>
                       {expandedCompra === c.id && (
                         <tr className="bg-muted/10">
-                          <td colSpan={isAdmin ? 7 : 6} className="px-4 py-3">
+                          <td colSpan={isAdmin ? 7 : 6} className="space-y-3 px-4 py-3">
+                            {c.notas && (
+                              <div>
+                                <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+                                  Notas
+                                </p>
+                                <p className="text-sm whitespace-pre-wrap">{c.notas}</p>
+                              </div>
+                            )}
                             <PagosCompraDetalle compraId={c.id} />
                           </td>
                         </tr>

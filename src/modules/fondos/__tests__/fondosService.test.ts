@@ -4,6 +4,7 @@ import { chequesService } from '../services/chequesService'
 jest.mock('@/lib/supabase/client', () => ({
   supabase: {
     from: jest.fn(),
+    rpc: jest.fn(),
     auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'u-1' } } }) },
   },
 }))
@@ -11,6 +12,7 @@ jest.mock('@/lib/supabase/client', () => ({
 import { supabase } from '@/lib/supabase/client'
 
 const mockFrom = supabase.from as jest.Mock
+const mockRpc = supabase.rpc as jest.Mock
 
 function mockChain(overrides: Record<string, unknown> = {}) {
   const chain = {
@@ -87,18 +89,16 @@ describe('fondosService.getSaldo', () => {
 
   it('trata nulls como 0', async () => {
     mockChain({
-      single: jest
-        .fn()
-        .mockResolvedValue({
-          data: {
-            saldo_banco: null,
-            saldo_efectivo: null,
-            saldo_usd: null,
-            saldo_taralo: null,
-            saldo_cheques_cartera: null,
-          },
-          error: null,
-        }),
+      single: jest.fn().mockResolvedValue({
+        data: {
+          saldo_banco: null,
+          saldo_efectivo: null,
+          saldo_usd: null,
+          saldo_taralo: null,
+          saldo_cheques_cartera: null,
+        },
+        error: null,
+      }),
     })
 
     const result = await fondosService.getSaldo()
@@ -277,5 +277,166 @@ describe('chequesService.desmarcarAcreditacion', () => {
     const result = await chequesService.desmarcarAcreditacion('c-1')
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data.acreditacion_confirmada).toBe(false)
+  })
+})
+
+// ── chequesService.endosarAProveedor ─────────────────────────
+
+describe('chequesService.endosarAProveedor', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('llama al RPC con los parámetros correctos y retorna el pago', async () => {
+    const pago = { id: 'p-1', compra_id: 'compra-1', importe: 5000, tipo_pago: 'CHEQUE' }
+    mockRpc.mockResolvedValue({ data: pago, error: null })
+
+    const result = await chequesService.endosarAProveedor({
+      chequeId: 'ch-1',
+      compraId: 'compra-1',
+      importe: 5000,
+      fechaPago: '2026-04-21',
+      notas: 'Pago con cheque de cliente',
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.importe).toBe(5000)
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_endosar_cheque_a_proveedor',
+      expect.objectContaining({
+        p_cheque_id: 'ch-1',
+        p_compra_id: 'compra-1',
+        p_importe: 5000,
+        p_fecha_pago: '2026-04-21',
+        p_notas: 'Pago con cheque de cliente',
+      })
+    )
+  })
+
+  it('retorna DB_ERROR si el RPC falla (ej: cheque no está en cartera, o importe supera el cheque)', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'El cheque no está en cartera (estado actual: ENDOSADO)' },
+    })
+
+    const result = await chequesService.endosarAProveedor({
+      chequeId: 'ch-1',
+      compraId: 'compra-1',
+      importe: 5000,
+      fechaPago: '2026-04-21',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
+  })
+})
+
+// ── chequesService.crearManual ───────────────────────────────
+
+describe('chequesService.crearManual', () => {
+  const UUID = 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+
+  beforeEach(() => jest.clearAllMocks())
+
+  it('retorna VALIDATION_ERROR si es de tercero y no se eligió cliente', async () => {
+    const result = await chequesService.crearManual({
+      tipo: 'TERCERO',
+      numero: '123',
+      banco: 'Nación',
+      importe: 10000,
+      fecha_emision: '2026-04-21',
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('retorna VALIDATION_ERROR si es propio y no se eligió proveedor', async () => {
+    const result = await chequesService.crearManual({
+      tipo: 'PROPIO',
+      numero: '123',
+      banco: 'Nación',
+      importe: 10000,
+      fecha_emision: '2026-04-21',
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('retorna VALIDATION_ERROR si el importe no es positivo', async () => {
+    const result = await chequesService.crearManual({
+      tipo: 'TERCERO',
+      numero: '123',
+      banco: 'Nación',
+      importe: 0,
+      fecha_emision: '2026-04-21',
+      cliente_id: UUID,
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('llama al RPC con los parámetros correctos para un cheque de tercero', async () => {
+    const cheque = { id: 'ch-1', tipo: 'TERCERO', estado: 'EN_CARTERA', importe: 10000 }
+    mockRpc.mockResolvedValue({ data: cheque, error: null })
+
+    const result = await chequesService.crearManual({
+      tipo: 'TERCERO',
+      numero: '123',
+      banco: 'Nación',
+      importe: 10000,
+      fecha_emision: '2026-04-21',
+      cliente_id: UUID,
+      notas: 'Cargado al migrar del Excel',
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.estado).toBe('EN_CARTERA')
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_registrar_cheque_manual',
+      expect.objectContaining({
+        p_tipo: 'TERCERO',
+        p_numero: '123',
+        p_banco: 'Nación',
+        p_importe: 10000,
+        p_fecha_emision: '2026-04-21',
+        p_cliente_id: UUID,
+        p_notas: 'Cargado al migrar del Excel',
+      })
+    )
+  })
+
+  it('llama al RPC con los parámetros correctos para un cheque propio', async () => {
+    const cheque = { id: 'ch-2', tipo: 'PROPIO', estado: 'EN_CARTERA', importe: 5000 }
+    mockRpc.mockResolvedValue({ data: cheque, error: null })
+
+    const result = await chequesService.crearManual({
+      tipo: 'PROPIO',
+      numero: '456',
+      banco: 'Galicia',
+      importe: 5000,
+      fecha_emision: '2026-04-21',
+      proveedor_id: UUID,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_registrar_cheque_manual',
+      expect.objectContaining({ p_tipo: 'PROPIO', p_proveedor_id: UUID })
+    )
+  })
+
+  it('retorna DB_ERROR si el RPC falla', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const result = await chequesService.crearManual({
+      tipo: 'TERCERO',
+      numero: '123',
+      banco: 'Nación',
+      importe: 10000,
+      fecha_emision: '2026-04-21',
+      cliente_id: UUID,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
   })
 })

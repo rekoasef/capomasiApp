@@ -4,7 +4,7 @@ import { chequesService } from '../services/chequesService'
 import type { TEstadoCheque } from '../services/chequesService'
 import type { TCheque } from '@/modules/cobranzas/types'
 import { toast } from 'sonner'
-import type { TFondoMovimientoForm } from '../schemas/fondoSchema'
+import type { TFondoMovimientoForm, TChequeManualForm } from '../schemas/fondoSchema'
 
 export function useSaldoFondos() {
   return useQuery({
@@ -132,6 +132,46 @@ export function useDesmarcarAcreditacionCheque() {
       }
       toast.success('Acreditación desmarcada')
       qc.invalidateQueries({ queryKey: ['cheques'] })
+    },
+  })
+}
+
+export function useCrearChequeManual() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (form: TChequeManualForm) => chequesService.crearManual(form),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success('Cheque cargado')
+      qc.invalidateQueries({ queryKey: ['cheques'] })
+      qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
+    },
+  })
+}
+
+export function useEndosarChequeAProveedor() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (params: {
+      chequeId: string
+      compraId: string
+      importe: number
+      fechaPago: string
+      notas?: string
+    }) => chequesService.endosarAProveedor(params),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success('Cheque endosado al proveedor')
+      qc.invalidateQueries({ queryKey: ['cheques'] })
+      qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
+      qc.invalidateQueries({ queryKey: ['compras_proveedores'] })
+      qc.invalidateQueries({ queryKey: ['cuenta_corriente_proveedores'] })
     },
   })
 }

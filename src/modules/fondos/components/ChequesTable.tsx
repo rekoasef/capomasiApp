@@ -1,18 +1,41 @@
 'use client'
 
 import { useState } from 'react'
+import { useForm, type Resolver } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   useCheques,
   useActualizarEstadoCheque,
   useConfirmarAcreditacionCheque,
   useDesmarcarAcreditacionCheque,
+  useEndosarChequeAProveedor,
+  useCrearChequeManual,
 } from '../hooks/useFondos'
+import { chequeManualSchema, type TChequeManualForm } from '../schemas/fondoSchema'
+import { useProveedores, useComprasProveedores } from '@/modules/proveedores/hooks/useProveedores'
+import { useClientes } from '@/modules/clientes/hooks/useClientes'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
+import { toLocalDateInputValue } from '@/shared/utils/dates'
+import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { PaginationControls } from '@/shared/components/PaginationControls'
 import type { TCheque } from '@/modules/cobranzas/types'
-import { Check, X, Clock3, ArrowRightLeft, Ban, CheckCircle2, CircleDashed } from 'lucide-react'
+import {
+  Check,
+  X,
+  Clock3,
+  ArrowRightLeft,
+  Ban,
+  CheckCircle2,
+  CircleDashed,
+  Plus,
+} from 'lucide-react'
+
+const ESTADO_LABEL_COMPRA: Record<string, string> = {
+  PENDIENTE: 'Pendiente',
+  PARCIALMENTE_PAGADA: 'Parcial',
+}
 
 const PAGE_SIZE = 25
 
@@ -36,6 +59,7 @@ export function ChequesTable() {
   const [nuevoEstado, setNuevoEstado] = useState<TCheque['estado'] | ''>('')
   const [fechaCobro, setFechaCobro] = useState('')
   const [page, setPage] = useState(0)
+  const [showNuevoCheque, setShowNuevoCheque] = useState(false)
 
   const opts = {
     ...(filtro === 'TODOS' ? {} : { estado: filtro as TCheque['estado'] }),
@@ -47,6 +71,11 @@ export function ChequesTable() {
   const actualizar = useActualizarEstadoCheque()
   const confirmarAcreditacion = useConfirmarAcreditacionCheque()
   const desmarcarAcreditacion = useDesmarcarAcreditacionCheque()
+
+  const accionCheque = data?.find((c) => c.id === accionId) ?? null
+  const opcionesEstado = (ESTADO_SIGUIENTE['EN_CARTERA'] ?? []).filter(
+    (e) => e !== 'ENDOSADO' || accionCheque?.tipo === 'TERCERO'
+  )
 
   const FILTROS: { value: TEstadoFiltro; label: string }[] = [
     { value: 'EN_CARTERA', label: 'En cartera' },
@@ -75,24 +104,37 @@ export function ChequesTable() {
   return (
     <div className="space-y-4">
       {/* Filtros de estado */}
-      <div className="flex flex-wrap gap-1">
-        {FILTROS.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => {
-              setFiltro(f.value)
-              setPage(0)
-            }}
-            className={`border px-3 py-1.5 text-xs font-semibold transition-colors ${
-              filtro === f.value
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1">
+          {FILTROS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => {
+                setFiltro(f.value)
+                setPage(0)
+              }}
+              className={`border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                filtro === f.value
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <Button size="sm" variant="outline" onClick={() => setShowNuevoCheque((v) => !v)}>
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Nuevo cheque
+        </Button>
       </div>
+
+      {showNuevoCheque && (
+        <NuevoChequeForm
+          onDone={() => setShowNuevoCheque(false)}
+          onCancel={() => setShowNuevoCheque(false)}
+        />
+      )}
 
       {/* Modal acción */}
       {accionId && (
@@ -109,7 +151,7 @@ export function ChequesTable() {
                 className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               >
                 <option value="">Seleccionar...</option>
-                {(ESTADO_SIGUIENTE['EN_CARTERA'] ?? []).map((e) => (
+                {opcionesEstado.map((e) => (
                   <option key={e} value={e}>
                     {ESTADO_LABEL[e]}
                   </option>
@@ -130,26 +172,43 @@ export function ChequesTable() {
               </div>
             )}
           </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={handleConfirmarAccion}
-              disabled={!nuevoEstado || actualizar.isPending}
-            >
-              {actualizar.isPending ? 'Guardando...' : 'Confirmar'}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
+
+          {nuevoEstado === 'ENDOSADO' && accionCheque ? (
+            <EndosarChequeForm
+              cheque={accionCheque}
+              onDone={() => {
                 setAccionId(null)
                 setNuevoEstado('')
                 setFechaCobro('')
               }}
-            >
-              Cancelar
-            </Button>
-          </div>
+              onCancel={() => {
+                setAccionId(null)
+                setNuevoEstado('')
+                setFechaCobro('')
+              }}
+            />
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleConfirmarAccion}
+                disabled={!nuevoEstado || actualizar.isPending}
+              >
+                {actualizar.isPending ? 'Guardando...' : 'Confirmar'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setAccionId(null)
+                  setNuevoEstado('')
+                  setFechaCobro('')
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -315,5 +374,261 @@ function EstadoBadge({ estado }: { estado: TCheque['estado'] }) {
       <Icon className="h-3 w-3" />
       {ESTADO_LABEL[estado]}
     </span>
+  )
+}
+
+// Endosar = entregarle este cheque de tercero a un proveedor para saldar
+// una compra suya, en vez de emitirle un cheque propio.
+function EndosarChequeForm({
+  cheque,
+  onDone,
+  onCancel,
+}: {
+  cheque: TCheque
+  onDone: () => void
+  onCancel: () => void
+}) {
+  const [proveedorId, setProveedorId] = useState('')
+  const [compraId, setCompraId] = useState('')
+  const [importe, setImporte] = useState(String(cheque.importe))
+  const [fechaPago, setFechaPago] = useState(toLocalDateInputValue())
+  const [notas, setNotas] = useState('')
+
+  const { data: proveedores = [] } = useProveedores()
+  const { data: comprasData } = useComprasProveedores(
+    { proveedorId, pageSize: 100 },
+    { enabled: !!proveedorId }
+  )
+  const comprasPendientes = (comprasData?.rows ?? []).filter((c) =>
+    ['PENDIENTE', 'PARCIALMENTE_PAGADA'].includes(c.estado)
+  )
+  const endosar = useEndosarChequeAProveedor()
+
+  const importeNum = Number(importe)
+  const importeValido = importeNum > 0 && importeNum <= cheque.importe
+
+  const handleSubmit = () => {
+    if (!compraId || !importeValido) return
+    endosar.mutate(
+      { chequeId: cheque.id, compraId, importe: importeNum, fechaPago, notas: notas || undefined },
+      { onSuccess: (r) => r.ok && onDone() }
+    )
+  }
+
+  return (
+    <div className="border-border space-y-3 border-t pt-3">
+      <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+        Endosar cheque de {formatMoney(cheque.importe)} a un proveedor
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+            Proveedor *
+          </label>
+          <select
+            value={proveedorId}
+            onChange={(e) => {
+              setProveedorId(e.target.value)
+              setCompraId('')
+            }}
+            className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+          >
+            <option value="">Seleccionar...</option>
+            {proveedores.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+            Compra a pagar *
+          </label>
+          <select
+            value={compraId}
+            onChange={(e) => setCompraId(e.target.value)}
+            disabled={!proveedorId}
+            className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none disabled:opacity-50"
+          >
+            <option value="">Seleccionar...</option>
+            {comprasPendientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.concepto} — {formatMoney(c.importe_total)} ({ESTADO_LABEL_COMPRA[c.estado]})
+              </option>
+            ))}
+          </select>
+          {proveedorId && !comprasPendientes.length && (
+            <p className="text-muted-foreground mt-1 text-[11px]">
+              Sin compras pendientes para este proveedor
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="Importe a aplicar *"
+          type="number"
+          step="0.01"
+          min="0.01"
+          max={cheque.importe}
+          value={importe}
+          onChange={(e) => setImporte(e.target.value)}
+          error={
+            !importeValido
+              ? `Debe ser mayor a 0 y no superar ${formatMoney(cheque.importe)}`
+              : undefined
+          }
+        />
+        <Input
+          label="Fecha *"
+          type="date"
+          value={fechaPago}
+          onChange={(e) => setFechaPago(e.target.value)}
+        />
+      </div>
+      <Input label="Notas (opcional)" value={notas} onChange={(e) => setNotas(e.target.value)} />
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          onClick={handleSubmit}
+          disabled={endosar.isPending || !compraId || !importeValido}
+        >
+          {endosar.isPending ? 'Guardando...' : 'Confirmar endoso'}
+        </Button>
+        <Button size="sm" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Cargar un cheque que Paola ya tiene en mano por fuera de un recibo o un
+// pago a proveedor (ej: saldos iniciales del Excel, o un cheque recibido
+// sin pasar por un recibo formal).
+function NuevoChequeForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const { data: clientes = [] } = useClientes()
+  const { data: proveedores = [] } = useProveedores()
+  const crear = useCrearChequeManual()
+
+  const form = useForm<TChequeManualForm>({
+    resolver: zodResolver(chequeManualSchema) as unknown as Resolver<TChequeManualForm>,
+    defaultValues: {
+      tipo: 'TERCERO',
+      numero: '',
+      banco: '',
+      importe: 0,
+      fecha_emision: toLocalDateInputValue(),
+    },
+  })
+
+  const tipo = form.watch('tipo')
+
+  const onSubmit = form.handleSubmit((data) => {
+    crear.mutate(data, { onSuccess: (r) => r.ok && onDone() })
+  })
+
+  return (
+    <form onSubmit={onSubmit} className="border-border bg-surface space-y-3 border p-4">
+      <p className="text-sm font-medium">Cargar cheque</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+            Tipo *
+          </label>
+          <select
+            {...form.register('tipo')}
+            className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+          >
+            <option value="TERCERO">De tercero (lo recibió de un cliente)</option>
+            <option value="PROPIO">Propio (emitido a un proveedor)</option>
+          </select>
+        </div>
+        {tipo === 'TERCERO' ? (
+          <div>
+            <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+              Cliente *
+            </label>
+            <select
+              {...form.register('cliente_id')}
+              className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+            >
+              <option value="">Seleccionar...</option>
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+            {form.formState.errors.cliente_id && (
+              <p className="text-danger mt-1 text-[11px]">
+                {form.formState.errors.cliente_id.message}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+              Proveedor *
+            </label>
+            <select
+              {...form.register('proveedor_id')}
+              className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+            >
+              <option value="">Seleccionar...</option>
+              {proveedores?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+            {form.formState.errors.proveedor_id && (
+              <p className="text-danger mt-1 text-[11px]">
+                {form.formState.errors.proveedor_id.message}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="N° Cheque *"
+          {...form.register('numero')}
+          error={form.formState.errors.numero?.message}
+        />
+        <Input
+          label="Banco *"
+          {...form.register('banco')}
+          error={form.formState.errors.banco?.message}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="Importe *"
+          type="number"
+          step="0.01"
+          min="0.01"
+          {...form.register('importe', { valueAsNumber: true })}
+          error={form.formState.errors.importe?.message}
+        />
+        <Input
+          label="Fecha emisión *"
+          type="date"
+          {...form.register('fecha_emision')}
+          error={form.formState.errors.fecha_emision?.message}
+        />
+      </div>
+      <Input label="Fecha de cobro (opcional)" type="date" {...form.register('fecha_cobro')} />
+      <Input label="Notas (opcional)" {...form.register('notas')} />
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={crear.isPending}>
+          {crear.isPending ? 'Guardando...' : 'Guardar cheque'}
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
   )
 }

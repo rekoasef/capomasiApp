@@ -96,6 +96,7 @@ export type TCheque = {
   estado: 'EN_CARTERA' | 'DEPOSITADO' | 'ENDOSADO' | 'RECHAZADO' | 'ANULADO'
   origen: 'CLIENTE' | 'EMITIDO'
   cliente_id: string | null
+  proveedor_id: string | null
   cuenta_bancaria: string | null
   notas: string | null
   acreditacion_confirmada: boolean

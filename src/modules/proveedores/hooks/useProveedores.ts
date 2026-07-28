@@ -48,12 +48,15 @@ export function useEliminarProveedor() {
   })
 }
 
-export function useComprasProveedores(opts?: {
-  proveedorId?: string
-  estado?: string
-  page?: number
-  pageSize?: number
-}) {
+export function useComprasProveedores(
+  opts?: {
+    proveedorId?: string
+    estado?: string
+    page?: number
+    pageSize?: number
+  },
+  queryOpts?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ['compras_proveedores', opts],
     queryFn: async () => {
@@ -61,6 +64,7 @@ export function useComprasProveedores(opts?: {
       if (!r.ok) throw new Error(r.error)
       return r.data
     },
+    enabled: queryOpts?.enabled,
   })
 }
 

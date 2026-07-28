@@ -2280,6 +2280,32 @@ export type Database = {
         Args: { p_imputacion_id: string }
         Returns: boolean
       }
+      fn_endosar_cheque_a_proveedor: {
+        Args: {
+          p_cheque_id: string
+          p_compra_id: string
+          p_fecha_pago: string
+          p_importe: number
+          p_notas?: string
+        }
+        Returns: {
+          cheque_id: string | null
+          compra_id: string
+          created_at: string
+          cuenta_bancaria: string | null
+          fecha_pago: string
+          id: string
+          importe: number
+          notas: string | null
+          tipo_pago: string
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'pagos_proveedores'
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_importar_comision_trabajo_individual: {
         Args: { p_trabajo_id: string }
         Returns: {
@@ -2342,6 +2368,46 @@ export type Database = {
       fn_recalcular_estado_liquidacion: {
         Args: { p_liquidacion_id: string }
         Returns: string
+      }
+      fn_registrar_cheque_manual: {
+        Args: {
+          p_banco: string
+          p_cliente_id?: string
+          p_cuenta_bancaria?: string
+          p_fecha_cobro?: string
+          p_fecha_emision: string
+          p_importe: number
+          p_notas?: string
+          p_numero: string
+          p_proveedor_id?: string
+          p_tipo: string
+        }
+        Returns: {
+          acreditacion_confirmada: boolean
+          acreditacion_confirmada_at: string | null
+          acreditacion_confirmada_by: string | null
+          banco: string
+          cliente_id: string | null
+          created_at: string
+          cuenta_bancaria: string | null
+          estado: string
+          fecha_cobro: string | null
+          fecha_emision: string
+          id: string
+          importe: number
+          notas: string | null
+          numero: string
+          origen: string
+          proveedor_id: string | null
+          tipo: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'cheques'
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       fn_registrar_pago_gasto: {
         Args: {
