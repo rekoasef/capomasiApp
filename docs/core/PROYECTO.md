@@ -1,4 +1,5 @@
 # Sistema de Gestión Integral — Estudio Contable Capomasi
+
 ## Documentación de Proyecto — v1.0
 
 ---
@@ -23,6 +24,7 @@ Sistema web tipo CRM/ERP liviano para un estudio contable. Reemplaza un Excel op
 - Preparado para escalar: AFIP, automatizaciones, reportes avanzados
 
 **Lo que NO entra en el MVP:**
+
 - Integración con AFIP / facturación electrónica (continúa con SOS)
 - Automatizaciones de vencimientos por email o WhatsApp
 - App mobile nativa
@@ -32,18 +34,18 @@ Sistema web tipo CRM/ERP liviano para un estudio contable. Reemplaza un Excel op
 
 ## 3. Stack Tecnológico
 
-| Capa | Tecnología | Versión |
-|------|-----------|---------|
-| Frontend / App | Next.js | **15.x** (App Router) |
-| Runtime UI | React | **19.x** |
-| Lenguaje | TypeScript | 5.x |
-| Estilos | Tailwind CSS | **4.x** (config via CSS `@theme`) |
-| Backend / DB | Supabase | Cloud |
-| Base de datos | PostgreSQL | 15 (via Supabase) |
-| Auth | Supabase Auth | — |
-| Storage | Supabase Storage | — |
-| Deploy Frontend | Vercel | — |
-| Deploy Backend | Supabase Cloud | — |
+| Capa            | Tecnología       | Versión                           |
+| --------------- | ---------------- | --------------------------------- |
+| Frontend / App  | Next.js          | **15.x** (App Router)             |
+| Runtime UI      | React            | **19.x**                          |
+| Lenguaje        | TypeScript       | 5.x                               |
+| Estilos         | Tailwind CSS     | **4.x** (config via CSS `@theme`) |
+| Backend / DB    | Supabase         | Cloud                             |
+| Base de datos   | PostgreSQL       | 15 (via Supabase)                 |
+| Auth            | Supabase Auth    | —                                 |
+| Storage         | Supabase Storage | —                                 |
+| Deploy Frontend | Vercel           | —                                 |
+| Deploy Backend  | Supabase Cloud   | —                                 |
 
 ---
 
@@ -51,36 +53,36 @@ Sistema web tipo CRM/ERP liviano para un estudio contable. Reemplaza un Excel op
 
 ### 4.1 Producción
 
-| Librería | Propósito | Por qué |
-|---------|-----------|---------|
-| `@supabase/supabase-js` | Cliente Supabase | Oficial, tipado completo |
-| `@supabase/ssr` | Auth con SSR/SSG en Next.js 15 | Reemplaza el deprecado `auth-helpers-nextjs`; expone `createBrowserClient` y `createServerClient` con cookies async |
-| `@tanstack/react-query` | Data fetching + caché | Evita re-fetches, manejo de estados async |
-| `react-hook-form` | Formularios | Performante, integra con Zod |
-| `zod` | Validación de schemas | Tipado en runtime + buildtime |
-| `date-fns` | Manipulación de fechas | Liviana, modular, sin side effects |
-| `lucide-react` | Iconos | Consistente con shadcn/ui |
-| `@radix-ui/react-*` | Componentes accesibles base | Headless, accesible, personalizable |
-| `shadcn/ui` | Sistema de componentes | Construido sobre Radix, soporta Tailwind v4 nativamente |
-| `recharts` | Gráficos y dashboard | Simple, declarativo, responsive |
-| `sonner` | Notificaciones toast | Minimalista, sin config |
-| `nuqs` | Estado en URL | Filtros persistentes por URL |
-| `@hookform/resolvers` | Resolver Zod ↔ RHF | Conecta Zod con react-hook-form |
-| `clsx` + `tailwind-merge` | Clases CSS condicionales | Evita conflictos de Tailwind |
+| Librería                  | Propósito                      | Por qué                                                                                                             |
+| ------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `@supabase/supabase-js`   | Cliente Supabase               | Oficial, tipado completo                                                                                            |
+| `@supabase/ssr`           | Auth con SSR/SSG en Next.js 15 | Reemplaza el deprecado `auth-helpers-nextjs`; expone `createBrowserClient` y `createServerClient` con cookies async |
+| `@tanstack/react-query`   | Data fetching + caché          | Evita re-fetches, manejo de estados async                                                                           |
+| `react-hook-form`         | Formularios                    | Performante, integra con Zod                                                                                        |
+| `zod`                     | Validación de schemas          | Tipado en runtime + buildtime                                                                                       |
+| `date-fns`                | Manipulación de fechas         | Liviana, modular, sin side effects                                                                                  |
+| `lucide-react`            | Iconos                         | Consistente con shadcn/ui                                                                                           |
+| `@radix-ui/react-*`       | Componentes accesibles base    | Headless, accesible, personalizable                                                                                 |
+| `shadcn/ui`               | Sistema de componentes         | Construido sobre Radix, soporta Tailwind v4 nativamente                                                             |
+| `recharts`                | Gráficos y dashboard           | Simple, declarativo, responsive                                                                                     |
+| `sonner`                  | Notificaciones toast           | Minimalista, sin config                                                                                             |
+| `nuqs`                    | Estado en URL                  | Filtros persistentes por URL                                                                                        |
+| `@hookform/resolvers`     | Resolver Zod ↔ RHF             | Conecta Zod con react-hook-form                                                                                     |
+| `clsx` + `tailwind-merge` | Clases CSS condicionales       | Evita conflictos de Tailwind                                                                                        |
 
 ### 4.2 Desarrollo y Testing
 
-| Librería | Propósito |
-|---------|-----------|
-| `jest` | Test runner |
-| `@testing-library/react` | Testing de componentes |
-| `@testing-library/jest-dom` | Matchers DOM |
-| `@testing-library/user-event` | Simular interacciones |
-| `msw` (Mock Service Worker) | Mockear llamadas a Supabase en tests |
-| `playwright` | Tests E2E (fase 2 en adelante) |
-| `eslint` + `@typescript-eslint` | Linting |
-| `prettier` | Formateo |
-| `husky` + `lint-staged` | Hooks de git (lint antes de commit) |
+| Librería                        | Propósito                            |
+| ------------------------------- | ------------------------------------ |
+| `jest`                          | Test runner                          |
+| `@testing-library/react`        | Testing de componentes               |
+| `@testing-library/jest-dom`     | Matchers DOM                         |
+| `@testing-library/user-event`   | Simular interacciones                |
+| `msw` (Mock Service Worker)     | Mockear llamadas a Supabase en tests |
+| `playwright`                    | Tests E2E (fase 2 en adelante)       |
+| `eslint` + `@typescript-eslint` | Linting                              |
+| `prettier`                      | Formateo                             |
+| `husky` + `lint-staged`         | Hooks de git (lint antes de commit)  |
 
 ### 4.3 Notas de instalación importantes
 
@@ -101,21 +103,21 @@ npm install @supabase/supabase-js @supabase/ssr
 
 ## 5. Módulos del Sistema
 
-| # | Módulo | Fase | Estado |
-|---|--------|------|--------|
-| 1 | Auth + Usuarios + Roles | 1.2 | ✅ |
-| 2 | Gestión de Clientes | 1.3 | ✅ |
-| 3 | Honorarios Mensuales | 1.4 | ✅ |
-| 4 | Facturación + Cobranzas + Cuenta Corriente | 1.5 | ✅ |
-| 5 | Trabajos Anuales | 1.6 | ✅ |
-| 6 | Liquidación de Personal | 2.1 | ✅ |
-| 7 | Control de Fondos y Cheques | 2.2 | ✅ |
-| 8 | Proveedores y Gastos | 2.3 | ✅ |
-| 9 | Vencimientos | 2.4 | ✅ |
-| 10 | Dashboard y Estadísticas | 3.1 | 🔄 pendiente |
-| 11 | Reportes y Exportaciones | 3.2 | 🔄 pendiente |
+| #   | Módulo                                     | Fase | Estado |
+| --- | ------------------------------------------ | ---- | ------ |
+| 1   | Auth + Usuarios + Roles                    | 1.2  | ✅     |
+| 2   | Gestión de Clientes                        | 1.3  | ✅     |
+| 3   | Honorarios Mensuales                       | 1.4  | ✅     |
+| 4   | Facturación + Cobranzas + Cuenta Corriente | 1.5  | ✅     |
+| 5   | Trabajos Anuales                           | 1.6  | ✅     |
+| 6   | Liquidación de Personal                    | 2.1  | ✅     |
+| 7   | Control de Fondos y Cheques                | 2.2  | ✅     |
+| 8   | Proveedores y Gastos                       | 2.3  | ✅     |
+| 9   | Vencimientos                               | 2.4  | ✅     |
+| 10  | Dashboard y Estadísticas                   | 3.1  | ✅     |
+| 11  | Reportes y Exportaciones                   | 3.2  | ✅     |
 
-**Última actualización:** Abril 2026 — Fase 1 completa, Fase 2 completa.
+**Última actualización:** 2026-07-28 — Fases 1, 2 y 3 completas (los 10 módulos de la propuesta). Detalle funcional actual (no histórico) en `docs/funcional/ESTADO_MODULOS.md`. Pendiente: migración de datos del Excel (ver sección 11) y limpieza de datos demo en la base real antes de producción.
 
 ---
 
@@ -123,31 +125,31 @@ npm install @supabase/supabase-js @supabase/ssr
 
 ### Roles definidos
 
-| Rol | Descripción |
-|-----|-------------|
-| `admin` | Paola — acceso total, incluyendo sueldos, claves de clientes y gastos personales |
-| `empleada` | Victoria, Luciana, Paola Aresu — acceso restringido según módulo |
+| Rol        | Descripción                                                                      |
+| ---------- | -------------------------------------------------------------------------------- |
+| `admin`    | Paola — acceso total, incluyendo sueldos, claves de clientes y gastos personales |
+| `empleada` | Victoria, Luciana, Paola Aresu — acceso restringido según módulo                 |
 
 ### Matriz de permisos (MVP)
 
-| Módulo | Admin | Empleada |
-|--------|-------|----------|
-| Clientes — ver | ✅ | ✅ |
-| Clientes — editar/crear | ✅ | ❌ |
-| Claves fiscales de clientes | ✅ | ❌ |
-| Honorarios mensuales — ver | ✅ | ✅ |
-| Honorarios mensuales — editar | ✅ | ❌ |
-| Cuenta corriente — ver | ✅ | ✅ |
-| Cobranzas — registrar pago | ✅ | ✅ |
-| Trabajos anuales — ver/cargar | ✅ | ✅ |
-| Liquidación personal | ✅ | ❌ |
-| Fondos y cheques | ✅ | ❌ |
-| Proveedores — ver | ✅ | ✅ |
-| Proveedores — editar | ✅ | ❌ |
-| Vencimientos — ver/crear | ✅ | ✅ |
-| Vencimientos personales (Paola) | ✅ | ❌ |
-| Dashboard | ✅ | ✅ (vista reducida) |
-| Usuarios y permisos | ✅ | ❌ |
+| Módulo                          | Admin | Empleada            |
+| ------------------------------- | ----- | ------------------- |
+| Clientes — ver                  | ✅    | ✅                  |
+| Clientes — editar/crear         | ✅    | ❌                  |
+| Claves fiscales de clientes     | ✅    | ❌                  |
+| Honorarios mensuales — ver      | ✅    | ✅                  |
+| Honorarios mensuales — editar   | ✅    | ❌                  |
+| Cuenta corriente — ver          | ✅    | ✅                  |
+| Cobranzas — registrar pago      | ✅    | ✅                  |
+| Trabajos anuales — ver/cargar   | ✅    | ✅                  |
+| Liquidación personal            | ✅    | ❌                  |
+| Fondos y cheques                | ✅    | ❌                  |
+| Proveedores — ver               | ✅    | ✅                  |
+| Proveedores — editar            | ✅    | ❌                  |
+| Vencimientos — ver/crear        | ✅    | ✅                  |
+| Vencimientos personales (Paola) | ✅    | ❌                  |
+| Dashboard                       | ✅    | ✅ (vista reducida) |
+| Usuarios y permisos             | ✅    | ❌                  |
 
 > **Nota:** los permisos exactos del perfil Empleada se ajustarán en reunión con la clienta al inicio de cada fase. Esta matriz es la base mínima de partida.
 
@@ -156,10 +158,12 @@ npm install @supabase/supabase-js @supabase/ssr
 ## 7. Fases de Desarrollo
 
 ### FASE 1 — Core (MVP principal)
+
 **Duración estimada:** 3-4 semanas  
 **Objetivo:** Sistema funcional mínimo que reemplaza el Excel
 
 #### Subfase 1.1 — Setup y fundaciones ✅
+
 - [x] Inicializar proyecto Next.js **15.x** + React 19 + TypeScript + Tailwind **4.x**
 - [x] Configurar Supabase (proyecto, keys, variables de entorno)
 - [x] Estructura de carpetas según arquitectura modular
@@ -171,6 +175,7 @@ npm install @supabase/supabase-js @supabase/ssr
 - [x] Variables de entorno: `.env.local`, `.env.example`
 
 #### Subfase 1.2 — Autenticación y usuarios ✅
+
 - [x] Login con Supabase Auth (email + password)
 - [x] Protección de rutas (middleware Next.js)
 - [x] Tabla `usuarios` con campo `rol`
@@ -180,10 +185,12 @@ npm install @supabase/supabase-js @supabase/ssr
 - [x] Gestión de sesión (logout, refresh token)
 
 **Testing 1.2:**
+
 - [x] Unit test: hook `useAuth` con MSW mockeando Supabase Auth
 - [x] Manual: login con cada rol, verificar redirecciones
 
 #### Subfase 1.3 — Módulo Clientes ✅
+
 - [x] Tabla `clientes` con todos los campos (CUIT, domicilio, teléfono, mail)
 - [x] Tabla `claves_clientes` separada (solo admin)
 - [x] CRUD completo de clientes
@@ -193,11 +200,13 @@ npm install @supabase/supabase-js @supabase/ssr
 - [x] RLS: empleadas ven clientes pero no claves fiscales
 
 **Testing 1.3:**
+
 - [x] Unit test: service `clientesService` (getAll, getById, create, update, softDelete)
 - [x] Unit test: validaciones Zod del schema de cliente
 - [x] Manual: crear cliente, editar, buscar, ocultar claves a empleada
 
 #### Subfase 1.4 — Honorarios Mensuales ✅
+
 - [x] Tabla `honorarios_mensuales` con historial (no sobrescribir)
 - [x] Configurar monto base por cliente
 - [x] Aplicar % de inflación → generar nueva vigencia
@@ -206,10 +215,12 @@ npm install @supabase/supabase-js @supabase/ssr
 - [x] Tabla `parametros` para tipos de ajuste y otros valores configurables
 
 **Testing 1.4:**
+
 - [x] Unit test: `calcularNuevoHonorario(montoActual, porcentaje)` → resultado exacto
 - [x] Manual: aplicar ajuste a un cliente, verificar historial
 
 #### Subfase 1.5 — Facturación, Cobranzas y Cuenta Corriente ✅
+
 - [x] Tabla `liquidaciones` (factura/presupuesto por cliente)
 - [x] Tabla `pagos` (pagos parciales o totales)
 - [x] Tabla `cheques` (con lifecycle: recibido → depositado/endosado)
@@ -220,25 +231,30 @@ npm install @supabase/supabase-js @supabase/ssr
 - [x] Soporte para `SALDO INICIAL` al migrar del Excel
 
 **Testing 1.5:**
+
 - [x] Unit test: service `liquidacionesService`, `pagosService`, `cuentaCorrienteService`
 - [x] Manual: registrar una liquidación y varios pagos parciales, verificar saldo
 
 #### Subfase 1.6 — Trabajos Anuales ✅
+
 - [x] Tabla `honorarios_anuales` por tipo de trabajo (balance, ganancias, ISIB, bienes personales, etc.)
 - [x] Estados: PENDIENTE → EN_PROCESO → FINALIZADO → COBRADO
 - [x] Historial por cliente y por año
 - [x] Tipos de trabajo configurables via `parametros`
 
 **Testing 1.6:**
+
 - [x] Unit test: service `trabajosAnualesService`
 - [x] Manual: cargar trabajos de un cliente, cambiar estados, filtrar por año
 
 ---
 
 ### FASE 2 — Operativo ✅
+
 **Completada:** Abril 2026
 
 #### Subfase 2.1 — Liquidación de Personal ✅
+
 - [x] Tabla `empleadas`
 - [x] Tabla `liquidaciones_empleadas` por concepto y periodo
 - [x] Conceptos: fijo, premio, aguinaldo, vacaciones, saldo técnico IVA, estados contables, ganancias y bienes personales
@@ -248,9 +264,11 @@ npm install @supabase/supabase-js @supabase/ssr
 - [x] Vista detalle por empleada con resumen del periodo
 
 **Testing 2.1:**
+
 - [x] Unit test: service `empleadasService` (12 tests)
 
 #### Subfase 2.2 — Control de Fondos y Cheques ✅
+
 - [x] Tabla `fondos_movimientos` (ingresos y egresos)
 - [x] Vista `v_saldo_fondos` para saldo en tiempo real (banco + efectivo + USD)
 - [x] Gestión de cheques: EN_CARTERA → DEPOSITADO / ENDOSADO / RECHAZADO / ANULADO
@@ -258,18 +276,22 @@ npm install @supabase/supabase-js @supabase/ssr
 - [x] Integración automática: pago de cliente → movimiento de fondos (trigger `fn_pago_a_fondos`, SECURITY DEFINER)
 
 **Testing 2.2:**
+
 - [x] Unit test: service `fondosService` + `chequesService` (10 tests)
 
 #### Subfase 2.3 — Proveedores y Gastos ✅
+
 - [x] Tabla `proveedores`
 - [x] Tabla `compras_proveedores` (estados: PENDIENTE / PARCIALMENTE_PAGADA / PAGADA / ANULADA)
 - [x] Tabla `pagos_proveedores` via RPC `fn_registrar_pago_proveedor` (actualiza estado automáticamente)
 - [x] Vista de compras con filtro por estado
 
 **Testing 2.3:**
+
 - [x] Unit test: service `proveedoresService` (11 tests)
 
 #### Subfase 2.4 — Vencimientos ✅
+
 - [x] Tabla `vencimientos` con `ambito` (CLIENTE / ESTUDIO / PERSONAL)
 - [x] Tipos de vencimiento: AFIP, IIBB Provincial, IIBB Municipal, Ganancias, Bienes Personales, Otro
 - [x] Alertas visuales por urgencia (vencido / hoy / próximos 7 días)
@@ -278,41 +300,46 @@ npm install @supabase/supabase-js @supabase/ssr
 - [x] Acciones: completar, reabrir, eliminar
 
 **Testing 2.4:**
+
 - [x] Unit test: service `vencimientosService` (11 tests)
 
 ---
 
-### FASE 3 — BI y Reportes
-**Estado:** pendiente
+### FASE 3 — BI y Reportes ✅
 
-#### Subfase 3.1 — Dashboard
-- [ ] Resumen: ingresos del mes, clientes con deuda, vencimientos próximos
-- [ ] Gráfico de ingresos por mes
-- [ ] Estado general de cobranzas
-- [ ] KPIs principales por rol (vista reducida para empleadas)
+**Estado:** completa (cerrada 2026-07-08, ajustes de dashboard post-demo 2026-07-16). Detalle funcional en `docs/funcional/ESTADO_MODULOS.md` (secciones 9 y 3).
 
-#### Subfase 3.2 — Reportes
-- [ ] Ingresos por mes/año
-- [ ] Ingresos por tipo de trabajo
-- [ ] Ingresos por empleada (generado por)
-- [ ] Comparativo entre períodos
-- [ ] Exportación a PDF/Excel (futuro)
+#### Subfase 3.1 — Dashboard ✅
+
+- [x] Resumen: ingresos del mes, clientes con deuda, vencimientos/gastos próximos y vencidos
+- [x] Ingresos desagregados en negro / facturado neto / IVA facturado, y resultado mensual del estudio (cruza ingresos con sueldos, proveedores y gastos)
+- [x] Estado general de cobranzas
+- [x] KPIs por rol — vista reducida para empleadas (sus trabajos, sus puntos, sus próximos vencimientos)
+
+#### Subfase 3.2 — Reportes ✅
+
+- [x] Ingresos por mes/año (`/reportes`, selector de año, no limitado a 6 meses como el dashboard)
+- [x] Ingresos por tipo de trabajo
+- [x] Ingresos por empleada (generado por)
+- [x] Comparativo entre dos períodos elegidos, con filtro por mes y año
+- [x] Exportación a PDF de cuenta corriente por cliente (no de reportes agregados — ver módulo 4 en `ESTADO_MODULOS.md`)
 
 ---
 
 ## 8. Estrategia de Testing
 
 ### Principio general
+
 > Cada subfase se entrega con sus tests correspondientes. No se avanza a la siguiente subfase con tests en rojo.
 
 ### Tipos de test
 
-| Tipo | Herramienta | Qué cubre |
-|------|------------|-----------|
-| Unit | Jest + Testing Library | Services, cálculos, validaciones Zod, hooks |
-| Integration | Jest + MSW | Service + Supabase mock |
-| Manual / UAT | Checklist con cliente | Flujos completos, casos borde, UX |
-| E2E | Playwright (Fase 2+) | Flujos críticos end-to-end |
+| Tipo         | Herramienta            | Qué cubre                                   |
+| ------------ | ---------------------- | ------------------------------------------- |
+| Unit         | Jest + Testing Library | Services, cálculos, validaciones Zod, hooks |
+| Integration  | Jest + MSW             | Service + Supabase mock                     |
+| Manual / UAT | Checklist con cliente  | Flujos completos, casos borde, UX           |
+| E2E          | Playwright (Fase 2+)   | Flujos críticos end-to-end                  |
 
 ### Convención de archivos
 
@@ -332,20 +359,21 @@ modules/
 
 ### Casos de test prioritarios por módulo
 
-| Módulo | Tests críticos |
-|--------|---------------|
-| Auth | Login correcto, login fallido, redirección por rol |
-| Clientes | CRUD, búsqueda, soft delete, acceso a claves por rol |
-| Honorarios | Cálculo de ajuste, detección de ajuste pendiente |
+| Módulo           | Tests críticos                                                |
+| ---------------- | ------------------------------------------------------------- |
+| Auth             | Login correcto, login fallido, redirección por rol            |
+| Clientes         | CRUD, búsqueda, soft delete, acceso a claves por rol          |
+| Honorarios       | Cálculo de ajuste, detección de ajuste pendiente              |
 | Cuenta corriente | Saldo con múltiples pagos parciales, saldo negativo (crédito) |
-| Pagos | Pago con cheque, pago en USD, pago parcial |
-| Vencimientos | Filtro por fecha, por empleada, por tipo |
+| Pagos            | Pago con cheque, pago en USD, pago parcial                    |
+| Vencimientos     | Filtro por fecha, por empleada, por tipo                      |
 
 ---
 
 ## 9. Convenciones de Código
 
 ### Naming
+
 - Archivos y carpetas: `kebab-case`
 - Componentes React: `PascalCase`
 - Hooks: `useCamelCase`
@@ -369,9 +397,7 @@ modules/clientes/
 ### Patrón de resultado en services
 
 ```typescript
-type ServiceResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; code: string }
+type ServiceResult<T> = { ok: true; data: T } | { ok: false; error: string; code: string }
 
 // Uso:
 const result = await clientesService.create(data)
@@ -383,6 +409,7 @@ if (!result.ok) {
 ```
 
 ### Reglas obligatorias
+
 - No lógica de negocio en componentes React
 - No hardcodear valores que puedan cambiar (usar `parametros` o constantes)
 - No usar `any` en TypeScript
@@ -407,19 +434,21 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 ## 11. Migración desde el Excel
 
 ### Datos a migrar
-| Hoja Excel | Destino DB | Complejidad |
-|-----------|-----------|-------------|
-| BASE DE CLIENTES | `clientes` | Baja |
-| HONORARIO MENSUAL | `honorarios_mensuales` | Media (frecuencias de ajuste) |
-| HONORARIOS ANUALES | `honorarios_anuales` | Media |
-| FC y COBRANZAS | `liquidaciones` + `pagos` | Alta (fórmulas rotas, múltiples pagos) |
-| MOV DE FONDOS | `fondos_movimientos` | Media |
-| COMPRAS PROV | `compras_proveedores` | Media |
-| BASE DE PROV | `proveedores` | Baja |
-| VICTORIA BOZ / LUCIANA FARAONI | `empleadas` + `liquidaciones_empleadas` | Media |
-| PARAMETROS | `parametros` | Baja (carga manual) |
+
+| Hoja Excel                     | Destino DB                              | Complejidad                            |
+| ------------------------------ | --------------------------------------- | -------------------------------------- |
+| BASE DE CLIENTES               | `clientes`                              | Baja                                   |
+| HONORARIO MENSUAL              | `honorarios_mensuales`                  | Media (frecuencias de ajuste)          |
+| HONORARIOS ANUALES             | `honorarios_anuales`                    | Media                                  |
+| FC y COBRANZAS                 | `liquidaciones` + `pagos`               | Alta (fórmulas rotas, múltiples pagos) |
+| MOV DE FONDOS                  | `fondos_movimientos`                    | Media                                  |
+| COMPRAS PROV                   | `compras_proveedores`                   | Media                                  |
+| BASE DE PROV                   | `proveedores`                           | Baja                                   |
+| VICTORIA BOZ / LUCIANA FARAONI | `empleadas` + `liquidaciones_empleadas` | Media                                  |
+| PARAMETROS                     | `parametros`                            | Baja (carga manual)                    |
 
 ### Consideraciones críticas
+
 1. **Fórmulas rotas en FC y COBRANZAS:** el 80% de las columnas de cobro tienen `#ERROR!`. Requiere reconstrucción manual o con script de limpieza.
 2. **SALDO INICIAL:** hay filas tipo `SALDO INICIAL` que establecen el punto de partida de la cuenta corriente. Deben migrarse como liquidaciones de tipo `saldo_inicial`.
 3. **Los Piuquenes S.A.:** honorario expresado en `qq` (quintales). Requiere campo `detalle_especial` en `liquidaciones`.
@@ -429,26 +458,28 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 ## 12. Roadmap Futuro (Post-MVP)
 
-| Feature | Fase estimada |
-|---------|--------------|
-| Integración AFIP (factura electrónica) | v2 |
-| Alertas automáticas de vencimientos (email/WhatsApp) | v2 |
-| Exportación a PDF/Excel | v2 |
-| Historial completo de auditoría visible en UI | v2 |
-| Sistema de puntos para empleadas | v3 |
-| Módulo de comisiones | v3 |
-| App mobile (PWA o React Native) | v3 |
-| Multi-estudio (si Paola tiene socios) | v4 |
+| Feature                                              | Fase estimada | Estado                                                              |
+| ---------------------------------------------------- | ------------- | ------------------------------------------------------------------- |
+| Historial completo de auditoría visible en UI        | v2            | ✅ implementado — `docs/funcional/ESTADO_MODULOS.md` módulo 10      |
+| Sistema de puntos para empleadas                     | v3            | ✅ implementado — módulo 6                                          |
+| Módulo de comisiones                                 | v3            | ✅ implementado — módulo 6                                          |
+| Exportación a PDF                                    | v2            | ⚠️ parcial — cuenta corriente por cliente sí, reportes agregados no |
+| Integración AFIP (factura electrónica)               | v2            | ⬜ no empezado — sigue con SOS                                      |
+| Alertas automáticas de vencimientos (email/WhatsApp) | v2            | ⬜ no empezado                                                      |
+| App mobile (PWA o React Native)                      | v3            | ⬜ no empezado                                                      |
+| Multi-estudio (si Paola tiene socios)                | v4            | ⬜ no empezado                                                      |
+
+Esta tabla original subestimó lo que terminó construyéndose: el portal de acceso propio para empleadas y el motor de flujo de trabajo (vencimiento → trabajo → aprobación → cola de facturación → cuenta corriente) tampoco estaban acá y también están ✅ implementados — ver "Scope adicional no cotizado" en `docs/funcional/ESTADO_MODULOS.md`.
 
 ---
 
 ## 13. Contacto y Soporte
 
-| | |
-|--|--|
-| Cliente | Paola Capomasi |
-| Desarrollador | Renzo Asef — radevelopment02@gmail.com — 3471343991 |
-| Repositorio | (pendiente) |
-| Supabase project | (pendiente) |
-| Vercel project | (pendiente) |
-| Dominio | (a confirmar con cliente) |
+|                  |                                                     |
+| ---------------- | --------------------------------------------------- |
+| Cliente          | Paola Capomasi                                      |
+| Desarrollador    | Renzo Asef — radevelopment02@gmail.com — 3471343991 |
+| Repositorio      | (pendiente)                                         |
+| Supabase project | (pendiente)                                         |
+| Vercel project   | (pendiente)                                         |
+| Dominio          | (a confirmar con cliente)                           |
