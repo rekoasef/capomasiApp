@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth/useAuth'
 import { useDashboardResumen, useDashboardEmpleada } from '@/modules/dashboard/hooks/useDashboard'
@@ -59,6 +59,21 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+const MESES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
+
 // ── Admin Dashboard ───────────────────────────────────────────────────────────
 
 function MesRow({ mes }: { mes: TIngresoMensual }) {
@@ -85,7 +100,13 @@ function MesRow({ mes }: { mes: TIngresoMensual }) {
 }
 
 function AdminDashboard() {
-  const { data, isLoading } = useDashboardResumen()
+  const hoy = new Date()
+  const [anio, setAnio] = useState(hoy.getFullYear())
+  const [mes, setMes] = useState(hoy.getMonth() + 1)
+  const esMesActual = anio === hoy.getFullYear() && mes === hoy.getMonth() + 1
+
+  const { data, isLoading } = useDashboardResumen({ anio, mes })
+  const anios = Array.from({ length: 3 }, (_, i) => hoy.getFullYear() - 1 + i)
 
   const statsMes = [
     {
@@ -103,22 +124,15 @@ function AdminDashboard() {
       label: 'IVA facturado',
       value: formatMoney(data?.iva_facturado_mes_actual ?? 0),
     },
+  ]
+
+  const statsOperativo = [
     {
       label: 'Deuda total clientes',
       value: formatMoney(data?.deuda_total_clientes ?? 0),
       sub: `${data?.clientes_deudores ?? 0} clientes`,
       href: '/cobranzas',
     },
-  ]
-
-  const statsOperativo = [
-    {
-      label: 'Trabajos pendientes',
-      value: String(data?.trabajos_pendientes ?? 0),
-      href: '/trabajos',
-      sub: 'Honorarios anuales',
-    },
-    { label: 'En proceso', value: String(data?.trabajos_en_proceso ?? 0), href: '/trabajos' },
     {
       label: 'Cola de facturación',
       value: String(data?.cola_facturacion ?? 0),
@@ -138,16 +152,59 @@ function AdminDashboard() {
     <div className="space-y-8">
       <PageHeader title="Dashboard" description="Resumen general del estudio" />
 
+      {/* Selector de mes */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex gap-1">
+          {anios.map((a) => (
+            <button
+              key={a}
+              onClick={() => setAnio(a)}
+              className={`border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                a === anio
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
+              }`}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+        <select
+          value={mes}
+          onChange={(e) => setMes(Number(e.target.value))}
+          className="border-border bg-surface text-foreground focus:ring-primary border px-2.5 py-1 text-xs font-medium focus:ring-1 focus:outline-none"
+        >
+          {MESES.map((m, i) => (
+            <option key={i + 1} value={i + 1}>
+              {m}
+            </option>
+          ))}
+        </select>
+        {!esMesActual && (
+          <button
+            onClick={() => {
+              setAnio(hoy.getFullYear())
+              setMes(hoy.getMonth() + 1)
+            }}
+            className="text-primary text-xs font-medium hover:underline"
+          >
+            Volver al mes actual
+          </button>
+        )}
+      </div>
+
       <section>
-        <SectionTitle>Mes en curso</SectionTitle>
+        <SectionTitle>
+          {MESES[mes - 1]} {anio}
+        </SectionTitle>
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-24 w-full" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
             {statsMes.map((s) => (
               <StatCard key={s.label} {...s} />
             ))}
@@ -156,15 +213,15 @@ function AdminDashboard() {
       </section>
 
       <section>
-        <SectionTitle>Operativo</SectionTitle>
+        <SectionTitle>Operativo (hoy)</SectionTitle>
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-24 w-full" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
             {statsOperativo.map((s) => (
               <StatCard key={s.label} {...s} />
             ))}
@@ -199,7 +256,9 @@ function AdminDashboard() {
       </section>
 
       <section>
-        <SectionTitle>Resultado del estudio</SectionTitle>
+        <SectionTitle>
+          Resultado del estudio — {MESES[mes - 1]} {anio}
+        </SectionTitle>
         {isLoading ? (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (

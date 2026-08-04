@@ -3,11 +3,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { dashboardService } from '../services/dashboardService'
 
-export function useDashboardResumen() {
+export function useDashboardResumen(params?: { anio?: number; mes?: number }) {
   return useQuery({
-    queryKey: ['dashboard', 'resumen'],
+    queryKey: ['dashboard', 'resumen', params],
     queryFn: async () => {
-      const result = await dashboardService.getResumenAdmin()
+      const result = await dashboardService.getResumenAdmin(params)
       if (!result.ok) throw new Error(result.error)
       return result.data
     },

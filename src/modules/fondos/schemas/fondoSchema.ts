@@ -21,6 +21,22 @@ export const fondoMovimientoSchema = z
 
 export type TFondoMovimientoForm = z.infer<typeof fondoMovimientoSchema>
 
+export const transferenciaFondosSchema = z
+  .object({
+    origen: z.enum(['banco', 'efectivo', 'usd', 'taralo']),
+    destino: z.enum(['banco', 'efectivo', 'usd', 'taralo']),
+    importe: z.number().positive('El importe debe ser mayor a 0'),
+    fecha: z.string().date(),
+    concepto: z.string().min(2, 'Motivo requerido'),
+    notas: z.string().optional().nullable(),
+  })
+  .refine((d) => d.origen !== d.destino, {
+    message: 'El origen y el destino no pueden ser la misma cuenta',
+    path: ['destino'],
+  })
+
+export type TTransferenciaFondosForm = z.infer<typeof transferenciaFondosSchema>
+
 export const chequeManualSchema = z
   .object({
     tipo: z.enum(['PROPIO', 'TERCERO']),

@@ -1,4 +1,5 @@
 # Documentación de Base de Datos
+
 ## Sistema de Gestión Integral — Estudio Contable Capomasi
 
 ---
@@ -24,7 +25,6 @@ auth.users (Supabase managed)
          ├── clientes ──────────────────── claves_clientes
          │    │
          │    ├── honorarios_mensuales
-         │    ├── honorarios_anuales
          │    ├── liquidaciones ──────────── pagos ── cheques
          │    └── vencimientos
          │
@@ -47,6 +47,7 @@ auth.users (Supabase managed)
 ## 3. Tablas
 
 ### 3.1 `usuarios`
+
 Perfil de usuario del sistema. Vinculado 1:1 con `auth.users`.
 
 ```sql
@@ -61,17 +62,18 @@ CREATE TABLE usuarios (
 );
 ```
 
-| Columna | Tipo | Descripción |
-|---------|------|-------------|
-| `id` | UUID | FK → `auth.users.id` |
-| `nombre` | TEXT | Nombre completo del usuario |
-| `email` | TEXT | Email de login |
-| `rol` | TEXT | `admin` o `empleada` |
+| Columna  | Tipo    | Descripción                  |
+| -------- | ------- | ---------------------------- |
+| `id`     | UUID    | FK → `auth.users.id`         |
+| `nombre` | TEXT    | Nombre completo del usuario  |
+| `email`  | TEXT    | Email de login               |
+| `rol`    | TEXT    | `admin` o `empleada`         |
 | `activo` | BOOLEAN | Para deshabilitar sin borrar |
 
 ---
 
 ### 3.2 `clientes`
+
 Base de datos de clientes del estudio.
 
 ```sql
@@ -104,6 +106,7 @@ CREATE INDEX idx_clientes_deleted_at ON clientes(deleted_at) WHERE deleted_at IS
 ---
 
 ### 3.3 `claves_clientes`
+
 Credenciales fiscales de clientes. **Solo accesible por rol `admin`.**
 
 ```sql
@@ -127,6 +130,7 @@ CREATE UNIQUE INDEX idx_claves_cliente_tipo ON claves_clientes(cliente_id, tipo)
 ---
 
 ### 3.4 `parametros`
+
 Tabla de configuración central. Reemplaza todos los valores hardcodeados.
 
 ```sql
@@ -145,24 +149,25 @@ CREATE INDEX idx_parametros_categoria ON parametros(categoria);
 
 **Categorías predefinidas y sus valores:**
 
-| Categoría | Códigos |
-|-----------|---------|
-| `TIPO_SERVICIO` | HONORARIO_MENSUAL, HONORARIO_ANUAL, BALANCE, GANANCIAS_PF, ISIB, BIENES_PERSONALES, CONSULTORÍA_COSTOS, INSCRIPCIONES, OTROS |
-| `GENERADO_POR` | PAOLA, LUCIANA, VICTORIA, PABLO, PAOLA_LUCIANA, PAOLA_VICTORIA, LUCIANA_VICTORIA, TODOS |
-| `TIPO_COMPROBANTE` | FC_A, FC_B, FC_C, PRESUPUESTO, ND, NC |
-| `TIPO_PAGO` | TRANSFERENCIA, EFECTIVO, CHEQUE, USD |
-| `ESTADO_TRABAJO` | PENDIENTE, EN_PROCESO, FINALIZADO, COBRADO |
-| `ESTADO_LIQUIDACION` | PENDIENTE, PARCIALMENTE_COBRADA, COBRADA, ANULADA |
-| `TIPO_CHEQUE` | PROPIO, TERCERO |
-| `ESTADO_CHEQUE` | EN_CARTERA, DEPOSITADO, ENDOSADO, RECHAZADO, ANULADO |
-| `CUENTA_BANCARIA` | BANCO_NACION_CA_PESOS, BANCO_NACION_USD |
-| `RUBRO_PROVEEDOR` | COMBUSTIBLE, COMPUTACION, ENERGIA, GASTOS_GENERALES, HONORARIOS, IMPUESTOS, LIBRERIA, LIMPIEZA, MANTENIMIENTO, MATRICULA, SISTEMA, SUELDOS, TELEFONO |
-| `TIPO_MOV_FONDOS` | INGRESO, EGRESO, MOVIMIENTO |
-| `TIPO_VENCIMIENTO` | AFIP, IIBB_PROVINCIAL, IIBB_MUNICIPAL, GANANCIAS, BIENES_PERSONALES, OTRO |
+| Categoría            | Códigos                                                                                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TIPO_SERVICIO`      | HONORARIO_MENSUAL, HONORARIO_ANUAL, BALANCE, GANANCIAS_PF, ISIB, BIENES_PERSONALES, CONSULTORÍA_COSTOS, INSCRIPCIONES, OTROS                         |
+| `GENERADO_POR`       | PAOLA, LUCIANA, VICTORIA, PABLO, PAOLA_LUCIANA, PAOLA_VICTORIA, LUCIANA_VICTORIA, TODOS                                                              |
+| `TIPO_COMPROBANTE`   | FC_A, FC_B, FC_C, PRESUPUESTO, ND, NC                                                                                                                |
+| `TIPO_PAGO`          | TRANSFERENCIA, EFECTIVO, CHEQUE, USD                                                                                                                 |
+| `ESTADO_TRABAJO`     | PENDIENTE, EN_PROCESO, FINALIZADO, COBRADO                                                                                                           |
+| `ESTADO_LIQUIDACION` | PENDIENTE, PARCIALMENTE_COBRADA, COBRADA, ANULADA                                                                                                    |
+| `TIPO_CHEQUE`        | PROPIO, TERCERO                                                                                                                                      |
+| `ESTADO_CHEQUE`      | EN_CARTERA, DEPOSITADO, ENDOSADO, RECHAZADO, ANULADO                                                                                                 |
+| `CUENTA_BANCARIA`    | BANCO_NACION_CA_PESOS, BANCO_NACION_USD                                                                                                              |
+| `RUBRO_PROVEEDOR`    | COMBUSTIBLE, COMPUTACION, ENERGIA, GASTOS_GENERALES, HONORARIOS, IMPUESTOS, LIBRERIA, LIMPIEZA, MANTENIMIENTO, MATRICULA, SISTEMA, SUELDOS, TELEFONO |
+| `TIPO_MOV_FONDOS`    | INGRESO, EGRESO, MOVIMIENTO                                                                                                                          |
+| `TIPO_VENCIMIENTO`   | AFIP, IIBB_PROVINCIAL, IIBB_MUNICIPAL, GANANCIAS, BIENES_PERSONALES, OTRO                                                                            |
 
 ---
 
 ### 3.5 `honorarios_mensuales`
+
 Historial de honorarios mensuales por cliente. **Nunca se sobreescribe — se crea un nuevo registro.**
 
 ```sql
@@ -180,8 +185,8 @@ CREATE TABLE honorarios_mensuales (
 );
 
 -- Constraint: solo un honorario activo (vigente_hasta IS NULL) por cliente
-CREATE UNIQUE INDEX idx_honorarios_activo 
-  ON honorarios_mensuales(cliente_id) 
+CREATE UNIQUE INDEX idx_honorarios_activo
+  ON honorarios_mensuales(cliente_id)
   WHERE vigente_hasta IS NULL;
 
 CREATE INDEX idx_honorarios_cliente ON honorarios_mensuales(cliente_id);
@@ -189,38 +194,24 @@ CREATE INDEX idx_honorarios_vigencia ON honorarios_mensuales(vigente_desde, vige
 ```
 
 **Lógica de ajuste:**
+
 1. Al aplicar un ajuste: se cierra el registro actual (`vigente_hasta = hoy`)
 2. Se crea un registro nuevo con el monto actualizado y `vigente_desde = hoy`
 3. El service calcula `monto_nuevo = monto_actual * (1 + porcentaje/100)`
 
 ---
 
-### 3.6 `honorarios_anuales`
-Trabajos anuales por cliente (balances, ganancias, bienes personales, etc.).
+### 3.6 `honorarios_anuales` (eliminada)
 
-```sql
-CREATE TABLE honorarios_anuales (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  cliente_id    UUID NOT NULL REFERENCES clientes(id),
-  tipo_trabajo  TEXT NOT NULL REFERENCES parametros(codigo),  -- FK vía código
-  anio          INT NOT NULL CHECK (anio >= 2020 AND anio <= 2100),
-  honorario     NUMERIC(14,2) CHECK (honorario >= 0),
-  estado        TEXT NOT NULL DEFAULT 'PENDIENTE' 
-                  CHECK (estado IN ('PENDIENTE','EN_PROCESO','FINALIZADO','COBRADO')),
-  asignado_a    UUID REFERENCES usuarios(id),
-  notas         TEXT,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_hon_anuales_cliente ON honorarios_anuales(cliente_id);
-CREATE INDEX idx_hon_anuales_anio ON honorarios_anuales(anio);
-CREATE INDEX idx_hon_anuales_estado ON honorarios_anuales(estado);
-```
+Existió como registro manual de trabajos anuales por cliente (balances, ganancias, bienes
+personales, etc.), pero quedó desconectada del flujo real de facturación/cobranza y confundía
+a la clienta. Eliminada junto con el módulo `trabajos` en `supabase/migrations/0058_eliminar_trabajos_anuales.sql`
+(2026-08-03).
 
 ---
 
 ### 3.7 `liquidaciones`
+
 Registro de servicios devengados (lo que se le cobra al cliente). Equivale a la hoja `FC y COBRANZAS`.
 
 ```sql
@@ -255,6 +246,7 @@ CREATE INDEX idx_liquidaciones_periodo ON liquidaciones(periodo_anio, periodo_me
 ---
 
 ### 3.8 `pagos`
+
 Pagos recibidos contra una liquidación. Un pago puede ser parcial.
 
 ```sql
@@ -280,6 +272,7 @@ CREATE INDEX idx_pagos_fecha ON pagos(fecha_pago);
 ---
 
 ### 3.9 `cheques`
+
 Cheques recibidos de clientes o emitidos a proveedores. Entidad con lifecycle propio.
 
 ```sql
@@ -309,6 +302,7 @@ CREATE INDEX idx_cheques_fecha ON cheques(fecha_cobro);
 ---
 
 ### 3.10 `fondos_movimientos`
+
 Registro de movimientos de caja (ingresos, egresos, transferencias, USD).
 
 ```sql
@@ -336,6 +330,7 @@ CREATE INDEX idx_fondos_tipo ON fondos_movimientos(tipo_movimiento);
 ---
 
 ### 3.11 `empleadas`
+
 Empleadas del estudio.
 
 ```sql
@@ -351,6 +346,7 @@ CREATE TABLE empleadas (
 ```
 
 **Empleadas actuales:**
+
 - Victoria Boz (relación de dependencia)
 - Luciana Faraoni (relación de dependencia)
 - Paola Aresu (por hora)
@@ -358,6 +354,7 @@ CREATE TABLE empleadas (
 ---
 
 ### 3.12 `liquidaciones_empleadas`
+
 Componentes del sueldo de cada empleada por periodo.
 
 ```sql
@@ -380,6 +377,7 @@ CREATE INDEX idx_liq_emp_periodo ON liquidaciones_empleadas(periodo_anio, period
 ---
 
 ### 3.13 `pagos_empleadas`
+
 Pagos efectuados a empleadas.
 
 ```sql
@@ -401,6 +399,7 @@ CREATE TABLE pagos_empleadas (
 ---
 
 ### 3.14 `proveedores`
+
 Proveedores del estudio.
 
 ```sql
@@ -421,6 +420,7 @@ CREATE TABLE proveedores (
 ---
 
 ### 3.15 `compras_proveedores`
+
 Compras y gastos con proveedores.
 
 ```sql
@@ -447,6 +447,7 @@ CREATE INDEX idx_compras_fecha ON compras_proveedores(fecha);
 ---
 
 ### 3.16 `pagos_proveedores`
+
 Pagos realizados a proveedores.
 
 ```sql
@@ -466,6 +467,7 @@ CREATE TABLE pagos_proveedores (
 ---
 
 ### 3.17 `vencimientos`
+
 Vencimientos impositivos, personales y operativos.
 
 ```sql
@@ -496,6 +498,7 @@ CREATE INDEX idx_vencimientos_completado ON vencimientos(completado) WHERE compl
 ---
 
 ### 3.18 `audit_log`
+
 Registro de auditoría. Se llena automáticamente via trigger.
 
 ```sql
@@ -600,6 +603,7 @@ FROM fondos_movimientos;
 ## 5. Row Level Security (RLS)
 
 ### Principios
+
 - RLS habilitado en **todas** las tablas al momento de crearlas
 - Usuarios no autenticados: **cero acceso**
 - Empleadas: acceso de lectura a módulos operativos
@@ -677,16 +681,21 @@ CREATE POLICY "audit_solo_admin" ON audit_log
 ## 6. Decisiones de diseño importantes
 
 ### 6.1 No hay tabla de cuenta corriente
+
 El saldo se calcula dinámicamente via la view `v_cuenta_corriente`. Esto evita inconsistencias entre el saldo almacenado y los movimientos. Cuando el volumen crezca, se puede materializar la view o agregar una columna cache con trigger.
 
 ### 6.2 Honorarios no se sobreescriben
+
 Cada ajuste de honorario crea un nuevo registro con `vigente_desde` y cierra el anterior con `vigente_hasta`. Esto da historial completo y permite auditar qué se le cobró a un cliente en cualquier periodo histórico.
 
 ### 6.3 Un cheque es una entidad propia
+
 Los cheques aparecen en cobros de clientes, pagos a proveedores y movimientos de fondos. Modelarlo como entidad separada con lifecycle evita la duplicación de datos que había en el Excel.
 
 ### 6.4 `parametros` como fuente de verdad de listas
+
 Todo lo que en el Excel era una lista en una columna (tipos de servicio, tipos de comprobante, cuentas bancarias) vive en `parametros`. El sistema puede agregar opciones sin deploy.
 
 ### 6.5 `tipo_liquidacion = 'SALDO_INICIAL'`
+
 Al migrar del Excel, los saldos iniciales de cada cliente se cargan como una liquidación especial de tipo `SALDO_INICIAL`. Esto establece el punto de partida de la cuenta corriente sin distorsionar el historial real.

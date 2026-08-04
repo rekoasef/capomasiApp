@@ -19,15 +19,23 @@ export const dashboardService = {
     return dashboardService.getResumenAdmin()
   },
 
-  async getResumenAdmin(): Promise<ServiceResult<TResumenDashboard>> {
+  async getResumenAdmin(params?: {
+    anio?: number
+    mes?: number
+  }): Promise<ServiceResult<TResumenDashboard>> {
     const hoy = getHoy()
     const en7 = getEn7Dias()
 
+    const now = new Date()
+    const anio = params?.anio ?? now.getFullYear()
+    const mes = params?.mes ?? now.getMonth() + 1
+    const mesTarget = `${anio}-${String(mes).padStart(2, '0')}-01`
+
     const [
-      ingresosResult,
-      resultadoResult,
+      ingresoMesResult,
+      resultadoMesResult,
+      tendenciaResult,
       deudaResult,
-      trabajosResult,
       colaResult,
       proxResult,
       vencidosResult,
@@ -38,23 +46,27 @@ export const dashboardService = {
         .select(
           'mes, cantidad_liquidaciones, total_liquidado, total_facturado, ingreso_base_negro, facturado_cliente_neto, iva_facturado'
         )
-        .order('mes', { ascending: false })
-        .limit(6),
+        .eq('mes', mesTarget)
+        .maybeSingle(),
 
       supabase
         .from('v_resultado_mensual')
         .select(
           'mes, total_ingresos, gasto_sueldos, gasto_proveedores, gasto_manual_estudio, resultado'
         )
-        .order('mes', { ascending: false })
-        .limit(1),
-
-      supabase.from('v_cuenta_corriente').select('saldo_pendiente').gt('saldo_pendiente', 0),
+        .eq('mes', mesTarget)
+        .maybeSingle(),
 
       supabase
-        .from('honorarios_anuales')
-        .select('estado')
-        .in('estado', ['PENDIENTE', 'EN_PROCESO']),
+        .from('v_ingresos_mensuales')
+        .select(
+          'mes, cantidad_liquidaciones, total_liquidado, total_facturado, ingreso_base_negro, facturado_cliente_neto, iva_facturado'
+        )
+        .lte('mes', mesTarget)
+        .order('mes', { ascending: false })
+        .limit(6),
+
+      supabase.from('v_cuenta_corriente').select('saldo_pendiente').gt('saldo_pendiente', 0),
 
       supabase
         .from('vencimientos')
@@ -86,13 +98,15 @@ export const dashboardService = {
         .lte('fecha_vencimiento', hoy),
     ])
 
-    if (ingresosResult.error)
-      return { ok: false, error: ingresosResult.error.message, code: 'DB_ERROR' }
-    if (resultadoResult.error)
-      return { ok: false, error: resultadoResult.error.message, code: 'DB_ERROR' }
+    if (ingresoMesResult.error)
+      return { ok: false, error: ingresoMesResult.error.message, code: 'DB_ERROR' }
+    if (resultadoMesResult.error)
+      return { ok: false, error: resultadoMesResult.error.message, code: 'DB_ERROR' }
+    if (tendenciaResult.error)
+      return { ok: false, error: tendenciaResult.error.message, code: 'DB_ERROR' }
     if (deudaResult.error) return { ok: false, error: deudaResult.error.message, code: 'DB_ERROR' }
 
-    const rawMeses = ingresosResult.data ?? []
+    const rawMeses = tendenciaResult.data ?? []
     const meses: TIngresoMensual[] = rawMeses.map((r) => ({
       mes: r.mes ?? '',
       cantidad_liquidaciones: r.cantidad_liquidaciones ?? 0,
@@ -103,19 +117,19 @@ export const dashboardService = {
       iva_facturado: r.iva_facturado ?? 0,
     }))
 
-    const mesActual = meses[0] ?? {
-      total_liquidado: 0,
-      total_facturado: 0,
-      ingreso_base_negro: 0,
-      facturado_cliente_neto: 0,
-      iva_facturado: 0,
+    const ingresoRow = ingresoMesResult.data
+    const mesActual = {
+      total_liquidado: ingresoRow?.total_liquidado ?? 0,
+      total_facturado: ingresoRow?.total_facturado ?? 0,
+      ingreso_base_negro: ingresoRow?.ingreso_base_negro ?? 0,
+      facturado_cliente_neto: ingresoRow?.facturado_cliente_neto ?? 0,
+      iva_facturado: ingresoRow?.iva_facturado ?? 0,
     }
     const deudores = deudaResult.data ?? []
-    const trabajos = (trabajosResult.data ?? []) as { estado: string }[]
 
-    const resultadoRow = resultadoResult.data?.[0]
+    const resultadoRow = resultadoMesResult.data
     const resultadoMesActual = {
-      mes: resultadoRow?.mes ?? '',
+      mes: resultadoRow?.mes ?? mesTarget,
       total_ingresos: resultadoRow?.total_ingresos ?? 0,
       gasto_sueldos: resultadoRow?.gasto_sueldos ?? 0,
       gasto_proveedores: resultadoRow?.gasto_proveedores ?? 0,
@@ -126,6 +140,7 @@ export const dashboardService = {
     return {
       ok: true,
       data: {
+        mes: mesTarget,
         ingresos_mes_actual: mesActual.total_liquidado,
         facturado_mes_actual: mesActual.total_facturado,
         ingreso_base_negro_mes_actual: mesActual.ingreso_base_negro,
@@ -135,8 +150,6 @@ export const dashboardService = {
         deuda_total_clientes: deudores.reduce((sum, r) => sum + (r.saldo_pendiente ?? 0), 0),
         clientes_deudores: deudores.length,
         ultimos_6_meses: meses,
-        trabajos_pendientes: trabajos.filter((t) => t.estado === 'PENDIENTE').length,
-        trabajos_en_proceso: trabajos.filter((t) => t.estado === 'EN_PROCESO').length,
         cola_facturacion: colaResult.count ?? 0,
         vencimientos_proximos_7_dias: proxResult.count ?? 0,
         vencimientos_vencidos: vencidosResult.count ?? 0,

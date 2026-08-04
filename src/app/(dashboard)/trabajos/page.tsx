@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { PageHeader } from '@/shared/components/layout/PageHeader'
 import { TrabajosRealizadosOverview } from '@/modules/empleadas/components/TrabajosRealizadosOverview'
-import { TrabajosOverview } from '@/modules/trabajos/components/TrabajosOverview'
 import { ColaFacturacionOverview } from '@/modules/vencimientos/components/ColaFacturacionOverview'
 import { TrabajosPendientesAprobacionView } from '@/modules/vencimientos/components/TrabajosPendientesAprobacionView'
+import { TrabajosCompletadosView } from '@/modules/vencimientos/components/TrabajosCompletadosView'
 import { MisVencimientosView } from '@/modules/vencimientos/components/MisVencimientosView'
 import { useAuth } from '@/lib/auth/useAuth'
 import {
@@ -13,7 +13,7 @@ import {
   useTrabajosPendientesAprobacion,
 } from '@/modules/vencimientos/hooks/useVencimientosFiscales'
 
-type TabAdmin = 'planilla' | 'anuales' | 'aprobar' | 'cola'
+type TabAdmin = 'planilla' | 'aprobar' | 'cola' | 'completados'
 
 function AdminTrabajosPage() {
   const [tab, setTab] = useState<TabAdmin>('planilla')
@@ -37,16 +37,6 @@ function AdminTrabajosPage() {
           }`}
         >
           Planilla
-        </button>
-        <button
-          onClick={() => setTab('anuales')}
-          className={`-mb-px border-b-2 px-5 py-2.5 text-xs font-semibold tracking-wide uppercase transition-colors ${
-            tab === 'anuales'
-              ? 'border-primary text-primary'
-              : 'text-muted-foreground hover:text-foreground border-transparent'
-          }`}
-        >
-          Anuales
         </button>
         <button
           onClick={() => setTab('aprobar')}
@@ -78,6 +68,16 @@ function AdminTrabajosPage() {
             </span>
           )}
         </button>
+        <button
+          onClick={() => setTab('completados')}
+          className={`-mb-px border-b-2 px-5 py-2.5 text-xs font-semibold tracking-wide uppercase transition-colors ${
+            tab === 'completados'
+              ? 'border-primary text-primary'
+              : 'text-muted-foreground hover:text-foreground border-transparent'
+          }`}
+        >
+          Completados
+        </button>
       </div>
 
       {tab === 'planilla' && (
@@ -85,9 +85,9 @@ function AdminTrabajosPage() {
           <TrabajosRealizadosOverview />
         </div>
       )}
-      {tab === 'anuales' && <TrabajosOverview />}
       {tab === 'aprobar' && <TrabajosPendientesAprobacionView />}
       {tab === 'cola' && <ColaFacturacionOverview />}
+      {tab === 'completados' && <TrabajosCompletadosView />}
     </div>
   )
 }

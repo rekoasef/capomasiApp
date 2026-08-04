@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase/client'
-import { fondoMovimientoSchema } from '../schemas/fondoSchema'
+import { fondoMovimientoSchema, transferenciaFondosSchema } from '../schemas/fondoSchema'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
 import type { TFondoMovimiento, TSaldoFondos } from '../types'
-import type { TFondoMovimientoForm } from '../schemas/fondoSchema'
+import type { TFondoMovimientoForm, TTransferenciaFondosForm } from '../schemas/fondoSchema'
 
 export const fondosService = {
   async getMovimientos(opts?: {
@@ -62,5 +62,22 @@ export const fondosService = {
     const { error } = await supabase.from('fondos_movimientos').delete().eq('id', id)
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: undefined }
+  },
+
+  async transferir(form: TTransferenciaFondosForm): Promise<ServiceResult<TFondoMovimiento[]>> {
+    const parsed = transferenciaFondosSchema.safeParse(form)
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+
+    const { data, error } = await supabase.rpc('fn_transferir_fondos', {
+      p_origen: parsed.data.origen,
+      p_destino: parsed.data.destino,
+      p_importe: parsed.data.importe,
+      p_fecha: parsed.data.fecha,
+      p_concepto: parsed.data.concepto,
+      p_notas: parsed.data.notas ?? undefined,
+    })
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: (data ?? []) as unknown as TFondoMovimiento[] }
   },
 }

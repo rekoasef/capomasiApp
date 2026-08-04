@@ -101,6 +101,52 @@ export const vencimientosFiscalesService = {
     return vencimientosFiscalesService.actualizarEstadoAvance(id, 'APROBADO')
   },
 
+  // Historial de trabajos ya aprobados, sin importar si van a factura aparte,
+  // quedan incluidos en el abono, o ya están facturados. Paginado: puede crecer
+  // sin límite con el uso real del estudio.
+  async getCompletados(filtros?: {
+    clienteId?: string
+    empleadaId?: string
+    tipoVencimiento?: string
+    facturacion?: 'FACTURADO' | 'FALTA_FACTURAR' | 'ABONO'
+    page?: number
+    pageSize?: number
+  }): Promise<ServiceResult<{ rows: TVencimientoFiscalConCliente[]; total: number }>> {
+    const pageSize = filtros?.pageSize ?? 25
+    const page = filtros?.page ?? 0
+    const from = page * pageSize
+    const to = from + pageSize - 1
+
+    let query = supabase
+      .from('vencimientos')
+      .select('*, clientes(nombre, cuit), empleadas(nombre, apellido)', { count: 'exact' })
+      .in('ambito', ['CLIENTE', 'ESTUDIO'])
+      .eq('estado_avance', 'APROBADO')
+      .order('fecha_vencimiento', { ascending: false })
+      .range(from, to)
+
+    if (filtros?.clienteId) query = query.eq('cliente_id', filtros.clienteId)
+    if (filtros?.empleadaId) query = query.eq('empleada_id', filtros.empleadaId)
+    if (filtros?.tipoVencimiento) query = query.eq('tipo_vencimiento', filtros.tipoVencimiento)
+    if (filtros?.facturacion === 'FACTURADO') {
+      query = query.eq('facturado', true)
+    } else if (filtros?.facturacion === 'FALTA_FACTURAR') {
+      query = query.eq('facturado', false).eq('facturar_aparte', true)
+    } else if (filtros?.facturacion === 'ABONO') {
+      query = query.eq('facturar_aparte', false)
+    }
+
+    const { data, error, count } = await query
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return {
+      ok: true,
+      data: {
+        rows: (data ?? []) as unknown as TVencimientoFiscalConCliente[],
+        total: count ?? 0,
+      },
+    }
+  },
+
   async create(form: unknown): Promise<ServiceResult<TVencimientoFiscal>> {
     const parsed = vencimientoFiscalSchema.safeParse(form)
     if (!parsed.success) {

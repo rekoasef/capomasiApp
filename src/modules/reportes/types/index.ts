@@ -18,12 +18,6 @@ export type TResumenEmpleada = {
   total_liquidado: number
 }
 
-export type TTrabajoAnualCobradoResumen = {
-  tipo_trabajo: string
-  cantidad: number
-  total_honorario: number
-}
-
 export type TComparativoPeriodo = {
   desde: string
   hasta: string

@@ -18,6 +18,7 @@ export type TResultadoMensual = {
 }
 
 export type TResumenDashboard = {
+  mes: string // ISO date — primer día del mes seleccionado (o el actual por default)
   ingresos_mes_actual: number
   facturado_mes_actual: number
   ingreso_base_negro_mes_actual: number
@@ -27,8 +28,6 @@ export type TResumenDashboard = {
   deuda_total_clientes: number
   clientes_deudores: number
   ultimos_6_meses: TIngresoMensual[]
-  trabajos_pendientes: number
-  trabajos_en_proceso: number
   cola_facturacion: number
   vencimientos_proximos_7_dias: number
   vencimientos_vencidos: number

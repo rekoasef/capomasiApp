@@ -103,19 +103,19 @@ npm install @supabase/supabase-js @supabase/ssr
 
 ## 5. Módulos del Sistema
 
-| #   | Módulo                                     | Fase | Estado |
-| --- | ------------------------------------------ | ---- | ------ |
-| 1   | Auth + Usuarios + Roles                    | 1.2  | ✅     |
-| 2   | Gestión de Clientes                        | 1.3  | ✅     |
-| 3   | Honorarios Mensuales                       | 1.4  | ✅     |
-| 4   | Facturación + Cobranzas + Cuenta Corriente | 1.5  | ✅     |
-| 5   | Trabajos Anuales                           | 1.6  | ✅     |
-| 6   | Liquidación de Personal                    | 2.1  | ✅     |
-| 7   | Control de Fondos y Cheques                | 2.2  | ✅     |
-| 8   | Proveedores y Gastos                       | 2.3  | ✅     |
-| 9   | Vencimientos                               | 2.4  | ✅     |
-| 10  | Dashboard y Estadísticas                   | 3.1  | ✅     |
-| 11  | Reportes y Exportaciones                   | 3.2  | ✅     |
+| #   | Módulo                                     | Fase | Estado                    |
+| --- | ------------------------------------------ | ---- | ------------------------- |
+| 1   | Auth + Usuarios + Roles                    | 1.2  | ✅                        |
+| 2   | Gestión de Clientes                        | 1.3  | ✅                        |
+| 3   | Honorarios Mensuales                       | 1.4  | ✅                        |
+| 4   | Facturación + Cobranzas + Cuenta Corriente | 1.5  | ✅                        |
+| 5   | Trabajos Anuales                           | 1.6  | ❌ eliminado (2026-08-03) |
+| 6   | Liquidación de Personal                    | 2.1  | ✅                        |
+| 7   | Control de Fondos y Cheques                | 2.2  | ✅                        |
+| 8   | Proveedores y Gastos                       | 2.3  | ✅                        |
+| 9   | Vencimientos                               | 2.4  | ✅                        |
+| 10  | Dashboard y Estadísticas                   | 3.1  | ✅                        |
+| 11  | Reportes y Exportaciones                   | 3.2  | ✅                        |
 
 **Última actualización:** 2026-07-28 — Fases 1, 2 y 3 completas (los 10 módulos de la propuesta). Detalle funcional actual (no histórico) en `docs/funcional/ESTADO_MODULOS.md`. Pendiente: migración de datos del Excel (ver sección 11) y limpieza de datos demo en la base real antes de producción.
 
@@ -235,7 +235,11 @@ npm install @supabase/supabase-js @supabase/ssr
 - [x] Unit test: service `liquidacionesService`, `pagosService`, `cuentaCorrienteService`
 - [x] Manual: registrar una liquidación y varios pagos parciales, verificar saldo
 
-#### Subfase 1.6 — Trabajos Anuales ✅
+#### Subfase 1.6 — Trabajos Anuales ❌ eliminado (2026-08-03)
+
+Quedó desconectado del flujo real de facturación/cobranza (avanzar a COBRADO no generaba
+liquidación ni movía la cuenta corriente) y confundía a la clienta. Ver
+`supabase/migrations/0058_eliminar_trabajos_anuales.sql`.
 
 - [x] Tabla `honorarios_anuales` por tipo de trabajo (balance, ganancias, ISIB, bienes personales, etc.)
 - [x] Estados: PENDIENTE → EN_PROCESO → FINALIZADO → COBRADO
@@ -435,17 +439,17 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 ### Datos a migrar
 
-| Hoja Excel                     | Destino DB                              | Complejidad                            |
-| ------------------------------ | --------------------------------------- | -------------------------------------- |
-| BASE DE CLIENTES               | `clientes`                              | Baja                                   |
-| HONORARIO MENSUAL              | `honorarios_mensuales`                  | Media (frecuencias de ajuste)          |
-| HONORARIOS ANUALES             | `honorarios_anuales`                    | Media                                  |
-| FC y COBRANZAS                 | `liquidaciones` + `pagos`               | Alta (fórmulas rotas, múltiples pagos) |
-| MOV DE FONDOS                  | `fondos_movimientos`                    | Media                                  |
-| COMPRAS PROV                   | `compras_proveedores`                   | Media                                  |
-| BASE DE PROV                   | `proveedores`                           | Baja                                   |
-| VICTORIA BOZ / LUCIANA FARAONI | `empleadas` + `liquidaciones_empleadas` | Media                                  |
-| PARAMETROS                     | `parametros`                            | Baja (carga manual)                    |
+| Hoja Excel                     | Destino DB                                                           | Complejidad                            |
+| ------------------------------ | -------------------------------------------------------------------- | -------------------------------------- |
+| BASE DE CLIENTES               | `clientes`                                                           | Baja                                   |
+| HONORARIO MENSUAL              | `honorarios_mensuales`                                               | Media (frecuencias de ajuste)          |
+| HONORARIOS ANUALES             | _(sin destino — tabla eliminada 2026-08-03, definir con la clienta)_ | Media                                  |
+| FC y COBRANZAS                 | `liquidaciones` + `pagos`                                            | Alta (fórmulas rotas, múltiples pagos) |
+| MOV DE FONDOS                  | `fondos_movimientos`                                                 | Media                                  |
+| COMPRAS PROV                   | `compras_proveedores`                                                | Media                                  |
+| BASE DE PROV                   | `proveedores`                                                        | Baja                                   |
+| VICTORIA BOZ / LUCIANA FARAONI | `empleadas` + `liquidaciones_empleadas`                              | Media                                  |
+| PARAMETROS                     | `parametros`                                                         | Baja (carga manual)                    |
 
 ### Consideraciones críticas
 

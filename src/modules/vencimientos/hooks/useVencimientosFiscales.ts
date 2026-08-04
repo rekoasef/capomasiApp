@@ -52,6 +52,24 @@ export function useColaFacturacionVencimientos() {
   })
 }
 
+export function useTrabajosCompletados(filtros?: {
+  clienteId?: string
+  empleadaId?: string
+  tipoVencimiento?: string
+  facturacion?: 'FACTURADO' | 'FALTA_FACTURAR' | 'ABONO'
+  page?: number
+  pageSize?: number
+}) {
+  return useQuery({
+    queryKey: ['vencimientos-fiscales', 'completados', filtros],
+    queryFn: async () => {
+      const result = await vencimientosFiscalesService.getCompletados(filtros)
+      if (!result.ok) throw new Error(result.error)
+      return result.data
+    },
+  })
+}
+
 export function useAprobarTrabajo() {
   const qc = useQueryClient()
   return useMutation({
@@ -63,10 +81,13 @@ export function useAprobarTrabajo() {
       }
       const v = result.data
       const tienePuntos = v.empleada_id && v.puntos_snapshot && v.puntos_snapshot > 0
+      const sufijo = v.facturar_aparte
+        ? ' · pasó a cola de facturación'
+        : ' · incluido en el abono, no va a cola'
       toast.success(
         tienePuntos
-          ? `Trabajo aprobado — ${v.puntos_snapshot} pts registrados · pasó a cola de facturación`
-          : 'Trabajo aprobado — pasó a cola de facturación'
+          ? `Trabajo aprobado — ${v.puntos_snapshot} pts registrados${sufijo}`
+          : `Trabajo aprobado${sufijo}`
       )
       qc.invalidateQueries({ queryKey: ['vencimientos-fiscales'] })
     },

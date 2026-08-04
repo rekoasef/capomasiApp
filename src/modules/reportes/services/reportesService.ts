@@ -4,7 +4,6 @@ import type {
   TIngresoMensual,
   TResumenTipo,
   TResumenEmpleada,
-  TTrabajoAnualCobradoResumen,
   TComparativoResultado,
 } from '../types'
 import { sumarIngresos } from './sumarIngresos'
@@ -123,35 +122,6 @@ export const reportesService = {
     return {
       ok: true,
       data: Array.from(porEmpleada.values()).sort((a, b) => b.total_liquidado - a.total_liquidado),
-    }
-  },
-
-  async getTrabajosAnualesCobrados(
-    anio: number
-  ): Promise<ServiceResult<TTrabajoAnualCobradoResumen[]>> {
-    const { data, error } = await supabase
-      .from('honorarios_anuales')
-      .select('tipo_trabajo, honorario')
-      .eq('anio', anio)
-      .eq('estado', 'COBRADO')
-
-    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-
-    const porTipo = new Map<string, TTrabajoAnualCobradoResumen>()
-    for (const r of data ?? []) {
-      const acc = porTipo.get(r.tipo_trabajo) ?? {
-        tipo_trabajo: r.tipo_trabajo,
-        cantidad: 0,
-        total_honorario: 0,
-      }
-      acc.cantidad += 1
-      acc.total_honorario += r.honorario ?? 0
-      porTipo.set(r.tipo_trabajo, acc)
-    }
-
-    return {
-      ok: true,
-      data: Array.from(porTipo.values()).sort((a, b) => b.total_honorario - a.total_honorario),
     }
   },
 

@@ -728,112 +728,6 @@ export type Database = {
           },
         ]
       }
-      honorarios_anuales: {
-        Row: {
-          anio: number
-          asignado_a: string | null
-          cliente_id: string
-          created_at: string
-          estado: string
-          fecha_vencimiento: string | null
-          honorario: number | null
-          id: string
-          importe_facturado: number | null
-          notas: string | null
-          tipo_comprobante: string | null
-          tipo_trabajo: string
-          updated_at: string
-        }
-        Insert: {
-          anio: number
-          asignado_a?: string | null
-          cliente_id: string
-          created_at?: string
-          estado?: string
-          fecha_vencimiento?: string | null
-          honorario?: number | null
-          id?: string
-          importe_facturado?: number | null
-          notas?: string | null
-          tipo_comprobante?: string | null
-          tipo_trabajo: string
-          updated_at?: string
-        }
-        Update: {
-          anio?: number
-          asignado_a?: string | null
-          cliente_id?: string
-          created_at?: string
-          estado?: string
-          fecha_vencimiento?: string | null
-          honorario?: number | null
-          id?: string
-          importe_facturado?: number | null
-          notas?: string | null
-          tipo_comprobante?: string | null
-          tipo_trabajo?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'honorarios_anuales_asignado_a_fkey'
-            columns: ['asignado_a']
-            isOneToOne: false
-            referencedRelation: 'usuarios'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'honorarios_anuales_cliente_id_fkey'
-            columns: ['cliente_id']
-            isOneToOne: false
-            referencedRelation: 'clientes'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'honorarios_anuales_cliente_id_fkey'
-            columns: ['cliente_id']
-            isOneToOne: false
-            referencedRelation: 'v_cuenta_corriente'
-            referencedColumns: ['cliente_id']
-          },
-        ]
-      }
-      honorarios_anuales_empleadas: {
-        Row: {
-          created_at: string
-          empleada_id: string
-          honorario_anual_id: string
-          id: string
-        }
-        Insert: {
-          created_at?: string
-          empleada_id: string
-          honorario_anual_id: string
-          id?: string
-        }
-        Update: {
-          created_at?: string
-          empleada_id?: string
-          honorario_anual_id?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'honorarios_anuales_empleadas_empleada_id_fkey'
-            columns: ['empleada_id']
-            isOneToOne: false
-            referencedRelation: 'empleadas'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'honorarios_anuales_empleadas_honorario_anual_id_fkey'
-            columns: ['honorario_anual_id']
-            isOneToOne: false
-            referencedRelation: 'honorarios_anuales'
-            referencedColumns: ['id']
-          },
-        ]
-      }
       honorarios_mensuales: {
         Row: {
           cliente_id: string
@@ -2490,6 +2384,41 @@ export type Database = {
       fn_serie_recibo_de_tipo_comprobante: {
         Args: { p_tipo_comprobante: string }
         Returns: string
+      }
+      fn_transferir_fondos: {
+        Args: {
+          p_concepto: string
+          p_destino: string
+          p_fecha: string
+          p_importe: number
+          p_notas?: string
+          p_origen: string
+        }
+        Returns: {
+          cheque_id: string | null
+          concepto: string
+          created_at: string
+          created_by: string | null
+          cuenta_bancaria: string | null
+          fecha: string
+          id: string
+          importe_banco: number | null
+          importe_cheques_cartera: number | null
+          importe_efectivo: number | null
+          importe_taralo: number | null
+          importe_usd: number | null
+          notas: string | null
+          nro_comprobante: string | null
+          referencia_id: string | null
+          referencia_tipo: string | null
+          tipo_movimiento: string
+        }[]
+        SetofOptions: {
+          from: '*'
+          to: 'fondos_movimientos'
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       is_admin: { Args: never; Returns: boolean }
       is_authenticated_user: { Args: never; Returns: boolean }

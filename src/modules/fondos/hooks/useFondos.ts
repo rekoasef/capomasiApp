@@ -4,7 +4,11 @@ import { chequesService } from '../services/chequesService'
 import type { TEstadoCheque } from '../services/chequesService'
 import type { TCheque } from '@/modules/cobranzas/types'
 import { toast } from 'sonner'
-import type { TFondoMovimientoForm, TChequeManualForm } from '../schemas/fondoSchema'
+import type {
+  TFondoMovimientoForm,
+  TChequeManualForm,
+  TTransferenciaFondosForm,
+} from '../schemas/fondoSchema'
 
 export function useSaldoFondos() {
   return useQuery({
@@ -60,6 +64,22 @@ export function useEliminarMovimiento() {
         return
       }
       toast.success('Movimiento eliminado')
+      qc.invalidateQueries({ queryKey: ['fondos_movimientos'] })
+      qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
+    },
+  })
+}
+
+export function useTransferirFondos() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (form: TTransferenciaFondosForm) => fondosService.transferir(form),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success('Transferencia registrada')
       qc.invalidateQueries({ queryKey: ['fondos_movimientos'] })
       qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
     },

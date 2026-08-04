@@ -48,18 +48,6 @@ export function useIngresosPorEmpleada(anio?: number, mes?: number) {
   })
 }
 
-export function useTrabajosAnualesCobrados(anio: number) {
-  return useQuery({
-    queryKey: ['reportes', 'trabajos-anuales-cobrados', anio],
-    queryFn: async () => {
-      const result = await reportesService.getTrabajosAnualesCobrados(anio)
-      if (!result.ok) throw new Error(result.error)
-      return result.data
-    },
-    enabled: !!anio,
-  })
-}
-
 export function useComparativoPeriodos(
   periodoA: { desde: string; hasta: string } | null,
   periodoB: { desde: string; hasta: string } | null

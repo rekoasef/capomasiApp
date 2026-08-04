@@ -7,7 +7,6 @@ import { useAniosDisponibles } from '@/modules/reportes/hooks/useReportes'
 import { IngresosMensualesTable } from '@/modules/reportes/components/IngresosMensualesTable'
 import { IngresosPorTipoTable } from '@/modules/reportes/components/IngresosPorTipoTable'
 import { IngresosPorEmpleadaTable } from '@/modules/reportes/components/IngresosPorEmpleadaTable'
-import { TrabajosAnualesCobradosCard } from '@/modules/reportes/components/TrabajosAnualesCobradosCard'
 import { ComparativoPeriodos } from '@/modules/reportes/components/ComparativoPeriodos'
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -98,11 +97,6 @@ export default function ReportesPage() {
       <section>
         <SectionTitle>Por empleada</SectionTitle>
         <IngresosPorEmpleadaTable anio={anio} mes={mes} />
-      </section>
-
-      <section>
-        <SectionTitle>Trabajos anuales</SectionTitle>
-        <TrabajosAnualesCobradosCard anio={anio} />
       </section>
 
       <section>

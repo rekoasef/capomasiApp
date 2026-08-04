@@ -123,19 +123,20 @@ SUPABASE\_SERVICE\_ROLE\_KEY=eyJ...
 | 3   | Clientes                       | 1    | 1.3     | ✅     |
 | 4   | Honorarios Mensuales           | 1    | 1.4     | ✅     |
 | 5   | Facturación \+ Cobranzas \+ CC | 1    | 1.5     | ✅     |
-| 6   | Trabajos Anuales               | 1    | 1.6     | ✅     |
-| 7   | Liquidación Personal           | 2    | 2.1     | ✅     |
-| 8   | Fondos y Cheques               | 2    | 2.2     | ✅     |
-| 9   | Proveedores y Gastos           | 2    | 2.3     | ✅     |
-| 10  | Vencimientos                   | 2    | 2.4     | ✅     |
-| 11  | Dashboard                      | 3    | 3.1     | ✅     |
-| 12  | Reportes                       | 3    | 3.2     | ✅     |
+| 6   | Liquidación Personal           | 2    | 2.1     | ✅     |
+| 7   | Fondos y Cheques               | 2    | 2.2     | ✅     |
+| 8   | Proveedores y Gastos           | 2    | 2.3     | ✅     |
+| 9   | Vencimientos                   | 2    | 2.4     | ✅     |
+| 10  | Dashboard                      | 3    | 3.1     | ✅     |
+| 11  | Reportes                       | 3    | 3.2     | ✅     |
+
+**Trabajos Anuales (`honorarios_anuales`) se eliminó el 2026-08-03** — quedó desconectado del flujo real de facturación/cobranza y confundía a la clienta. Ver `supabase/migrations/0058_eliminar_trabajos_anuales.sql`.
 
 **Regla de fase:** no se pasa a la siguiente subfase hasta que la actual esté ✅ completa (tests \+ validación manual \+ aprobación de clienta).
 
 **Detalle funcional actualizado de cada módulo:** `docs/funcional/ESTADO_MODULOS.md` (reemplaza el checklist estático de abajo, que quedó como referencia histórica de scope — no de estado).
 
-**Pendientes reales (no de código):** limpieza de datos demo en la base real antes de producción, carga por Paola de tipos de trabajo anuales faltantes, y la migración de datos del Excel (ver conversación con el usuario / memoria de sesión).
+**Pendientes reales (no de código):** la migración de datos del Excel (ver conversación con el usuario / memoria de sesión). La base real ya se limpió de datos demo (2026-08-03) — quedan 34 clientes reales sin data transaccional, listos para la carga de saldos iniciales.
 
 ---
 

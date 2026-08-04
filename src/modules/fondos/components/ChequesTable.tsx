@@ -49,9 +49,13 @@ const ESTADO_LABEL: Record<TCheque['estado'], string> = {
   ANULADO: 'Anulado',
 }
 
-const ESTADO_SIGUIENTE: Partial<Record<TCheque['estado'], TCheque['estado'][]>> = {
-  EN_CARTERA: ['DEPOSITADO', 'ENDOSADO', 'RECHAZADO', 'ANULADO'],
-}
+const TODOS_LOS_ESTADOS: TCheque['estado'][] = [
+  'EN_CARTERA',
+  'DEPOSITADO',
+  'ENDOSADO',
+  'RECHAZADO',
+  'ANULADO',
+]
 
 export function ChequesTable() {
   const [filtro, setFiltro] = useState<TEstadoFiltro>('EN_CARTERA')
@@ -73,8 +77,8 @@ export function ChequesTable() {
   const desmarcarAcreditacion = useDesmarcarAcreditacionCheque()
 
   const accionCheque = data?.find((c) => c.id === accionId) ?? null
-  const opcionesEstado = (ESTADO_SIGUIENTE['EN_CARTERA'] ?? []).filter(
-    (e) => e !== 'ENDOSADO' || accionCheque?.tipo === 'TERCERO'
+  const opcionesEstado = TODOS_LOS_ESTADOS.filter(
+    (e) => e !== accionCheque?.estado && (e !== 'ENDOSADO' || accionCheque?.tipo === 'TERCERO')
   )
 
   const FILTROS: { value: TEstadoFiltro; label: string }[] = [
@@ -281,14 +285,12 @@ export function ChequesTable() {
                     />
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    {ch.estado === 'EN_CARTERA' && (
-                      <button
-                        onClick={() => setAccionId(ch.id)}
-                        className="text-primary text-xs hover:underline"
-                      >
-                        Actualizar
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setAccionId(ch.id)}
+                      className="text-primary text-xs hover:underline"
+                    >
+                      Cambiar estado
+                    </button>
                   </td>
                 </tr>
               ))}
