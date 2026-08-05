@@ -136,7 +136,7 @@ SUPABASE\_SERVICE\_ROLE\_KEY=eyJ...
 
 **Detalle funcional actualizado de cada módulo:** `docs/funcional/ESTADO_MODULOS.md` (reemplaza el checklist estático de abajo, que quedó como referencia histórica de scope — no de estado).
 
-**Pendientes reales (no de código):** la migración de datos del Excel (ver conversación con el usuario / memoria de sesión). La base real ya se limpió de datos demo (2026-08-03) — quedan 34 clientes reales sin data transaccional, listos para la carga de saldos iniciales.
+**Pendientes reales (no de código):** facturación histórica del Excel ya migrada como tabla informativa (ver sección 19). Falta: saldo inicial de cuenta corriente real para los clientes que efectivamente tienen deuda pendiente (Paola debe precisar cuáles), personalizar el PDF de liquidación/recibo según modelo de Paola, y publicar en subdominio de prueba. Ver memoria de sesión "reunion_2026-08-04_revision_y_cierre" para el detalle completo.
 
 ---
 
@@ -1064,14 +1064,15 @@ refactor(auth): simplify useAuth hook
 
 ## ⚠️ 19\. Casos especiales y deuda técnica
 
-| Caso                                 | Descripción                                                                    | Estado                              |
-| :----------------------------------- | :----------------------------------------------------------------------------- | :---------------------------------- |
-| **Los Piuquenes S.A.**               | Honorario en quintales (qq), no en pesos                                       | Usar campo `notas` en liquidaciones |
-| **Saldos iniciales**                 | Migrar del Excel como `liquidaciones` con `tipo_liquidacion = 'SALDO_INICIAL'` | Pendiente migración                 |
-| **CUITs en notación científica**     | Excel exporta `2.7227257526E10` → convertir a string 11 dígitos                | Script de migración pendiente       |
-| **Fórmulas rotas en FC y COBRANZAS** | 80% de cobros con `#ERROR!` en Excel                                           | Reconstrucción con clienta          |
-| **`claves_clientes` en texto plano** | Migrar a Supabase Vault                                                        | Deuda v2                            |
-| **Sin maintenance mensual**          | Clienta no contrató                                                            | Riesgo documentado y aceptado       |
+| Caso                                       | Descripción                                                                                                                                                                                                                                                                                                                                                             | Estado                              |
+| :----------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------- |
+| **Los Piuquenes S.A.**                     | Honorario en quintales (qq), no en pesos                                                                                                                                                                                                                                                                                                                                | Usar campo `notas` en liquidaciones |
+| **Facturación histórica del Excel**        | ~~Migrar como `liquidaciones` con `SALDO_INICIAL`~~ — descartado: Paola pidió que sea puramente informativo, sin tocar cuenta corriente ni facturación real. Se migró a tabla aparte `facturacion_historica` (solo columnas A-L de "FC y COBRANZAS", solo admin, sin FKs), con pestaña propia `/facturacion-historica` y filtros por cliente/servicio/generado por/año. | ✅ Hecho 2026-08-05 (325 filas)     |
+| **Saldo inicial de cuenta corriente real** | Solo para los clientes que tienen saldo pendiente real hoy (no todos) — Paola lo tiene que precisar; queda pendiente distinto de la tabla informativa de arriba                                                                                                                                                                                                         | Pendiente                           |
+| **CUITs en notación científica**           | Excel exporta `2.7227257526E10` → convertir a string 11 dígitos                                                                                                                                                                                                                                                                                                         | Script de migración pendiente       |
+| **Fórmulas rotas en FC y COBRANZAS**       | 80% de cobros con `#ERROR!` en Excel                                                                                                                                                                                                                                                                                                                                    | Reconstrucción con clienta          |
+| **`claves_clientes` en texto plano**       | Migrar a Supabase Vault                                                                                                                                                                                                                                                                                                                                                 | Deuda v2                            |
+| **Sin maintenance mensual**                | Clienta no contrató                                                                                                                                                                                                                                                                                                                                                     | Riesgo documentado y aceptado       |
 
 ---
 

@@ -18,6 +18,7 @@ import {
   Settings,
   LogOut,
   BarChart3,
+  History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -81,6 +82,13 @@ const navItems: NavItem[] = [
     href: '/reportes',
     label: 'Reportes',
     icon: BarChart3,
+    adminOnly: true,
+    empleadaVisible: false,
+  },
+  {
+    href: '/facturacion-historica',
+    label: 'Facturación Histórica',
+    icon: History,
     adminOnly: true,
     empleadaVisible: false,
   },

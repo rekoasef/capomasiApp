@@ -552,6 +552,57 @@ export type Database = {
           },
         ]
       }
+      facturacion_historica: {
+        Row: {
+          anio_liquidado: number | null
+          cliente: string
+          comprobante_emisor: string | null
+          comprobante_numero: string | null
+          comprobante_tipo: string | null
+          created_at: string
+          detalle: string | null
+          fecha_liquidacion: string | null
+          generado_por: string | null
+          id: string
+          importe_facturado: number | null
+          importe_liquidado: number | null
+          periodo_liquidado: string | null
+          servicio: string | null
+        }
+        Insert: {
+          anio_liquidado?: number | null
+          cliente: string
+          comprobante_emisor?: string | null
+          comprobante_numero?: string | null
+          comprobante_tipo?: string | null
+          created_at?: string
+          detalle?: string | null
+          fecha_liquidacion?: string | null
+          generado_por?: string | null
+          id?: string
+          importe_facturado?: number | null
+          importe_liquidado?: number | null
+          periodo_liquidado?: string | null
+          servicio?: string | null
+        }
+        Update: {
+          anio_liquidado?: number | null
+          cliente?: string
+          comprobante_emisor?: string | null
+          comprobante_numero?: string | null
+          comprobante_tipo?: string | null
+          created_at?: string
+          detalle?: string | null
+          fecha_liquidacion?: string | null
+          generado_por?: string | null
+          id?: string
+          importe_facturado?: number | null
+          importe_liquidado?: number | null
+          periodo_liquidado?: string | null
+          servicio?: string | null
+        }
+        Relationships: []
+      }
       fondos_movimientos: {
         Row: {
           cheque_id: string | null
@@ -1817,6 +1868,18 @@ export type Database = {
           saldo_pendiente: number | null
           total_comprado: number | null
           total_pagado: number | null
+        }
+        Relationships: []
+      }
+      v_historial_egresos_estudio: {
+        Row: {
+          concepto: string | null
+          fecha: string | null
+          id: string | null
+          importe: number | null
+          medio_pago: string | null
+          origen: string | null
+          referencia: string | null
         }
         Relationships: []
       }

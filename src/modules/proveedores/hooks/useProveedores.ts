@@ -1,11 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { proveedoresService } from '../services/proveedoresService'
 import { toast } from 'sonner'
-import type {
-  TProveedorForm,
-  TCompraProveedorForm,
-  TPagoProveedorForm,
-} from '../schemas/proveedorSchema'
+import type { TProveedorForm, TGastoProveedorForm } from '../schemas/proveedorSchema'
 
 export function useProveedores() {
   return useQuery({
@@ -68,18 +64,18 @@ export function useComprasProveedores(
   })
 }
 
-export function useCrearCompra() {
+export function useCrearGastoPagado() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (form: TCompraProveedorForm) => proveedoresService.crearCompra(form),
+    mutationFn: (form: TGastoProveedorForm) => proveedoresService.crearGastoPagado(form),
     onSuccess: (r) => {
       if (!r.ok) {
         toast.error(r.error)
         return
       }
-      toast.success('Compra registrada')
+      toast.success('Gasto registrado')
       qc.invalidateQueries({ queryKey: ['compras_proveedores'] })
-      qc.invalidateQueries({ queryKey: ['cuenta_corriente_proveedores'] })
+      qc.invalidateQueries({ queryKey: ['historial_egresos_estudio'] })
     },
   })
 }
@@ -93,9 +89,9 @@ export function useAnularCompra() {
         toast.error(r.error)
         return
       }
-      toast.success('Compra anulada')
+      toast.success('Gasto anulado')
       qc.invalidateQueries({ queryKey: ['compras_proveedores'] })
-      qc.invalidateQueries({ queryKey: ['cuenta_corriente_proveedores'] })
+      qc.invalidateQueries({ queryKey: ['historial_egresos_estudio'] })
     },
   })
 }
@@ -112,30 +108,13 @@ export function usePagosProveedor(compraId: string) {
   })
 }
 
-export function useCuentaCorrienteProveedores() {
+export function useHistorialEgresos() {
   return useQuery({
-    queryKey: ['cuenta_corriente_proveedores'],
+    queryKey: ['historial_egresos_estudio'],
     queryFn: async () => {
-      const r = await proveedoresService.getCuentaCorriente()
+      const r = await proveedoresService.getHistorialEgresos()
       if (!r.ok) throw new Error(r.error)
       return r.data
-    },
-  })
-}
-
-export function useRegistrarPagoProveedor() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (form: TPagoProveedorForm) => proveedoresService.registrarPago(form),
-    onSuccess: (r, vars) => {
-      if (!r.ok) {
-        toast.error(r.error)
-        return
-      }
-      toast.success('Pago registrado')
-      qc.invalidateQueries({ queryKey: ['pagos_proveedores', vars.compra_id] })
-      qc.invalidateQueries({ queryKey: ['compras_proveedores'] })
-      qc.invalidateQueries({ queryKey: ['cuenta_corriente_proveedores'] })
     },
   })
 }

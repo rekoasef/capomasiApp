@@ -42,11 +42,14 @@ export interface TPagoProveedor {
   created_at: string
 }
 
-export interface TCuentaCorrienteProveedor {
-  proveedor_id: string
-  proveedor_nombre: string
-  total_comprado: number
-  total_pagado: number
-  saldo_pendiente: number
-  compras_pendientes: number
+export type TOrigenEgreso = 'PROVEEDOR' | 'GASTO_ESTUDIO' | 'SUELDO'
+
+export interface THistorialEgreso {
+  id: string
+  fecha: string
+  origen: TOrigenEgreso
+  referencia: string
+  concepto: string
+  importe: number
+  medio_pago: string
 }

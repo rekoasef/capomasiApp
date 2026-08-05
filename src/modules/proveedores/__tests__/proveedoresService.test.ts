@@ -7,18 +7,18 @@ jest.mock('@/lib/supabase/client', () => ({
 import { supabase } from '@/lib/supabase/client'
 
 const mockFrom = supabase.from as jest.Mock
-const mockRpc  = supabase.rpc as jest.Mock
+const mockRpc = supabase.rpc as jest.Mock
 
 function mockChain(overrides: Record<string, unknown> = {}) {
   const chain = {
-    select:  jest.fn().mockReturnThis(),
-    insert:  jest.fn().mockReturnThis(),
-    update:  jest.fn().mockReturnThis(),
-    delete:  jest.fn().mockReturnThis(),
-    eq:      jest.fn().mockReturnThis(),
-    is:      jest.fn().mockReturnThis(),
-    order:   jest.fn().mockReturnThis(),
-    single:  jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    insert: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    is: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    single: jest.fn().mockReturnThis(),
     ...overrides,
   }
   mockFrom.mockReturnValue(chain)
@@ -26,6 +26,7 @@ function mockChain(overrides: Record<string, unknown> = {}) {
 }
 
 const UUID = 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+const COMPRA_UUID = 'a1b2c3d4-58cc-4372-a567-0e02b2c3d479'
 
 // ── getAll ───────────────────────────────────────────────────
 
@@ -42,7 +43,9 @@ describe('proveedoresService.getAll', () => {
   })
 
   it('retorna DB_ERROR si falla', async () => {
-    mockChain({ order: jest.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }) })
+    mockChain({
+      order: jest.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+    })
 
     const result = await proveedoresService.getAll()
     expect(result.ok).toBe(false)
@@ -78,7 +81,10 @@ describe('proveedoresService.crearCompra', () => {
 
   it('retorna VALIDATION_ERROR si el concepto está vacío', async () => {
     const result = await proveedoresService.crearCompra({
-      proveedor_id: UUID, fecha: '2026-04-21', concepto: '', importe_total: 5000,
+      proveedor_id: UUID,
+      fecha: '2026-04-21',
+      concepto: '',
+      importe_total: 5000,
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
@@ -86,18 +92,30 @@ describe('proveedoresService.crearCompra', () => {
 
   it('retorna VALIDATION_ERROR si el importe es 0', async () => {
     const result = await proveedoresService.crearCompra({
-      proveedor_id: UUID, fecha: '2026-04-21', concepto: 'Compra test', importe_total: 0,
+      proveedor_id: UUID,
+      fecha: '2026-04-21',
+      concepto: 'Compra test',
+      importe_total: 0,
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
   })
 
   it('crea la compra correctamente', async () => {
-    const compra = { id: 'c-1', proveedor_id: UUID, concepto: 'Compra test', importe_total: 5000, estado: 'PENDIENTE' }
+    const compra = {
+      id: 'c-1',
+      proveedor_id: UUID,
+      concepto: 'Compra test',
+      importe_total: 5000,
+      estado: 'PENDIENTE',
+    }
     mockChain({ single: jest.fn().mockResolvedValue({ data: compra, error: null }) })
 
     const result = await proveedoresService.crearCompra({
-      proveedor_id: UUID, fecha: '2026-04-21', concepto: 'Compra test', importe_total: 5000,
+      proveedor_id: UUID,
+      fecha: '2026-04-21',
+      concepto: 'Compra test',
+      importe_total: 5000,
     })
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data.estado).toBe('PENDIENTE')
@@ -126,7 +144,10 @@ describe('proveedoresService.registrarPago', () => {
 
   it('retorna VALIDATION_ERROR si el importe es 0', async () => {
     const result = await proveedoresService.registrarPago({
-      compra_id: UUID, tipo_pago: 'TRANSFERENCIA', importe: 0, fecha_pago: '2026-04-21',
+      compra_id: UUID,
+      tipo_pago: 'TRANSFERENCIA',
+      importe: 0,
+      fecha_pago: '2026-04-21',
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
@@ -137,23 +158,97 @@ describe('proveedoresService.registrarPago', () => {
     mockRpc.mockResolvedValue({ data: pago, error: null })
 
     const result = await proveedoresService.registrarPago({
-      compra_id: UUID, tipo_pago: 'TRANSFERENCIA', importe: 5000, fecha_pago: '2026-04-21',
+      compra_id: UUID,
+      tipo_pago: 'TRANSFERENCIA',
+      importe: 5000,
+      fecha_pago: '2026-04-21',
     })
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data.importe).toBe(5000)
-    expect(mockRpc).toHaveBeenCalledWith('fn_registrar_pago_proveedor', expect.objectContaining({
-      p_compra_id: UUID,
-      p_importe:   5000,
-    }))
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_registrar_pago_proveedor',
+      expect.objectContaining({
+        p_compra_id: UUID,
+        p_importe: 5000,
+      })
+    )
   })
 
   it('retorna DB_ERROR si el RPC falla', async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'RPC error' } })
 
     const result = await proveedoresService.registrarPago({
-      compra_id: UUID, tipo_pago: 'EFECTIVO', importe: 1000, fecha_pago: '2026-04-21',
+      compra_id: UUID,
+      tipo_pago: 'EFECTIVO',
+      importe: 1000,
+      fecha_pago: '2026-04-21',
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('DB_ERROR')
+  })
+})
+
+// ── crearGastoPagado ─────────────────────────────────────────
+
+describe('proveedoresService.crearGastoPagado', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('retorna VALIDATION_ERROR si el concepto está vacío', async () => {
+    const result = await proveedoresService.crearGastoPagado({
+      proveedor_id: UUID,
+      fecha: '2026-04-21',
+      concepto: '',
+      importe_total: 5000,
+      tipo_pago: 'EFECTIVO',
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('crea la compra ya pagada en un solo paso (compra + RPC de pago)', async () => {
+    const compra = {
+      id: COMPRA_UUID,
+      proveedor_id: UUID,
+      concepto: 'Gasto test',
+      importe_total: 5000,
+      estado: 'PENDIENTE',
+    }
+    const pago = { id: 'p-1', compra_id: COMPRA_UUID, importe: 5000, tipo_pago: 'EFECTIVO' }
+    mockChain({ single: jest.fn().mockResolvedValue({ data: compra, error: null }) })
+    mockRpc.mockResolvedValue({ data: pago, error: null })
+
+    const result = await proveedoresService.crearGastoPagado({
+      proveedor_id: UUID,
+      fecha: '2026-04-21',
+      concepto: 'Gasto test',
+      importe_total: 5000,
+      tipo_pago: 'EFECTIVO',
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.estado).toBe('PAGADA')
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_registrar_pago_proveedor',
+      expect.objectContaining({
+        p_compra_id: COMPRA_UUID,
+        p_importe: 5000,
+      })
+    )
+  })
+
+  it('no llama al RPC de pago si la creación de la compra falla', async () => {
+    mockChain({
+      single: jest.fn().mockResolvedValue({ data: null, error: { message: 'DB down' } }),
+    })
+
+    const result = await proveedoresService.crearGastoPagado({
+      proveedor_id: UUID,
+      fecha: '2026-04-21',
+      concepto: 'Gasto test',
+      importe_total: 5000,
+      tipo_pago: 'EFECTIVO',
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
+    expect(mockRpc).not.toHaveBeenCalled()
   })
 })

@@ -3,18 +3,15 @@ import {
   proveedorSchema,
   compraProveedorSchema,
   pagoProveedorSchema,
+  gastoProveedorSchema,
 } from '../schemas/proveedorSchema'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
-import type {
-  TProveedor,
-  TCompraProveedor,
-  TPagoProveedor,
-  TCuentaCorrienteProveedor,
-} from '../types'
+import type { TProveedor, TCompraProveedor, TPagoProveedor, THistorialEgreso } from '../types'
 import type {
   TProveedorForm,
   TCompraProveedorForm,
   TPagoProveedorForm,
+  TGastoProveedorForm,
 } from '../schemas/proveedorSchema'
 
 export const proveedoresService = {
@@ -179,14 +176,47 @@ export const proveedoresService = {
     return { ok: true, data: data as TPagoProveedor }
   },
 
-  // --- Cuenta corriente ---
+  // --- Gasto (compra + pago en un solo paso, sin estado pendiente) ---
 
-  async getCuentaCorriente(): Promise<ServiceResult<TCuentaCorrienteProveedor[]>> {
+  async crearGastoPagado(form: TGastoProveedorForm): Promise<ServiceResult<TCompraProveedor>> {
+    const parsed = gastoProveedorSchema.safeParse(form)
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+
+    const compraResult = await this.crearCompra({
+      proveedor_id: parsed.data.proveedor_id,
+      fecha: parsed.data.fecha,
+      concepto: parsed.data.concepto,
+      nro_comprobante: parsed.data.nro_comprobante,
+      tipo_comprobante: parsed.data.tipo_comprobante,
+      importe_total: parsed.data.importe_total,
+      notas: parsed.data.notas,
+    })
+    if (!compraResult.ok) return compraResult
+
+    const pagoResult = await this.registrarPago({
+      compra_id: compraResult.data.id,
+      tipo_pago: parsed.data.tipo_pago,
+      importe: parsed.data.importe_total,
+      fecha_pago: parsed.data.fecha,
+      cuenta_bancaria: parsed.data.cuenta_bancaria,
+      cheque_numero: parsed.data.cheque_numero,
+      cheque_banco: parsed.data.cheque_banco,
+      cheque_fecha_emision: parsed.data.cheque_fecha_emision,
+    })
+    if (!pagoResult.ok) return { ok: false, error: pagoResult.error, code: pagoResult.code }
+
+    return { ok: true, data: { ...compraResult.data, estado: 'PAGADA' } }
+  },
+
+  // --- Historial de egresos (proveedores + gastos del estudio + sueldos) ---
+
+  async getHistorialEgresos(): Promise<ServiceResult<THistorialEgreso[]>> {
     const { data, error } = await supabase
-      .from('v_cuenta_corriente_proveedores')
+      .from('v_historial_egresos_estudio')
       .select('*')
-      .order('proveedor_nombre')
+      .order('fecha', { ascending: false })
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: (data ?? []) as TCuentaCorrienteProveedor[] }
+    return { ok: true, data: (data ?? []) as THistorialEgreso[] }
   },
 }

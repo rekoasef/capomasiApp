@@ -7,19 +7,16 @@ import {
   useProveedores,
   useCrearProveedor,
   useComprasProveedores,
-  useCrearCompra,
+  useCrearGastoPagado,
   useAnularCompra,
-  useRegistrarPagoProveedor,
-  useCuentaCorrienteProveedores,
   usePagosProveedor,
+  useHistorialEgresos,
 } from '../hooks/useProveedores'
 import {
   proveedorSchema,
-  compraProveedorSchema,
-  pagoProveedorSchema,
+  gastoProveedorSchema,
   type TProveedorForm,
-  type TCompraProveedorForm,
-  type TPagoProveedorForm,
+  type TGastoProveedorForm,
 } from '../schemas/proveedorSchema'
 import { Input } from '@/shared/components/ui/input'
 import { Textarea } from '@/shared/components/ui/textarea'
@@ -32,7 +29,7 @@ import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
 import { Plus, ChevronDown, ChevronRight, StickyNote } from 'lucide-react'
 import { useAuth } from '@/lib/auth/useAuth'
-import type { TCompraProveedor } from '../types'
+import type { TOrigenEgreso } from '../types'
 import { useParametros } from '@/shared/hooks/useParametros'
 import {
   FALLBACK_CUENTAS_BANCARIAS,
@@ -54,6 +51,17 @@ const ESTADO_LABEL: Record<string, string> = {
   ANULADA: 'Anulada',
 }
 
+const ORIGEN_LABEL: Record<TOrigenEgreso, string> = {
+  PROVEEDOR: 'Proveedor',
+  GASTO_ESTUDIO: 'Gasto del estudio',
+  SUELDO: 'Sueldo',
+}
+const ORIGEN_VARIANT: Record<TOrigenEgreso, 'default' | 'secondary' | 'outline'> = {
+  PROVEEDOR: 'default',
+  GASTO_ESTUDIO: 'secondary',
+  SUELDO: 'outline',
+}
+
 const COMPRAS_PAGE_SIZE = 25
 
 export function ProveedoresOverview() {
@@ -65,15 +73,9 @@ export function ProveedoresOverview() {
     error,
   } = useComprasProveedores({ page: comprasPage, pageSize: COMPRAS_PAGE_SIZE })
   const compras = comprasData?.rows
-  const {
-    data: cuentaCorriente,
-    isLoading: loadingCC,
-    error: errorCC,
-  } = useCuentaCorrienteProveedores()
   const crearProv = useCrearProveedor()
-  const crearCompra = useCrearCompra()
+  const crearGasto = useCrearGastoPagado()
   const anular = useAnularCompra()
-  const registrarPago = useRegistrarPagoProveedor()
   const { isAdmin } = useAuth()
   const { data: rubrosProveedor = FALLBACK_RUBROS_PROVEEDOR } = useParametros({
     categorias: ['RUBRO_PROVEEDOR'],
@@ -92,10 +94,9 @@ export function ProveedoresOverview() {
     fallback: FALLBACK_CUENTAS_BANCARIAS,
   })
 
-  const [tab, setTab] = useState<'compras' | 'proveedores' | 'cc'>('compras')
+  const [tab, setTab] = useState<'historial' | 'compras' | 'proveedores'>('historial')
   const [showProvForm, setShowProvForm] = useState(false)
   const [showCompraForm, setShowCompraForm] = useState(false)
-  const [pagarCompra, setPagarCompra] = useState<TCompraProveedor | null>(null)
   const [anularId, setAnularId] = useState<string | null>(null)
   const [expandedCompra, setExpandedCompra] = useState<string | null>(null)
 
@@ -104,14 +105,9 @@ export function ProveedoresOverview() {
     defaultValues: { nombre: '', activo: true },
   })
 
-  const compraForm = useForm<TCompraProveedorForm>({
-    resolver: zodResolver(compraProveedorSchema) as unknown as Resolver<TCompraProveedorForm>,
-    defaultValues: { fecha: toLocalDateInputValue() },
-  })
-
-  const pagoForm = useForm<TPagoProveedorForm>({
-    resolver: zodResolver(pagoProveedorSchema) as unknown as Resolver<TPagoProveedorForm>,
-    defaultValues: { tipo_pago: 'TRANSFERENCIA', fecha_pago: toLocalDateInputValue() },
+  const compraForm = useForm<TGastoProveedorForm>({
+    resolver: zodResolver(gastoProveedorSchema) as unknown as Resolver<TGastoProveedorForm>,
+    defaultValues: { fecha: toLocalDateInputValue(), tipo_pago: 'TRANSFERENCIA' },
   })
 
   const handleProvSubmit = provForm.handleSubmit((d) => {
@@ -126,36 +122,21 @@ export function ProveedoresOverview() {
   })
 
   const handleCompraSubmit = compraForm.handleSubmit((d) => {
-    crearCompra.mutate(d, {
+    crearGasto.mutate(d, {
       onSuccess: (r) => {
         if (r.ok) {
-          compraForm.reset()
+          compraForm.reset({ fecha: toLocalDateInputValue(), tipo_pago: 'TRANSFERENCIA' })
           setShowCompraForm(false)
         }
       },
     })
   })
 
-  const handlePagoSubmit = pagoForm.handleSubmit((d) => {
-    if (!pagarCompra) return
-    registrarPago.mutate(
-      { ...d, compra_id: pagarCompra.id },
-      {
-        onSuccess: (r) => {
-          if (r.ok) {
-            pagoForm.reset()
-            setPagarCompra(null)
-          }
-        },
-      }
-    )
-  })
-
   return (
     <div className="space-y-5">
       {/* Tabs */}
       <div className="border-border flex gap-0 border-b">
-        {(['compras', 'proveedores', 'cc'] as const).map((t) => (
+        {(['historial', 'compras', 'proveedores'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -165,14 +146,17 @@ export function ProveedoresOverview() {
                 : 'text-muted-foreground hover:text-foreground border-transparent'
             }`}
           >
-            {t === 'compras'
-              ? 'Compras / Gastos'
-              : t === 'proveedores'
-                ? 'Proveedores'
-                : 'Cuenta Corriente'}
+            {t === 'historial'
+              ? 'Historial de Egresos'
+              : t === 'compras'
+                ? 'Compras / Gastos'
+                : 'Proveedores'}
           </button>
         ))}
       </div>
+
+      {/* TAB: Historial de egresos (proveedores + gastos del estudio + sueldos) */}
+      {tab === 'historial' && <HistorialEgresosTab />}
 
       {/* TAB: Compras */}
       {tab === 'compras' && (
@@ -181,7 +165,7 @@ export function ProveedoresOverview() {
             <div className="flex justify-end">
               <Button size="sm" variant="outline" onClick={() => setShowCompraForm((v) => !v)}>
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Nueva compra
+                Nuevo gasto
               </Button>
             </div>
           )}
@@ -239,14 +223,90 @@ export function ProveedoresOverview() {
                   ))}
                 </select>
               </div>
+              <div className="border-border space-y-3 border-t pt-3">
+                <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+                  Medio de pago
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+                      Tipo *
+                    </label>
+                    <select
+                      {...compraForm.register('tipo_pago')}
+                      className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+                    >
+                      {tiposPago.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {compraForm.watch('tipo_pago') === 'TRANSFERENCIA' && (
+                    <div>
+                      <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+                        Cuenta bancaria
+                      </label>
+                      <select
+                        {...compraForm.register('cuenta_bancaria')}
+                        className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+                      >
+                        <option value="">Seleccionar...</option>
+                        {cuentasBancarias.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                {compraForm.watch('tipo_pago') === 'CHEQUE' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="N° Cheque *"
+                      {...compraForm.register('cheque_numero')}
+                      error={compraForm.formState.errors.cheque_numero?.message}
+                    />
+                    <Input
+                      label="Banco *"
+                      {...compraForm.register('cheque_banco')}
+                      error={compraForm.formState.errors.cheque_banco?.message}
+                    />
+                    <Input
+                      label="Fecha emisión *"
+                      type="date"
+                      {...compraForm.register('cheque_fecha_emision')}
+                      error={compraForm.formState.errors.cheque_fecha_emision?.message}
+                    />
+                    <div>
+                      <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+                        Cuenta bancaria
+                      </label>
+                      <select
+                        {...compraForm.register('cuenta_bancaria')}
+                        className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+                      >
+                        <option value="">Seleccionar...</option>
+                        {cuentasBancarias.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
               <Textarea
                 label="Notas / observaciones"
                 {...compraForm.register('notas')}
                 error={compraForm.formState.errors.notas?.message}
               />
               <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={crearCompra.isPending}>
-                  {crearCompra.isPending ? 'Guardando...' : 'Guardar'}
+                <Button type="submit" size="sm" disabled={crearGasto.isPending}>
+                  {crearGasto.isPending ? 'Guardando...' : 'Guardar'}
                 </Button>
                 <Button
                   type="button"
@@ -340,26 +400,11 @@ export function ProveedoresOverview() {
                         </td>
                         {isAdmin && (
                           <td className="px-4 py-2.5 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {c.estado !== 'PAGADA' && c.estado !== 'ANULADA' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setPagarCompra(c)}
-                                >
-                                  Pagar
-                                </Button>
-                              )}
-                              {c.estado === 'PENDIENTE' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setAnularId(c.id)}
-                                >
-                                  Anular
-                                </Button>
-                              )}
-                            </div>
+                            {c.estado !== 'ANULADA' && (
+                              <Button size="sm" variant="outline" onClick={() => setAnularId(c.id)}>
+                                Anular
+                              </Button>
+                            )}
                           </td>
                         )}
                       </tr>
@@ -481,195 +526,9 @@ export function ProveedoresOverview() {
         </div>
       )}
 
-      {/* TAB: Cuenta Corriente */}
-      {tab === 'cc' && (
-        <div className="space-y-4">
-          {loadingCC ? (
-            <div className="space-y-px">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full rounded-none" />
-              ))}
-            </div>
-          ) : errorCC ? (
-            <p className="text-danger text-sm">{errorCC.message}</p>
-          ) : !cuentaCorriente?.length ? (
-            <p className="text-muted-foreground py-8 text-center text-xs tracking-widest uppercase">
-              Sin datos de cuenta corriente
-            </p>
-          ) : (
-            <div className="border-border overflow-x-auto border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-border bg-muted/50 border-b-2">
-                    <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
-                      Proveedor
-                    </th>
-                    <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                      Total comprado
-                    </th>
-                    <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                      Total pagado
-                    </th>
-                    <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                      Saldo pendiente
-                    </th>
-                    <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                      Compras pend.
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-border bg-surface divide-y">
-                  {cuentaCorriente.map((cc, i) => (
-                    <tr
-                      key={cc.proveedor_id}
-                      className={`hover:bg-muted/30 transition-colors ${i % 2 === 1 ? 'bg-muted/20' : ''}`}
-                    >
-                      <td className="px-4 py-2.5 font-medium">{cc.proveedor_nombre}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">
-                        {formatMoney(cc.total_comprado)}
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">
-                        {formatMoney(cc.total_pagado)}
-                      </td>
-                      <td
-                        className={`px-4 py-2.5 text-right font-medium tabular-nums ${cc.saldo_pendiente > 0 ? 'text-danger' : ''}`}
-                      >
-                        {formatMoney(cc.saldo_pendiente)}
-                      </td>
-                      <td className="text-muted-foreground px-4 py-2.5 text-right tabular-nums">
-                        {cc.compras_pendientes}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modal pagar compra */}
-      {pagarCompra && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="bg-foreground/30 absolute inset-0 backdrop-blur-[1px]"
-            onClick={() => setPagarCompra(null)}
-          />
-          <div className="border-border bg-surface relative z-10 w-full max-w-sm border p-6 shadow-xl">
-            <div className="bg-primary mb-1 h-0.5 w-6" />
-            <h2 className="mb-1 text-sm font-bold">Registrar pago</h2>
-            <p className="text-muted-foreground mb-4 text-xs">
-              {pagarCompra.proveedores?.nombre} — {formatMoney(pagarCompra.importe_total)}
-            </p>
-            <form onSubmit={handlePagoSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
-                    Tipo *
-                  </label>
-                  <select
-                    {...pagoForm.register('tipo_pago')}
-                    className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
-                  >
-                    {tiposPago.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Input label="Fecha *" type="date" {...pagoForm.register('fecha_pago')} />
-              </div>
-              <Input
-                label="Importe *"
-                type="number"
-                step="0.01"
-                min="0.01"
-                defaultValue={pagarCompra.importe_total}
-                {...pagoForm.register('importe', { valueAsNumber: true })}
-              />
-              {pagoForm.watch('tipo_pago') === 'TRANSFERENCIA' && (
-                <div>
-                  <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
-                    Cuenta bancaria
-                  </label>
-                  <select
-                    {...pagoForm.register('cuenta_bancaria')}
-                    className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
-                  >
-                    <option value="">Seleccionar...</option>
-                    {cuentasBancarias.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {pagoForm.watch('tipo_pago') === 'CHEQUE' && (
-                <div className="border-border space-y-3 border-t pt-3">
-                  <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-                    Datos del cheque emitido
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      label="N° Cheque *"
-                      {...pagoForm.register('cheque_numero')}
-                      error={pagoForm.formState.errors.cheque_numero?.message}
-                    />
-                    <Input
-                      label="Banco *"
-                      {...pagoForm.register('cheque_banco')}
-                      error={pagoForm.formState.errors.cheque_banco?.message}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      label="Fecha emisión *"
-                      type="date"
-                      {...pagoForm.register('cheque_fecha_emision')}
-                      error={pagoForm.formState.errors.cheque_fecha_emision?.message}
-                    />
-                    <div>
-                      <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
-                        Cuenta bancaria
-                      </label>
-                      <select
-                        {...pagoForm.register('cuenta_bancaria')}
-                        className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
-                      >
-                        <option value="">Seleccionar...</option>
-                        {cuentasBancarias.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={registrarPago.isPending}>
-                  {registrarPago.isPending ? 'Guardando...' : 'Confirmar'}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPagarCompra(null)}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       <ConfirmDialog
         open={!!anularId}
-        title="Anular compra"
+        title="Anular gasto"
         description="Esta acción no se puede deshacer."
         confirmLabel="Anular"
         onConfirm={() => {
@@ -687,6 +546,104 @@ const TIPO_PAGO_LABEL: Record<string, string> = {
   TRANSFERENCIA: 'Transferencia',
   EFECTIVO: 'Efectivo',
   CHEQUE: 'Cheque',
+  TARJETA: 'Tarjeta',
+}
+
+function HistorialEgresosTab() {
+  const { data: egresos, isLoading, error } = useHistorialEgresos()
+  const [origen, setOrigen] = useState<TOrigenEgreso | ''>('')
+
+  const filtrados = origen ? (egresos ?? []).filter((e) => e.origen === origen) : (egresos ?? [])
+  const total = filtrados.reduce((acc, e) => acc + e.importe, 0)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1">
+          {(['', 'PROVEEDOR', 'GASTO_ESTUDIO', 'SUELDO'] as const).map((o) => (
+            <button
+              key={o || 'todos'}
+              onClick={() => setOrigen(o)}
+              className={`border px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase transition-colors ${
+                origen === o
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {o === '' ? 'Todos' : ORIGEN_LABEL[o]}
+            </button>
+          ))}
+        </div>
+        {!isLoading && !error && (
+          <p className="text-muted-foreground text-xs">
+            {filtrados.length} egresos — total {formatMoney(total)}
+          </p>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-px">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-none" />
+          ))}
+        </div>
+      ) : error ? (
+        <p className="text-danger text-sm">{error.message}</p>
+      ) : !filtrados.length ? (
+        <p className="text-muted-foreground py-8 text-center text-xs tracking-widest uppercase">
+          Sin egresos registrados
+        </p>
+      ) : (
+        <div className="border-border overflow-x-auto border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-border bg-muted/50 border-b-2">
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Fecha
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Origen
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Referencia
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Concepto
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Medio
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
+                  Importe
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-border bg-surface divide-y">
+              {filtrados.map((e, i) => (
+                <tr
+                  key={e.id}
+                  className={`hover:bg-muted/30 transition-colors ${i % 2 === 1 ? 'bg-muted/20' : ''}`}
+                >
+                  <td className="text-muted-foreground px-4 py-2.5">{formatDate(e.fecha)}</td>
+                  <td className="px-4 py-2.5">
+                    <Badge variant={ORIGEN_VARIANT[e.origen]}>{ORIGEN_LABEL[e.origen]}</Badge>
+                  </td>
+                  <td className="px-4 py-2.5 font-medium">{e.referencia}</td>
+                  <td className="text-muted-foreground px-4 py-2.5">{e.concepto}</td>
+                  <td className="text-muted-foreground px-4 py-2.5">
+                    {TIPO_PAGO_LABEL[e.medio_pago] ?? e.medio_pago}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-medium tabular-nums">
+                    {formatMoney(e.importe)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function PagosCompraDetalle({ compraId }: { compraId: string }) {
