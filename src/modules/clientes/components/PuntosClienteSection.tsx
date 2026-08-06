@@ -10,6 +10,7 @@ import {
   useUpsertPuntosTrabajoConfig,
   useDeletePuntosTrabajoConfig,
 } from '@/modules/empleadas/hooks/useEmpleadas'
+import { useGenerarVencimientosMes } from '@/modules/vencimientos/hooks/useVencimientosFiscales'
 import {
   puntosTrabajoConfigSchema,
   type TPuntosTrabajoConfigForm,
@@ -77,6 +78,7 @@ export function PuntosClienteSection({ clienteId }: Props) {
   const { data: config = [], isLoading } = usePuntosTrabajoConfig(clienteId)
   const upsert = useUpsertPuntosTrabajoConfig()
   const eliminar = useDeletePuntosTrabajoConfig()
+  const generarVencimientos = useGenerarVencimientosMes()
 
   const { data: tiposTrabajo = [] } = useParametros({ categorias: ['TIPO_SERVICIO'] })
   const { data: empleadas = [] } = useEmpleadas()
@@ -115,6 +117,16 @@ export function PuntosClienteSection({ clienteId }: Props) {
       } else {
         toast.success('Trabajo guardado y vencimiento creado')
       }
+    }
+
+    // MENSUAL/ANUAL no crean el vencimiento acá — generarlo ahora para el mes actual en vez de
+    // esperar a que alguien abra un calendario, para que se vea de inmediato en "Mis trabajos".
+    if (data.tipo_vencimiento === 'MENSUAL' || data.tipo_vencimiento === 'ANUAL') {
+      const hoy = new Date()
+      await generarVencimientos.mutateAsync({
+        anio: hoy.getFullYear(),
+        mes: hoy.getMonth() + 1,
+      })
     }
 
     form.reset(DEFAULT_VALUES(clienteId))
