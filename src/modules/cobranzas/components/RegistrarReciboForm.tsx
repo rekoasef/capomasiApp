@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { reciboSchema, type TReciboForm } from '../schemas/reciboSchema'
@@ -12,7 +13,6 @@ import { Button } from '@/shared/components/ui/button'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
 import { useParametros } from '@/shared/hooks/useParametros'
 import { FALLBACK_CUENTAS_BANCARIAS, FALLBACK_TIPOS_PAGO_COBRANZAS } from '@/shared/lib/parametros'
-import { formatMoney } from '@/shared/utils/formatters'
 
 type Props = {
   clienteId: string
@@ -36,6 +36,7 @@ export function RegistrarReciboForm({ clienteId, onSuccess, onCancel }: Props) {
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<TReciboForm>({
     resolver: zodResolver(reciboSchema) as unknown as Resolver<TReciboForm>,
@@ -55,6 +56,13 @@ export function RegistrarReciboForm({ clienteId, onSuccess, onCancel }: Props) {
     tipoPago === 'USD' && importeUsd && tipoCambio
       ? calcularImportePagoUSD(Number(importeUsd), Number(tipoCambio))
       : null
+
+  // En USD, el Importe ARS es el equivalente calculado — no se vuelve a tipear a mano.
+  useEffect(() => {
+    if (tipoPago === 'USD') {
+      setValue('importe', importeArs ?? 0, { shouldValidate: true })
+    }
+  }, [tipoPago, importeArs, setValue])
 
   async function onSubmit(data: TReciboForm) {
     const result = await registrar.mutateAsync(data)
@@ -89,12 +97,12 @@ export function RegistrarReciboForm({ clienteId, onSuccess, onCancel }: Props) {
 
       <Input
         id="importe"
-        label="Importe ARS *"
+        label={tipoPago === 'USD' ? 'Importe ARS (equivalente, calculado)' : 'Importe ARS *'}
         type="number"
         step="0.01"
         min="0.01"
         error={errors.importe?.message}
-        disabled={registrar.isPending}
+        disabled={registrar.isPending || tipoPago === 'USD'}
         {...register('importe')}
       />
 
@@ -122,21 +130,16 @@ export function RegistrarReciboForm({ clienteId, onSuccess, onCancel }: Props) {
             disabled={registrar.isPending}
             {...register('importe_usd')}
           />
-          <div>
-            <Input
-              id="tipo_cambio"
-              label="Tipo de cambio *"
-              type="number"
-              step="0.01"
-              min="0.01"
-              error={errors.tipo_cambio?.message}
-              disabled={registrar.isPending}
-              {...register('tipo_cambio')}
-            />
-            {importeArs !== null && (
-              <p className="text-muted-foreground mt-1 text-xs">= {formatMoney(importeArs)}</p>
-            )}
-          </div>
+          <Input
+            id="tipo_cambio"
+            label="Tipo de cambio *"
+            type="number"
+            step="0.01"
+            min="0.01"
+            error={errors.tipo_cambio?.message}
+            disabled={registrar.isPending}
+            {...register('tipo_cambio')}
+          />
         </div>
       )}
 
