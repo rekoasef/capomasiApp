@@ -16,10 +16,12 @@ import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Pencil } from 'lucide-react'
+import type { TValoresPuntoTipo } from '../types'
 
 export function ValoresPuntoTipoConfig() {
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data: valores = [], isLoading } = useValoresPuntoTipo()
@@ -38,8 +40,25 @@ export function ValoresPuntoTipoConfig() {
     if (r.ok) {
       form.reset({ tipo_trabajo: '', valor_por_punto: 0, vigente_desde: toLocalDateInputValue() })
       setShowForm(false)
+      setEditingId(null)
     }
   })
+
+  const handleEdit = (v: TValoresPuntoTipo) => {
+    form.reset({
+      tipo_trabajo: v.tipo_trabajo,
+      valor_por_punto: Number(v.valor_por_punto),
+      vigente_desde: v.vigente_desde,
+    })
+    setEditingId(v.id)
+    setShowForm(true)
+  }
+
+  const handleCancel = () => {
+    form.reset({ tipo_trabajo: '', valor_por_punto: 0, vigente_desde: toLocalDateInputValue() })
+    setShowForm(false)
+    setEditingId(null)
+  }
 
   const valoresVigentes = valores.filter(
     (v, i, arr) => arr.findIndex((x) => x.tipo_trabajo === v.tipo_trabajo) === i
@@ -54,14 +73,21 @@ export function ValoresPuntoTipoConfig() {
             Cuánto vale cada punto según el tipo de trabajo. Se aplica a todas las empleadas.
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={() => setShowForm((v) => !v)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => (showForm ? handleCancel() : setShowForm(true))}
+        >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Agregar / Actualizar
+          Agregar valor
         </Button>
       </div>
 
       {showForm && (
         <form onSubmit={onSubmit} className="border-border bg-surface space-y-3 border p-4">
+          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+            {editingId ? 'Editar valor' : 'Nuevo valor'}
+          </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
@@ -103,7 +129,7 @@ export function ValoresPuntoTipoConfig() {
             <Button type="submit" size="sm" disabled={upsert.isPending}>
               {upsert.isPending ? 'Guardando...' : 'Guardar'}
             </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>
+            <Button type="button" size="sm" variant="outline" onClick={handleCancel}>
               Cancelar
             </Button>
           </div>
@@ -134,7 +160,7 @@ export function ValoresPuntoTipoConfig() {
                 <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
                   Vigente desde
                 </th>
-                <th className="w-10 px-4 py-2.5" />
+                <th className="w-16 px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-border bg-surface divide-y">
@@ -147,13 +173,21 @@ export function ValoresPuntoTipoConfig() {
                   <td className="text-muted-foreground px-4 py-2.5">
                     {formatDate(v.vigente_desde)}
                   </td>
-                  <td className="w-10 px-4 py-2.5">
-                    <button
-                      onClick={() => setDeleteId(v.id)}
-                      className="text-muted-foreground hover:text-danger p-1"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                  <td className="w-16 px-4 py-2.5">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => handleEdit(v)}
+                        className="text-muted-foreground hover:text-primary p-1"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteId(v.id)}
+                        className="text-muted-foreground hover:text-danger p-1"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
