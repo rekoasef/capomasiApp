@@ -3,7 +3,6 @@ import { ProfileCard } from '@/modules/auth/components/ProfileCard'
 import { ValoresPuntoTipoConfig } from '@/modules/empleadas/components/ValoresPuntoTipoConfig'
 import { TiposServicioManager } from '@/modules/configuracion/components/TiposServicioManager'
 import { CambiarPasswordCard } from '@/modules/configuracion/components/CambiarPasswordCard'
-import { AuditLogViewer } from '@/modules/auditoria/components/AuditLogViewer'
 
 export default function ConfiguracionPage() {
   return (
@@ -18,9 +17,6 @@ export default function ConfiguracionPage() {
       </div>
       <div className="border-border bg-surface border p-6">
         <CambiarPasswordCard />
-      </div>
-      <div className="border-border bg-surface border p-6">
-        <AuditLogViewer />
       </div>
     </div>
   )

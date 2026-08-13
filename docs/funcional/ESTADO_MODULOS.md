@@ -89,7 +89,7 @@ ABM de proveedores — CUIT opcional, admite un gasto suelto sin proveedor forma
 
 Roles `admin` / `empleada` con seguridad real en RLS (no solo ocultamiento de UI), reforzada por redirección de rutas (`src/proxy.ts`) para que una empleada que navegue directo a una URL admin-only no vea una pantalla rota.
 
-Audit log aplicado a las tablas sensibles (clientes, honorarios, cobranzas, empleadas, liquidaciones, pagos, proveedores, vencimientos), con pantalla de consulta para el admin en Configuración — filtro por tabla, fila expandible con el diff en JSON.
+Audit log aplicado a las tablas sensibles (clientes, honorarios, cobranzas, empleadas, liquidaciones, pagos, proveedores, vencimientos) a nivel de base de datos (triggers + tabla `audit_log`), como red de seguridad silenciosa. La pantalla de consulta en Configuración se sacó el 2026-08-13 — Paola no la necesitaba — pero el registro sigue corriendo por si algún día hace falta reconstruir qué pasó.
 
 Sistema de parámetros configurables (`parametros`) para no hardcodear listas de valores: tipos de servicio, comprobante, gasto, conceptos de liquidación de empleadas, etc.
 
