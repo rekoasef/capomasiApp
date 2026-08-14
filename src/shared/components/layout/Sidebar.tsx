@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/lib/auth/useAuth'
@@ -142,21 +143,29 @@ export function Sidebar() {
     >
       {/* Brand */}
       <div className="px-5 pt-6 pb-5">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 shrink-0" style={{ background: 'var(--sidebar-accent)' }} />
-          <span
-            className="text-xs font-bold tracking-[0.18em] uppercase"
-            style={{ color: 'oklch(0.88 0.008 65)' }}
-          >
-            Capomasi
-          </span>
+        <div className="flex items-center gap-2.5">
+          <Image
+            src="/sello-capomasi.png"
+            alt="Sello Estudio Capomasi"
+            width={30}
+            height={30}
+            className="shrink-0"
+          />
+          <div>
+            <span
+              className="text-xs font-bold tracking-[0.18em] uppercase"
+              style={{ color: 'oklch(0.88 0.008 65)' }}
+            >
+              Capomasi
+            </span>
+            <p
+              className="text-[10px] tracking-widest uppercase"
+              style={{ color: 'var(--sidebar-foreground)' }}
+            >
+              Estudio Contable
+            </p>
+          </div>
         </div>
-        <p
-          className="mt-1 pl-4 text-[10px] tracking-widest uppercase"
-          style={{ color: 'var(--sidebar-foreground)' }}
-        >
-          Estudio Contable
-        </p>
       </div>
 
       {/* Separator */}
