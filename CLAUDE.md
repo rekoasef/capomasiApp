@@ -635,26 +635,26 @@ En Tailwind v4 **no existe** `tailwind.config.js`. Los tokens se definen con `@t
 
 ## 🗄️ 11\. Base de datos — tablas principales
 
-| Tabla                     | Descripción                      | RLS crítica                    |
-| :------------------------ | :------------------------------- | :----------------------------- |
-| `usuarios`                | Perfil \+ rol. FK → `auth.users` | Todos autenticados leen        |
-| `clientes`                | Base de clientes                 | Todos leen / admin edita       |
-| `claves_clientes`         | Claves AFIP/ANSES                | **Solo admin**                 |
-| `parametros`              | Listas configurables             | Todos leen / admin edita       |
-| `honorarios_mensuales`    | Historial de honorarios          | Todos leen / admin edita       |
-| `honorarios_anuales`      | Trabajos anuales                 | Todos leen/editan              |
-| `liquidaciones`           | Servicios devengados             | Todos leen/crean / admin edita |
-| `pagos`                   | Pagos recibidos                  | Todos leen/crean               |
-| `cheques`                 | Cheques (con lifecycle)          | Todos leen / admin edita       |
-| `fondos_movimientos`      | Caja                             | **Solo admin**                 |
-| `empleadas`               | Personal                         | Todos leen / admin edita       |
-| `liquidaciones_empleadas` | Sueldos — componentes            | **Solo admin**                 |
-| `pagos_empleadas`         | Sueldos — pagos                  | **Solo admin**                 |
-| `proveedores`             | Proveedores                      | Todos leen / admin edita       |
-| `compras_proveedores`     | Gastos                           | Todos leen / admin edita       |
-| `pagos_proveedores`       | Pagos a proveedores              | **Solo admin**                 |
-| `vencimientos`            | Vencimientos (con `ambito`)      | Personal: solo admin           |
-| `audit_log`               | Auditoría automática             | **Solo admin** lee             |
+| Tabla                     | Descripción                      | RLS crítica                                       |
+| :------------------------ | :------------------------------- | :------------------------------------------------ |
+| `usuarios`                | Perfil \+ rol. FK → `auth.users` | Todos autenticados leen                           |
+| `clientes`                | Base de clientes                 | Todos leen / admin edita                          |
+| `claves_clientes`         | Claves AFIP/ANSES                | Todos autenticados leen/editan (desde 2026-08-14) |
+| `parametros`              | Listas configurables             | Todos leen / admin edita                          |
+| `honorarios_mensuales`    | Historial de honorarios          | Todos leen / admin edita                          |
+| `honorarios_anuales`      | Trabajos anuales                 | Todos leen/editan                                 |
+| `liquidaciones`           | Servicios devengados             | Todos leen/crean / admin edita                    |
+| `pagos`                   | Pagos recibidos                  | Todos leen/crean                                  |
+| `cheques`                 | Cheques (con lifecycle)          | Todos leen / admin edita                          |
+| `fondos_movimientos`      | Caja                             | **Solo admin**                                    |
+| `empleadas`               | Personal                         | Todos leen / admin edita                          |
+| `liquidaciones_empleadas` | Sueldos — componentes            | **Solo admin**                                    |
+| `pagos_empleadas`         | Sueldos — pagos                  | **Solo admin**                                    |
+| `proveedores`             | Proveedores                      | Todos leen / admin edita                          |
+| `compras_proveedores`     | Gastos                           | Todos leen / admin edita                          |
+| `pagos_proveedores`       | Pagos a proveedores              | **Solo admin**                                    |
+| `vencimientos`            | Vencimientos (con `ambito`)      | Personal: solo admin                              |
+| `audit_log`               | Auditoría automática             | **Solo admin** lee                                |
 
 ### Views
 
@@ -674,7 +674,7 @@ En Tailwind v4 **no existe** `tailwind.config.js`. Los tokens se definen con `@t
 | Login                                     |  ✅   |       ✅       |
 | Ver clientes                              |  ✅   |       ✅       |
 | Crear/editar clientes                     |  ✅   |       ❌       |
-| Ver claves fiscales                       |  ✅   |       ❌       |
+| Ver/editar claves fiscales                |  ✅   |       ✅       |
 | Ver honorarios mensuales                  |  ✅   |       ✅       |
 | Editar honorarios                         |  ✅   |       ❌       |
 | Ver cuenta corriente                      |  ✅   |       ✅       |
@@ -880,7 +880,6 @@ it('devuelve error si la DB falla', async () \=\> {
 - `calcularSaldoCliente` — sumatorias con pagos parciales
 - Validación de CUIT (Zod)
 - Cambios de estado de `honorarios_anuales`
-- Acceso a `claves_clientes` bypaseado (debe fallar)
 - Conversión USD → ARS con tipo de cambio
 
 ### Definition of Done (DoD) por módulo

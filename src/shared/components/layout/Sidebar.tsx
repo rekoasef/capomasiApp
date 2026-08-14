@@ -34,7 +34,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid, adminOnly: false, empleadaVisible: true },
-  { href: '/clientes', label: 'Clientes', icon: Users, adminOnly: false, empleadaVisible: false },
+  { href: '/clientes', label: 'Clientes', icon: Users, adminOnly: false, empleadaVisible: true },
   {
     href: '/honorarios',
     label: 'Honorarios',
