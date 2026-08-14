@@ -1018,6 +1018,57 @@ export type Database = {
           },
         ]
       }
+      notas_empleadas: {
+        Row: {
+          contenido: string
+          creada_por: string | null
+          created_at: string
+          deleted_at: string | null
+          empleada_id: string
+          finalizada: boolean
+          finalizada_at: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          contenido: string
+          creada_por?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          empleada_id: string
+          finalizada?: boolean
+          finalizada_at?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          contenido?: string
+          creada_por?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          empleada_id?: string
+          finalizada?: boolean
+          finalizada_at?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'notas_empleadas_creada_por_fkey'
+            columns: ['creada_por']
+            isOneToOne: false
+            referencedRelation: 'usuarios'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'notas_empleadas_empleada_id_fkey'
+            columns: ['empleada_id']
+            isOneToOne: false
+            referencedRelation: 'empleadas'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       pagos_empleadas: {
         Row: {
           cheque_id: string | null
@@ -2259,6 +2310,26 @@ export type Database = {
         SetofOptions: {
           from: '*'
           to: 'pagos_proveedores'
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_finalizar_nota_empleada: {
+        Args: { p_nota_id: string }
+        Returns: {
+          contenido: string
+          creada_por: string | null
+          created_at: string
+          deleted_at: string | null
+          empleada_id: string
+          finalizada: boolean
+          finalizada_at: string | null
+          id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'notas_empleadas'
           isOneToOne: true
           isSetofReturn: false
         }

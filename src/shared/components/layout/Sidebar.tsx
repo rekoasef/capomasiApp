@@ -19,6 +19,7 @@ import {
   LogOut,
   BarChart3,
   History,
+  StickyNote,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -55,6 +56,14 @@ const navItems: NavItem[] = [
     adminOnly: false,
     empleadaVisible: true,
     labelEmpleada: 'Mis Trabajos',
+  },
+  {
+    href: '/notas',
+    label: 'Notas',
+    icon: StickyNote,
+    adminOnly: false,
+    empleadaVisible: true,
+    labelEmpleada: 'Mis Notas',
   },
   {
     href: '/empleadas',
