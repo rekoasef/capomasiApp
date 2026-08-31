@@ -6,6 +6,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useClavesCliente, useGuardarClave, useEliminarClave } from '../hooks/useClientes'
 import { claveSchema, type TClaveForm } from '../schemas/claveSchema'
+import { useParametros } from '@/shared/hooks/useParametros'
+import { FALLBACK_TIPOS_CLAVE } from '@/shared/lib/parametros'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Select } from '@/shared/components/ui/select'
@@ -13,21 +15,14 @@ import { Textarea } from '@/shared/components/ui/textarea'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import type { TClave } from '../types'
 
-const TIPOS_CLAVE = [
-  { value: 'AFIP', label: 'AFIP' },
-  { value: 'ANSES', label: 'ANSES' },
-  { value: 'ARBA', label: 'ARBA' },
-  { value: 'SINDICATO', label: 'Sindicato' },
-  { value: 'BANCO', label: 'Banco' },
-  { value: 'MUNICIPAL', label: 'Municipal' },
-  { value: 'RENTAS', label: 'Rentas' },
-  { value: 'OTROS', label: 'Otros' },
-]
-
 type Props = { clienteId: string }
 
 export function ClavesCliente({ clienteId }: Props) {
   const { data: claves = [], isLoading } = useClavesCliente(clienteId)
+  const { data: tiposClave = [] } = useParametros({
+    categorias: ['TIPO_CLAVE'],
+    fallback: FALLBACK_TIPOS_CLAVE,
+  })
   const guardar = useGuardarClave(clienteId)
   const eliminar = useEliminarClave(clienteId)
 
@@ -59,6 +54,15 @@ export function ClavesCliente({ clienteId }: Props) {
     setEditing(clave)
     setShowForm(true)
   }
+
+  // Si la clave que se está editando usa un tipo que ya no está en la lista
+  // activa (fue desactivado), lo agregamos para no perderlo del selector.
+  const opcionesTipo =
+    editing && !tiposClave.some((t) => t.value === editing.tipo)
+      ? [...tiposClave, { value: editing.tipo, label: editing.tipo }]
+      : tiposClave
+
+  const labelTipo = (code: string) => tiposClave.find((t) => t.value === code)?.label ?? code
 
   async function onSubmit(data: TClaveForm) {
     const result = await guardar.mutateAsync(data)
@@ -98,7 +102,7 @@ export function ClavesCliente({ clienteId }: Props) {
           {claves.map((c) => (
             <div key={c.id} className="flex items-center justify-between px-4 py-3">
               <div className="space-y-0.5">
-                <p className="text-sm font-medium">{c.tipo}</p>
+                <p className="text-sm font-medium">{labelTipo(c.tipo)}</p>
                 {c.usuario && <p className="text-muted-foreground text-xs">Usuario: {c.usuario}</p>}
                 <div className="flex items-center gap-1.5">
                   <p className="font-mono text-sm">{revealed.has(c.id) ? c.clave : '••••••••'}</p>
@@ -140,7 +144,7 @@ export function ClavesCliente({ clienteId }: Props) {
             <Select
               id="tipo"
               label="Tipo *"
-              options={TIPOS_CLAVE}
+              options={opcionesTipo}
               placeholder="Seleccioná un tipo"
               error={errors.tipo?.message}
               disabled={guardar.isPending}
@@ -195,7 +199,7 @@ export function ClavesCliente({ clienteId }: Props) {
       <ConfirmDialog
         open={!!toDelete}
         title="Eliminar clave"
-        description={`¿Eliminás la clave de ${toDelete?.tipo}?`}
+        description={`¿Eliminás la clave de ${toDelete ? labelTipo(toDelete.tipo) : ''}?`}
         confirmLabel="Eliminar"
         onConfirm={async () => {
           await eliminar.mutateAsync(toDelete!.id)

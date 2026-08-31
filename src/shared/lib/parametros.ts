@@ -23,6 +23,17 @@ export const FALLBACK_GENERADO_POR: ParametroOption[] = [
   { value: 'TODOS', label: 'Todos' },
 ]
 
+export const FALLBACK_TIPOS_CLAVE: ParametroOption[] = [
+  { value: 'AFIP', label: 'AFIP' },
+  { value: 'ANSES', label: 'ANSES' },
+  { value: 'ARBA', label: 'ARBA' },
+  { value: 'SINDICATO', label: 'Sindicato' },
+  { value: 'BANCO', label: 'Banco' },
+  { value: 'MUNICIPAL', label: 'Municipal' },
+  { value: 'RENTAS', label: 'Rentas' },
+  { value: 'OTROS', label: 'Otros' },
+]
+
 export const FALLBACK_TIPOS_COMPROBANTE: ParametroOption[] = [
   { value: 'FC_A', label: 'FC A' },
   { value: 'FC_B', label: 'FC B' },
@@ -66,15 +77,6 @@ export const FALLBACK_TIPOS_PAGO_PROVEEDOR: ParametroOption[] = [
   { value: 'TRANSFERENCIA', label: 'Transferencia' },
   { value: 'EFECTIVO', label: 'Efectivo' },
   { value: 'CHEQUE', label: 'Cheque' },
-]
-
-export const FALLBACK_TIPOS_VENCIMIENTO: ParametroOption[] = [
-  { value: 'AFIP', label: 'AFIP' },
-  { value: 'IIBB_PROVINCIAL', label: 'IIBB Provincial' },
-  { value: 'IIBB_MUNICIPAL', label: 'IIBB Municipal' },
-  { value: 'GANANCIAS', label: 'Ganancias' },
-  { value: 'BIENES_PERSONALES', label: 'Bienes Personales' },
-  { value: 'OTRO', label: 'Otro' },
 ]
 
 export const FALLBACK_TIPOS_MOVIMIENTO_FONDOS: ParametroOption[] = [
