@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
+import { descripcionComprobante, labelTipoServicio } from '@/shared/lib/etiquetas'
 import type { TCuentaCorriente, TLiquidacionConImputaciones, TReciboDisponible } from '../types'
 
 // Colores de marca del estudio (equivalentes en hex de los tokens oklch de globals.css
@@ -54,10 +55,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     fontWeight: 'bold',
   },
-  colFecha: { width: '15%' },
-  colTipo: { width: '45%' },
-  colEstado: { width: '15%' },
-  colImporte: { width: '25%', textAlign: 'right' },
+  colFecha: { width: '13%' },
+  colTipo: { width: '32%' },
+  colComprobante: { width: '25%' },
+  colEstado: { width: '13%' },
+  colImporte: { width: '17%', textAlign: 'right' },
   empty: { color: '#94A3B8', fontStyle: 'italic', marginBottom: 10 },
   footer: {
     marginTop: 24,
@@ -67,6 +69,21 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
 })
+
+const ESTADO_LABELS: Record<string, string> = {
+  PENDIENTE: 'Pendiente',
+  PARCIALMENTE_COBRADA: 'Parcial',
+  COBRADA: 'Cobrada',
+  ANULADA: 'Anulada',
+}
+
+const TIPO_PAGO_LABELS: Record<string, string> = {
+  TRANSFERENCIA: 'Transferencia',
+  EFECTIVO: 'Efectivo',
+  CHEQUE: 'Cheque',
+  USD: 'Dólares',
+  COMPENSACION: 'Compensación',
+}
 
 type Props = {
   clienteNombre: string
@@ -131,7 +148,8 @@ export function CuentaCorrientePdfDocument({
           <View style={styles.table}>
             <View style={styles.tableHeaderRow}>
               <Text style={styles.colFecha}>Fecha</Text>
-              <Text style={styles.colTipo}>Tipo / Detalle</Text>
+              <Text style={styles.colTipo}>Concepto</Text>
+              <Text style={styles.colComprobante}>Comprobante</Text>
               <Text style={styles.colEstado}>Estado</Text>
               <Text style={styles.colImporte}>Importe</Text>
             </View>
@@ -139,10 +157,14 @@ export function CuentaCorrientePdfDocument({
               <View style={styles.tableRow} key={l.id}>
                 <Text style={styles.colFecha}>{formatDate(l.fecha_liquidacion)}</Text>
                 <Text style={styles.colTipo}>
-                  {l.tipo_servicio}
+                  {labelTipoServicio(l.tipo_servicio)}
+                  {l.periodo_mes && l.periodo_anio ? ` ${l.periodo_mes} ${l.periodo_anio}` : ''}
                   {l.detalle ? ` — ${l.detalle}` : ''}
                 </Text>
-                <Text style={styles.colEstado}>{l.estado}</Text>
+                <Text style={styles.colComprobante}>
+                  {descripcionComprobante(l.tipo_comprobante, l.nro_comprobante) || '—'}
+                </Text>
+                <Text style={styles.colEstado}>{ESTADO_LABELS[l.estado] ?? l.estado}</Text>
                 <Text style={styles.colImporte}>
                   {formatMoney(l.importe_facturado ?? l.importe_liquidado)}
                 </Text>
@@ -158,16 +180,16 @@ export function CuentaCorrientePdfDocument({
           <View style={styles.table}>
             <View style={styles.tableHeaderRow}>
               <Text style={styles.colFecha}>Fecha</Text>
-              <Text style={styles.colTipo}>N° / Tipo de pago</Text>
+              <Text style={styles.colTipo}>Forma de pago</Text>
+              <Text style={styles.colComprobante}>Recibo N°</Text>
               <Text style={styles.colEstado}></Text>
               <Text style={styles.colImporte}>Importe</Text>
             </View>
             {recibos.map((r) => (
               <View style={styles.tableRow} key={r.id}>
                 <Text style={styles.colFecha}>{formatDate(r.fecha)}</Text>
-                <Text style={styles.colTipo}>
-                  {r.numero_recibo ?? '—'} · {r.tipo_pago}
-                </Text>
+                <Text style={styles.colTipo}>{TIPO_PAGO_LABELS[r.tipo_pago] ?? r.tipo_pago}</Text>
+                <Text style={styles.colComprobante}>{r.numero_recibo ?? '—'}</Text>
                 <Text style={styles.colEstado}></Text>
                 <Text style={styles.colImporte}>{formatMoney(r.importe)}</Text>
               </View>

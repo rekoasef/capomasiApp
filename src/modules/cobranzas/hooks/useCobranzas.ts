@@ -6,6 +6,7 @@ import { liquidacionesService } from '../services/liquidacionesService'
 import { recibosService } from '../services/recibosService'
 import { imputacionesService } from '../services/imputacionesService'
 import { cuentaCorrienteService } from '../services/cuentaCorrienteService'
+import { saldoInicialService } from '../services/saldoInicialService'
 
 // ----- Liquidaciones -----
 
@@ -21,10 +22,7 @@ export function useLiquidacionesCliente(clienteId: string) {
   })
 }
 
-export function useUltimaLiquidacionCliente(
-  clienteId: string,
-  tipoServicio?: string,
-) {
+export function useUltimaLiquidacionCliente(clienteId: string, tipoServicio?: string) {
   return useQuery({
     queryKey: ['liquidaciones', 'ultima', clienteId, tipoServicio ?? null],
     queryFn: async () => {
@@ -55,7 +53,10 @@ export function useCrearLiquidacion() {
     mutationFn: ({ form }: { clienteId: string; form: unknown }) =>
       liquidacionesService.create(form),
     onSuccess: (result, { clienteId }) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Liquidación registrada')
       qc.invalidateQueries({ queryKey: ['liquidaciones', 'cliente', clienteId] })
       qc.invalidateQueries({ queryKey: ['liquidaciones', 'pendientes', clienteId] })
@@ -69,8 +70,43 @@ export function useAnularLiquidacion(clienteId: string) {
   return useMutation({
     mutationFn: (id: string) => liquidacionesService.anular(id),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Liquidación anulada')
+      qc.invalidateQueries({ queryKey: ['liquidaciones', 'cliente', clienteId] })
+      qc.invalidateQueries({ queryKey: ['liquidaciones', 'pendientes', clienteId] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
+    },
+  })
+}
+
+// ----- Saldo inicial (deuda anterior al sistema) -----
+
+export function useSaldoInicialCliente(clienteId: string) {
+  return useQuery({
+    queryKey: ['saldo-inicial', clienteId],
+    queryFn: async () => {
+      const result = await saldoInicialService.getByCliente(clienteId)
+      if (!result.ok) throw new Error(result.error)
+      return result.data
+    },
+    enabled: !!clienteId,
+  })
+}
+
+export function useGuardarSaldoInicial(clienteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (form: unknown) => saldoInicialService.guardar(form),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Saldo inicial guardado')
+      qc.invalidateQueries({ queryKey: ['saldo-inicial', clienteId] })
       qc.invalidateQueries({ queryKey: ['liquidaciones', 'cliente', clienteId] })
       qc.invalidateQueries({ queryKey: ['liquidaciones', 'pendientes', clienteId] })
       qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
@@ -109,10 +145,11 @@ export function useRegistrarRecibo(clienteId: string) {
   return useMutation({
     mutationFn: (form: unknown) => recibosService.registrar(form),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
-      const numeros = result.data
-        .map((r) => r.numero_recibo)
-        .filter((n): n is string => !!n)
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      const numeros = result.data.map((r) => r.numero_recibo).filter((n): n is string => !!n)
       if (numeros.length === 0) {
         toast.success('Recibo registrado')
       } else if (numeros.length === 1) {
@@ -136,7 +173,10 @@ export function useAnularRecibo(clienteId: string) {
     mutationFn: ({ id, motivo }: { id: string; motivo?: string }) =>
       recibosService.anular(id, motivo),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Recibo anulado')
       qc.invalidateQueries({ queryKey: ['recibos', 'cliente', clienteId] })
       qc.invalidateQueries({ queryKey: ['recibos', 'disponibles', clienteId] })
@@ -155,7 +195,10 @@ export function useImputar(clienteId: string) {
   return useMutation({
     mutationFn: imputacionesService.imputar,
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Recibo imputado')
       qc.invalidateQueries({ queryKey: ['recibos', 'cliente', clienteId] })
       qc.invalidateQueries({ queryKey: ['recibos', 'disponibles', clienteId] })
@@ -172,7 +215,10 @@ export function useEliminarImputacion(clienteId: string) {
   return useMutation({
     mutationFn: (id: string) => imputacionesService.eliminar(id),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Imputación eliminada')
       qc.invalidateQueries({ queryKey: ['recibos', 'cliente', clienteId] })
       qc.invalidateQueries({ queryKey: ['recibos', 'disponibles', clienteId] })

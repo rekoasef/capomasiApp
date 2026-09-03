@@ -6,11 +6,13 @@ import {
   useCuentaCorrienteCliente,
   useLiquidacionesCliente,
   useRecibosCliente,
+  useSaldoInicialCliente,
 } from '../hooks/useCobranzas'
 import { LiquidacionesCliente } from './LiquidacionesCliente'
 import { NuevaLiquidacionForm } from './NuevaLiquidacionForm'
 import { RegistrarReciboForm } from './RegistrarReciboForm'
 import { RecibosCliente } from './RecibosCliente'
+import { SaldoInicialForm } from './SaldoInicialForm'
 import { CuentaCorrientePdfDocument } from './CuentaCorrientePdfDocument'
 import {
   filtrarLiquidacionesPorFecha,
@@ -22,7 +24,7 @@ import { Input } from '@/shared/components/ui/input'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { formatMoney } from '@/shared/utils/formatters'
 import { useAuth } from '@/lib/auth/useAuth'
-import { Plus, Receipt, Download } from 'lucide-react'
+import { Plus, Receipt, Download, Wallet } from 'lucide-react'
 
 type Props = { clienteId: string }
 type Tab = 'liquidaciones' | 'recibos'
@@ -56,8 +58,10 @@ export function CuentaCorrienteCliente({ clienteId }: Props) {
   const { data: cc, isLoading } = useCuentaCorrienteCliente(clienteId)
   const { data: liquidaciones } = useLiquidacionesCliente(clienteId)
   const { data: recibos } = useRecibosCliente(clienteId)
+  const { data: saldoInicial } = useSaldoInicialCliente(clienteId)
   const { isAdmin } = useAuth()
   const [showLiqForm, setShowLiqForm] = useState(false)
+  const [showSaldoInicial, setShowSaldoInicial] = useState(false)
   const [showReciboForm, setShowReciboForm] = useState(false)
   const [tab, setTab] = useState<Tab>('liquidaciones')
   const [desde, setDesde] = useState('')
@@ -177,6 +181,17 @@ export function CuentaCorrienteCliente({ clienteId }: Props) {
             Nuevo recibo
           </Button>
           {isAdmin && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShowSaldoInicial(true)}
+            >
+              <Wallet className="mr-1.5 h-3.5 w-3.5" />
+              {saldoInicial ? 'Editar saldo inicial' : 'Saldo inicial'}
+            </Button>
+          )}
+          {isAdmin && (
             <Button type="button" size="sm" onClick={() => setShowLiqForm(true)}>
               <Plus className="mr-1.5 h-3.5 w-3.5" />
               Nueva liquidación
@@ -206,6 +221,19 @@ export function CuentaCorrienteCliente({ clienteId }: Props) {
             clienteId={clienteId}
             onSuccess={() => setShowLiqForm(false)}
             onCancel={() => setShowLiqForm(false)}
+          />
+        </Modal>
+      )}
+
+      {showSaldoInicial && (
+        <Modal
+          title={saldoInicial ? 'Editar saldo inicial' : 'Cargar saldo inicial'}
+          onClose={() => setShowSaldoInicial(false)}
+        >
+          <SaldoInicialForm
+            clienteId={clienteId}
+            onSuccess={() => setShowSaldoInicial(false)}
+            onCancel={() => setShowSaldoInicial(false)}
           />
         </Modal>
       )}

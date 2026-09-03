@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import type { TReciboDisponible } from '../types'
+import { descripcionComprobante, labelTipoServicio } from '@/shared/lib/etiquetas'
 
 type Props = {
   recibo: TReciboDisponible
@@ -120,6 +121,10 @@ export function ImputarDesdeReciboModal({ recibo, clienteId, onClose }: Props) {
                 )
                 const totalImputado = calcularTotalImputado(liq.imputaciones)
                 const valor = seleccion.get(liq.id) ?? 0
+                const comprobante = descripcionComprobante(
+                  liq.tipo_comprobante,
+                  liq.nro_comprobante
+                )
                 const maxParaEste =
                   Math.round(Math.min(saldoLiq, saldoLibre - totalSeleccionado + valor) * 100) / 100
 
@@ -127,10 +132,12 @@ export function ImputarDesdeReciboModal({ recibo, clienteId, onClose }: Props) {
                   <div key={liq.id} className="flex items-center gap-2 text-sm">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate font-medium">{liq.tipo_servicio}</span>
-                        {liq.tipo_comprobante && (
+                        <span className="truncate font-medium">
+                          {labelTipoServicio(liq.tipo_servicio)}
+                        </span>
+                        {comprobante && (
                           <span className="text-muted-foreground shrink-0 text-[10px]">
-                            {liq.tipo_comprobante.replace('_', ' ')}
+                            {comprobante}
                           </span>
                         )}
                       </div>
