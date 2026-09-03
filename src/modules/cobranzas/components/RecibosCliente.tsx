@@ -17,6 +17,7 @@ import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { useAuth } from '@/lib/auth/useAuth'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { TReciboDisponible } from '../types'
+import { labelTipoServicio } from '@/shared/lib/etiquetas'
 
 const TIPO_LABEL: Record<string, string> = {
   TRANSFERENCIA: 'Transferencia',
@@ -249,7 +250,7 @@ function RecibosImputaciones({
           {data.map((imp) => (
             <tr key={imp.id} className="border-border/60 border-t">
               <td className="py-1">
-                {imp.tipo_servicio}
+                {labelTipoServicio(imp.tipo_servicio)}
                 {imp.liquidacion_detalle ? ` — ${imp.liquidacion_detalle}` : ''}
               </td>
               <td className="text-muted-foreground py-1">

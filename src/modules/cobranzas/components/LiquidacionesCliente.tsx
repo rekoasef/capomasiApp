@@ -15,6 +15,7 @@ import { Badge } from '@/shared/components/ui/badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { useAuth } from '@/lib/auth/useAuth'
+import { descripcionComprobante, labelTipoServicio } from '@/shared/lib/etiquetas'
 
 const ESTADO_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente',
@@ -77,6 +78,9 @@ export function LiquidacionesCliente({ clienteId, desde, hasta }: Props) {
               <th className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase">
                 Tipo / Detalle
               </th>
+              <th className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase">
+                Comprobante
+              </th>
               <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
                 Importe
               </th>
@@ -110,6 +114,7 @@ export function LiquidacionesCliente({ clienteId, desde, hasta }: Props) {
               const importeCliente = liq.importe_facturado ?? liq.importe_liquidado
               const tieneIva =
                 liq.importe_facturado != null && liq.importe_facturado !== liq.importe_liquidado
+              const comprobante = descripcionComprobante(liq.tipo_comprobante, liq.nro_comprobante)
 
               return (
                 <tr key={liq.id}>
@@ -117,12 +122,7 @@ export function LiquidacionesCliente({ clienteId, desde, hasta }: Props) {
                     {formatDate(liq.fecha_liquidacion)}
                   </td>
                   <td className="px-3 py-2">
-                    <span className="font-medium">{liq.tipo_servicio}</span>
-                    {liq.tipo_comprobante && (
-                      <span className="text-muted-foreground ml-1.5 text-[10px] font-medium tracking-wide">
-                        {liq.tipo_comprobante.replace('_', ' ')}
-                      </span>
-                    )}
+                    <span className="font-medium">{labelTipoServicio(liq.tipo_servicio)}</span>
                     {liq.detalle && (
                       <span className="text-muted-foreground ml-1 text-xs">— {liq.detalle}</span>
                     )}
@@ -130,6 +130,13 @@ export function LiquidacionesCliente({ clienteId, desde, hasta }: Props) {
                       <span className="text-muted-foreground ml-1 text-xs">
                         ({liq.periodo_mes} {liq.periodo_anio})
                       </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {comprobante ? (
+                      <span className="font-medium">{comprobante}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right">

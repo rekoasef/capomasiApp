@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import type { TLiquidacionConImputaciones } from '../types'
+import { descripcionComprobante, labelTipoServicio } from '@/shared/lib/etiquetas'
 
 const TIPO_LABEL: Record<string, string> = {
   TRANSFERENCIA: 'Transf.',
@@ -55,6 +56,10 @@ export function ImputarRecibosModal({ liquidacion, clienteId, onClose }: Props) 
     onClose()
   }
 
+  const comprobante = descripcionComprobante(
+    liquidacion.tipo_comprobante,
+    liquidacion.nro_comprobante
+  )
   const totalSeleccionado = Array.from(seleccion.values()).reduce((acc, v) => acc + v, 0)
   const exceso = totalSeleccionado > saldoLiq + 0.001
 
@@ -65,7 +70,8 @@ export function ImputarRecibosModal({ liquidacion, clienteId, onClose }: Props) 
         <div className="mb-4">
           <h2 className="text-base font-semibold">Imputar recibos a la liquidación</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            {liquidacion.tipo_servicio} · {formatDate(liquidacion.fecha_liquidacion)} ·{' '}
+            {labelTipoServicio(liquidacion.tipo_servicio)}
+            {comprobante ? ` · ${comprobante}` : ''} · {formatDate(liquidacion.fecha_liquidacion)} ·{' '}
             <span className="text-foreground font-medium">
               {formatMoney(liquidacion.importe_facturado ?? liquidacion.importe_liquidado)}
             </span>
