@@ -65,14 +65,12 @@ export function AplicarAjusteForm({ clienteId, montoActual, onSuccess }: Props) 
             })}
           />
         </div>
-        <div className="pt-7 space-y-0.5 text-sm">
+        <div className="space-y-0.5 pt-7 text-sm">
           <p className="text-muted-foreground">
-            Actual: <span className="font-medium text-foreground">{formatMoney(montoActual)}</span>
+            Actual: <span className="text-foreground font-medium">{formatMoney(montoActual)}</span>
           </p>
           {montoNuevo !== null && (
-            <p className="text-success font-medium">
-              Nuevo: {formatMoney(montoNuevo)}
-            </p>
+            <p className="text-success font-medium">Nuevo: {formatMoney(montoNuevo)}</p>
           )}
         </div>
       </div>
@@ -93,7 +91,10 @@ export function AplicarAjusteForm({ clienteId, montoActual, onSuccess }: Props) 
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => { reset(); setPorcentajePreview('') }}
+          onClick={() => {
+            reset()
+            setPorcentajePreview('')
+          }}
           disabled={aplicar.isPending}
         >
           Cancelar

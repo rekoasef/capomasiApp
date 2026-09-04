@@ -788,6 +788,7 @@ export type Database = {
           id: string
           monto: number
           notas: string | null
+          origen: string
           porcentaje_ajuste: number | null
           vigente_desde: string
           vigente_hasta: string | null
@@ -800,6 +801,7 @@ export type Database = {
           id?: string
           monto: number
           notas?: string | null
+          origen?: string
           porcentaje_ajuste?: number | null
           vigente_desde: string
           vigente_hasta?: string | null
@@ -812,6 +814,7 @@ export type Database = {
           id?: string
           monto?: number
           notas?: string | null
+          origen?: string
           porcentaje_ajuste?: number | null
           vigente_desde?: string
           vigente_hasta?: string | null
@@ -2187,6 +2190,7 @@ export type Database = {
           id: string
           monto: number
           notas: string | null
+          origen: string
           porcentaje_ajuste: number | null
           vigente_desde: string
           vigente_hasta: string | null
@@ -2283,6 +2287,33 @@ export type Database = {
           puntos_restantes: number
           registro_id: string
         }[]
+      }
+      fn_editar_honorario_manual: {
+        Args: {
+          p_cliente_id: string
+          p_frecuencia_meses?: number
+          p_monto: number
+          p_observacion: string
+        }
+        Returns: {
+          cliente_id: string
+          creado_por: string | null
+          created_at: string
+          frecuencia_ajuste_meses: number
+          id: string
+          monto: number
+          notas: string | null
+          origen: string
+          porcentaje_ajuste: number | null
+          vigente_desde: string
+          vigente_hasta: string | null
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'honorarios_mensuales'
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       fn_eliminar_imputacion: {
         Args: { p_imputacion_id: string }

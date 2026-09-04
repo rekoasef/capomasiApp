@@ -32,7 +32,10 @@ export function SetHonorarioForm({ clienteId, onSuccess }: Props) {
       frecuencia: Number(data.frecuencia_ajuste_meses),
       notas: data.notas,
     })
-    if (result.ok) { reset(); onSuccess?.() }
+    if (result.ok) {
+      reset()
+      onSuccess?.()
+    }
   }
 
   return (
