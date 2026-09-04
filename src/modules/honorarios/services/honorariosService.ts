@@ -13,7 +13,7 @@ export const honorariosService = {
       .maybeSingle()
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: data ?? null }
+    return { ok: true, data: (data as THonorarioMensual) ?? null }
   },
 
   async getHistorial(clienteId: string): Promise<ServiceResult<THonorarioMensual[]>> {
@@ -21,10 +21,12 @@ export const honorariosService = {
       .from('honorarios_mensuales')
       .select('*')
       .eq('cliente_id', clienteId)
+      // Puede haber varios cambios el mismo día: el último cargado va primero
       .order('vigente_desde', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: data ?? [] }
+    return { ok: true, data: (data ?? []) as THonorarioMensual[] }
   },
 
   async getAllActivos(): Promise<ServiceResult<THonorarioConCliente[]>> {
@@ -55,6 +57,7 @@ export const honorariosService = {
         monto,
         frecuencia_ajuste_meses: frecuenciaAjusteMeses,
         vigente_desde: toLocalDateInputValue(),
+        origen: 'INICIAL',
         notas: notas ?? null,
         creado_por: user?.id,
       })
@@ -67,7 +70,28 @@ export const honorariosService = {
       }
       return { ok: false, error: error.message, code: 'DB_ERROR' }
     }
-    return { ok: true, data }
+    return { ok: true, data: data as THonorarioMensual }
+  },
+
+  // Edición manual del monto: cierra la fila vigente y abre una nueva marcada
+  // como MANUAL con la observación, salvo que la vigente se haya cargado hoy
+  // (ahí es una corrección y se pisa). Todo eso vive en fn_editar_honorario_manual
+  // (migración 0069).
+  async editarManual(
+    clienteId: string,
+    monto: number,
+    observacion: string,
+    frecuenciaAjusteMeses?: number
+  ): Promise<ServiceResult<THonorarioMensual>> {
+    const { data, error } = await supabase.rpc('fn_editar_honorario_manual', {
+      p_cliente_id: clienteId,
+      p_monto: monto,
+      p_observacion: observacion,
+      p_frecuencia_meses: frecuenciaAjusteMeses,
+    })
+
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: data as THonorarioMensual }
   },
 
   async aplicarAjuste(
@@ -83,6 +107,6 @@ export const honorariosService = {
     })
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data }
+    return { ok: true, data: data as THonorarioMensual }
   },
 }

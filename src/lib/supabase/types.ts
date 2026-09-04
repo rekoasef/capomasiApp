@@ -788,6 +788,7 @@ export type Database = {
           id: string
           monto: number
           notas: string | null
+          origen: string
           porcentaje_ajuste: number | null
           vigente_desde: string
           vigente_hasta: string | null
@@ -800,6 +801,7 @@ export type Database = {
           id?: string
           monto: number
           notas?: string | null
+          origen?: string
           porcentaje_ajuste?: number | null
           vigente_desde: string
           vigente_hasta?: string | null
@@ -812,6 +814,7 @@ export type Database = {
           id?: string
           monto?: number
           notas?: string | null
+          origen?: string
           porcentaje_ajuste?: number | null
           vigente_desde?: string
           vigente_hasta?: string | null
@@ -2187,6 +2190,7 @@ export type Database = {
           id: string
           monto: number
           notas: string | null
+          origen: string
           porcentaje_ajuste: number | null
           vigente_desde: string
           vigente_hasta: string | null
@@ -2284,6 +2288,73 @@ export type Database = {
           registro_id: string
         }[]
       }
+      fn_editar_honorario_manual: {
+        Args: {
+          p_cliente_id: string
+          p_frecuencia_meses?: number
+          p_monto: number
+          p_observacion: string
+        }
+        Returns: {
+          cliente_id: string
+          creado_por: string | null
+          created_at: string
+          frecuencia_ajuste_meses: number
+          id: string
+          monto: number
+          notas: string | null
+          origen: string
+          porcentaje_ajuste: number | null
+          vigente_desde: string
+          vigente_hasta: string | null
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'honorarios_mensuales'
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_editar_liquidacion: {
+        Args: {
+          p_detalle?: string
+          p_fecha: string
+          p_generado_por?: string
+          p_id: string
+          p_importe: number
+          p_notas?: string
+          p_nro_comprobante?: string
+          p_periodo_anio?: number
+          p_periodo_mes?: string
+          p_tipo_comprobante?: string
+          p_tipo_servicio: string
+        }
+        Returns: {
+          cliente_id: string
+          created_at: string
+          detalle: string | null
+          estado: string
+          fecha_liquidacion: string
+          generado_por: string | null
+          id: string
+          importe_facturado: number | null
+          importe_liquidado: number
+          notas: string | null
+          nro_comprobante: string | null
+          periodo_anio: number | null
+          periodo_mes: string | null
+          tipo_comprobante: string | null
+          tipo_liquidacion: string
+          tipo_servicio: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'liquidaciones'
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_eliminar_imputacion: {
         Args: { p_imputacion_id: string }
         Returns: boolean
@@ -2334,6 +2405,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fn_guardar_saldo_inicial: {
+        Args: {
+          p_a_favor?: boolean
+          p_cliente_id: string
+          p_detalle?: string
+          p_fecha: string
+          p_importe: number
+        }
+        Returns: Json
+      }
       fn_importar_comision_trabajo_individual: {
         Args: { p_trabajo_id: string }
         Returns: {
@@ -2362,33 +2443,6 @@ export type Database = {
           to: 'liquidaciones_empleadas'
           isOneToOne: false
           isSetofReturn: true
-        }
-      }
-      fn_guardar_saldo_inicial: {
-        Args: {
-          p_cliente_id: string
-          p_detalle?: string | null
-          p_fecha: string
-          p_importe: number
-        }
-        Returns: {
-          cliente_id: string
-          created_at: string
-          detalle: string | null
-          estado: string
-          fecha_liquidacion: string
-          generado_por: string | null
-          id: string
-          importe_facturado: number | null
-          importe_liquidado: number
-          notas: string | null
-          nro_comprobante: string | null
-          periodo_anio: number | null
-          periodo_mes: string | null
-          tipo_comprobante: string | null
-          tipo_liquidacion: string
-          tipo_servicio: string
-          updated_at: string
         }
       }
       fn_imputar_recibo: {

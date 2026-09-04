@@ -24,6 +24,8 @@ const TIPO_LABEL: Record<string, string> = {
   EFECTIVO: 'Efectivo',
   CHEQUE: 'Cheque',
   USD: 'USD',
+  COMPENSACION: 'Compensación',
+  SALDO_INICIAL: 'Saldo inicial a favor',
 }
 
 type Props = { clienteId: string; desde?: string; hasta?: string }

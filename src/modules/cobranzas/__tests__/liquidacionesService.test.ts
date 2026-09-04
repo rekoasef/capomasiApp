@@ -3,23 +3,25 @@ import { liquidacionesService } from '../services/liquidacionesService'
 jest.mock('@/lib/supabase/client', () => ({
   supabase: {
     from: jest.fn(),
+    rpc: jest.fn(),
   },
 }))
 
 import { supabase } from '@/lib/supabase/client'
 
 const mockFrom = supabase.from as jest.Mock
+const mockRpc = supabase.rpc as jest.Mock
 
 function mockChain(terminal: Record<string, unknown> = {}) {
   const chain = {
     select: jest.fn().mockReturnThis(),
     insert: jest.fn().mockReturnThis(),
     update: jest.fn().mockReturnThis(),
-    eq:     jest.fn().mockReturnThis(),
-    neq:    jest.fn().mockReturnThis(),
-    in:     jest.fn().mockReturnThis(),
-    order:  jest.fn().mockReturnThis(),
-    limit:  jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    neq: jest.fn().mockReturnThis(),
+    in: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
     single: jest.fn().mockReturnThis(),
     maybeSingle: jest.fn().mockReturnThis(),
     ...terminal,
@@ -46,7 +48,9 @@ describe('liquidacionesService.getByCliente', () => {
   })
 
   it('devuelve error si la DB falla', async () => {
-    mockChain({ order: jest.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }) })
+    mockChain({
+      order: jest.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+    })
 
     const result = await liquidacionesService.getByCliente('c-1')
     expect(result.ok).toBe(false)
@@ -79,7 +83,12 @@ describe('liquidacionesService.create', () => {
   })
 
   it('crea liquidación correctamente con datos válidos', async () => {
-    const liquidacion = { id: 'l-new', cliente_id: 'c-1', importe_liquidado: 15000, estado: 'PENDIENTE' }
+    const liquidacion = {
+      id: 'l-new',
+      cliente_id: 'c-1',
+      importe_liquidado: 15000,
+      estado: 'PENDIENTE',
+    }
     mockChain({ single: jest.fn().mockResolvedValue({ data: liquidacion, error: null }) })
 
     const result = await liquidacionesService.create({
@@ -173,9 +182,72 @@ describe('liquidacionesService.anular', () => {
   })
 
   it('devuelve DB_ERROR si falla', async () => {
-    mockChain({ single: jest.fn().mockResolvedValue({ data: null, error: { message: 'Forbidden' } }) })
+    mockChain({
+      single: jest.fn().mockResolvedValue({ data: null, error: { message: 'Forbidden' } }),
+    })
 
     const result = await liquidacionesService.anular('l-1')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
+  })
+})
+
+describe('liquidacionesService.update', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('rechaza la edición si el importe no es válido', async () => {
+    const result = await liquidacionesService.update({
+      id: '0f1e2d3c-4b5a-4697-8899-aabbccddeeff',
+      tipo_servicio: 'HONORARIO_MENSUAL',
+      fecha_liquidacion: '2026-09-04',
+      importe_liquidado: 0,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('llama a fn_editar_liquidacion con los campos del formulario', async () => {
+    mockRpc.mockResolvedValue({
+      data: { id: 'l-1', importe_liquidado: 30000, nro_comprobante: 'P-0007' },
+      error: null,
+    })
+
+    const result = await liquidacionesService.update({
+      id: '0f1e2d3c-4b5a-4697-8899-aabbccddeeff',
+      tipo_servicio: 'BALANCE',
+      fecha_liquidacion: '2026-09-04',
+      importe_liquidado: 30000,
+      tipo_comprobante: 'PRESUPUESTO',
+      detalle: 'Presupuesto corregido',
+    })
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_editar_liquidacion',
+      expect.objectContaining({
+        p_id: '0f1e2d3c-4b5a-4697-8899-aabbccddeeff',
+        p_tipo_servicio: 'BALANCE',
+        p_importe: 30000,
+        p_tipo_comprobante: 'PRESUPUESTO',
+      })
+    )
+    expect(result.ok).toBe(true)
+  })
+
+  it('propaga el error de la DB (ej: importe por debajo de lo cobrado)', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'El total a cobrar (100) queda por debajo de lo que ya se cobró (500)' },
+    })
+
+    const result = await liquidacionesService.update({
+      id: '0f1e2d3c-4b5a-4697-8899-aabbccddeeff',
+      tipo_servicio: 'BALANCE',
+      fecha_liquidacion: '2026-09-04',
+      importe_liquidado: 100,
+    })
+
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('DB_ERROR')
   })

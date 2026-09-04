@@ -11,6 +11,9 @@ export function mesesDesdeAjuste(vigenteDesdeDateStr: string): number {
   return (hoy.getFullYear() - desde.getFullYear()) * 12 + (hoy.getMonth() - desde.getMonth())
 }
 
-export function estaVencidoAjuste(mesesTranscurridos: number, frecuenciaAjusteMeses: number): boolean {
+export function estaVencidoAjuste(
+  mesesTranscurridos: number,
+  frecuenciaAjusteMeses: number
+): boolean {
   return mesesTranscurridos >= frecuenciaAjusteMeses
 }

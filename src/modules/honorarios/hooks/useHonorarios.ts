@@ -62,8 +62,34 @@ export function useSetHonorarioInicial(clienteId: string) {
       notas?: string
     }) => honorariosService.setInicial(clienteId, monto, frecuencia, notas),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Honorario registrado')
+      qc.invalidateQueries({ queryKey: ['honorarios'] })
+    },
+  })
+}
+
+export function useEditarHonorarioManual(clienteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      monto,
+      observacion,
+      frecuencia,
+    }: {
+      monto: number
+      observacion: string
+      frecuencia?: number
+    }) => honorariosService.editarManual(clienteId, monto, observacion, frecuencia),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Honorario modificado')
       qc.invalidateQueries({ queryKey: ['honorarios'] })
     },
   })
@@ -75,7 +101,10 @@ export function useAplicarAjuste(clienteId: string) {
     mutationFn: ({ porcentaje, notas }: { porcentaje: number; notas?: string }) =>
       honorariosService.aplicarAjuste(clienteId, porcentaje, notas),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Ajuste aplicado correctamente')
       qc.invalidateQueries({ queryKey: ['honorarios'] })
     },

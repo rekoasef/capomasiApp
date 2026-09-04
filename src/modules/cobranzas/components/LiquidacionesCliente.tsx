@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useLiquidacionesCliente, useAnularLiquidacion } from '../hooks/useCobranzas'
+import { EditarLiquidacionForm } from './EditarLiquidacionForm'
 import {
   calcularSaldoPendiente,
   calcularTotalImputado,
@@ -10,6 +11,7 @@ import {
 } from '../services/calcularSaldo'
 import { filtrarLiquidacionesPorFecha } from '../services/cuentaCorrientePdfService'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
+import { Modal } from '@/shared/components/Modal'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
@@ -46,8 +48,10 @@ export function LiquidacionesCliente({ clienteId, desde, hasta }: Props) {
   const { isAdmin } = useAuth()
 
   const [anularId, setAnularId] = useState<string | null>(null)
+  const [editarId, setEditarId] = useState<string | null>(null)
 
   const data = raw ? filtrarLiquidacionesPorFecha(raw, desde, hasta) : raw
+  const editarLiq = editarId ? (raw?.find((l) => l.id === editarId) ?? null) : null
 
   if (isLoading) {
     return (
@@ -177,6 +181,18 @@ export function LiquidacionesCliente({ clienteId, desde, hasta }: Props) {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
+                      {isAdmin &&
+                        liq.estado !== 'ANULADA' &&
+                        liq.tipo_liquidacion !== 'SALDO_INICIAL' && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditarId(liq.id)}
+                          >
+                            Editar
+                          </Button>
+                        )}
                       {isAdmin && liq.estado !== 'ANULADA' && (
                         <Button
                           type="button"
@@ -195,6 +211,17 @@ export function LiquidacionesCliente({ clienteId, desde, hasta }: Props) {
           </tbody>
         </table>
       </div>
+
+      {editarLiq && (
+        <Modal title="Editar liquidación" onClose={() => setEditarId(null)}>
+          <EditarLiquidacionForm
+            clienteId={clienteId}
+            liquidacion={editarLiq}
+            onSuccess={() => setEditarId(null)}
+            onCancel={() => setEditarId(null)}
+          />
+        </Modal>
+      )}
 
       <ConfirmDialog
         open={!!anularId}
