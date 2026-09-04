@@ -65,6 +65,23 @@ export function useCrearLiquidacion() {
   })
 }
 
+export function useEditarLiquidacion(clienteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (form: unknown) => liquidacionesService.update(form),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Liquidación actualizada')
+      qc.invalidateQueries({ queryKey: ['liquidaciones', 'cliente', clienteId] })
+      qc.invalidateQueries({ queryKey: ['liquidaciones', 'pendientes', clienteId] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
+    },
+  })
+}
+
 export function useAnularLiquidacion(clienteId: string) {
   const qc = useQueryClient()
   return useMutation({

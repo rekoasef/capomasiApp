@@ -22,6 +22,7 @@ import {
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Skeleton } from '@/shared/components/ui/skeleton'
+import { Modal } from '@/shared/components/Modal'
 import { formatMoney } from '@/shared/utils/formatters'
 import { useAuth } from '@/lib/auth/useAuth'
 import { Plus, Receipt, Download, Wallet } from 'lucide-react'
@@ -247,26 +248,6 @@ export function CuentaCorrienteCliente({ clienteId }: Props) {
           />
         </Modal>
       )}
-    </div>
-  )
-}
-
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string
-  onClose: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="border-border bg-surface relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border p-6 shadow-lg">
-        <h2 className="mb-4 text-base font-semibold">{title}</h2>
-        {children}
-      </div>
     </div>
   )
 }
