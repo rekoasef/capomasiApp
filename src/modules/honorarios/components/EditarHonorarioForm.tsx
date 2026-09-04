@@ -8,7 +8,6 @@ import { Input } from '@/shared/components/ui/input'
 import { Textarea } from '@/shared/components/ui/textarea'
 import { Button } from '@/shared/components/ui/button'
 import { formatMoney } from '@/shared/utils/formatters'
-import { toLocalDateInputValue } from '@/shared/utils/dates'
 import type { THonorarioMensual } from '../types'
 
 type Props = {
@@ -20,7 +19,6 @@ type Props = {
 
 export function EditarHonorarioForm({ clienteId, actual, onSuccess, onCancel }: Props) {
   const editar = useEditarHonorarioManual(clienteId)
-  const esCorreccionDeHoy = actual.vigente_desde === toLocalDateInputValue()
 
   const {
     register,
@@ -47,18 +45,9 @@ export function EditarHonorarioForm({ clienteId, actual, onSuccess, onCancel }: 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <p className="border-border bg-muted/20 text-muted-foreground rounded-md border px-3 py-2 text-xs">
-        {esCorreccionDeHoy ? (
-          <>
-            El honorario vigente ({formatMoney(actual.monto)}) se cargó hoy, así que esto lo{' '}
-            <strong>corrige</strong>: no abre otra fila en el historial.
-          </>
-        ) : (
-          <>
-            Cambiar el monto a mano cierra el honorario de {formatMoney(actual.monto)} y abre uno
-            nuevo desde hoy. La observación queda en el historial como{' '}
-            <strong>modificación manual</strong>, para saber después por qué varió.
-          </>
-        )}
+        Cambiar el monto a mano cierra el honorario de {formatMoney(actual.monto)} y abre uno nuevo
+        desde hoy. Cada modificación queda como una fila propia en el historial, con su{' '}
+        <strong>observación</strong>, para saber después por qué varió.
       </p>
 
       <div className="grid grid-cols-2 gap-4">

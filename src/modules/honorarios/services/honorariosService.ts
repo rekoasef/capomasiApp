@@ -21,7 +21,9 @@ export const honorariosService = {
       .from('honorarios_mensuales')
       .select('*')
       .eq('cliente_id', clienteId)
+      // Puede haber varios cambios el mismo día: el último cargado va primero
       .order('vigente_desde', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: (data ?? []) as THonorarioMensual[] }
