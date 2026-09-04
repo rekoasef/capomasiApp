@@ -82,7 +82,7 @@ export function useAnularLiquidacion(clienteId: string) {
   })
 }
 
-// ----- Saldo inicial (deuda anterior al sistema) -----
+// ----- Saldo inicial (deuda o saldo a favor anterior al sistema) -----
 
 export function useSaldoInicialCliente(clienteId: string) {
   return useQuery({
@@ -109,6 +109,8 @@ export function useGuardarSaldoInicial(clienteId: string) {
       qc.invalidateQueries({ queryKey: ['saldo-inicial', clienteId] })
       qc.invalidateQueries({ queryKey: ['liquidaciones', 'cliente', clienteId] })
       qc.invalidateQueries({ queryKey: ['liquidaciones', 'pendientes', clienteId] })
+      // El saldo a favor inicial es un recibo sin imputar
+      qc.invalidateQueries({ queryKey: ['recibos'] })
       qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
     },
   })

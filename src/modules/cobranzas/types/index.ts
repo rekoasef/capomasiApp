@@ -1,5 +1,17 @@
 export type TEstadoLiquidacion = 'PENDIENTE' | 'PARCIALMENTE_COBRADA' | 'COBRADA' | 'ANULADA'
-export type TTipoPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'USD' | 'COMPENSACION'
+export type TTipoPago =
+  'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'USD' | 'COMPENSACION' | 'SALDO_INICIAL'
+
+// Con qué saldo entra el cliente al sistema, mirado igual venga como deuda
+// (liquidación SALDO_INICIAL) o como plata a favor (recibo sin imputar).
+export type TSaldoInicial = {
+  tipo: 'DEUDA' | 'FAVOR'
+  id: string
+  fecha: string
+  importe: number
+  detalle: string | null
+  imputado: number // lo ya cobrado contra la deuda / lo ya aplicado del crédito
+}
 
 export type TLiquidacion = {
   id: string

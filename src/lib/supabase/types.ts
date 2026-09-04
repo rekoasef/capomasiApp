@@ -2334,6 +2334,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fn_guardar_saldo_inicial: {
+        Args: {
+          p_a_favor?: boolean
+          p_cliente_id: string
+          p_detalle?: string
+          p_fecha: string
+          p_importe: number
+        }
+        Returns: Json
+      }
       fn_importar_comision_trabajo_individual: {
         Args: { p_trabajo_id: string }
         Returns: {
@@ -2362,33 +2372,6 @@ export type Database = {
           to: 'liquidaciones_empleadas'
           isOneToOne: false
           isSetofReturn: true
-        }
-      }
-      fn_guardar_saldo_inicial: {
-        Args: {
-          p_cliente_id: string
-          p_detalle?: string | null
-          p_fecha: string
-          p_importe: number
-        }
-        Returns: {
-          cliente_id: string
-          created_at: string
-          detalle: string | null
-          estado: string
-          fecha_liquidacion: string
-          generado_por: string | null
-          id: string
-          importe_facturado: number | null
-          importe_liquidado: number
-          notas: string | null
-          nro_comprobante: string | null
-          periodo_anio: number | null
-          periodo_mes: string | null
-          tipo_comprobante: string | null
-          tipo_liquidacion: string
-          tipo_servicio: string
-          updated_at: string
         }
       }
       fn_imputar_recibo: {

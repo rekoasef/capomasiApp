@@ -83,6 +83,7 @@ const TIPO_PAGO_LABELS: Record<string, string> = {
   CHEQUE: 'Cheque',
   USD: 'Dólares',
   COMPENSACION: 'Compensación',
+  SALDO_INICIAL: 'Saldo inicial a favor',
 }
 
 type Props = {
