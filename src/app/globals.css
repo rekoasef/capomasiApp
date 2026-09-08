@@ -87,7 +87,9 @@
 
   /* Sidebar — dark charcoal */
   --sidebar: oklch(0.118 0.01 65);
-  --sidebar-foreground: oklch(0.52 0.008 65);
+  /* Casi blanco: sobre el charcoal del sidebar un gris medio no se leia */
+  --sidebar-foreground: oklch(0.93 0.005 65);
+  --sidebar-foreground-muted: oklch(0.66 0.008 65);
   --sidebar-primary: oklch(0.685 0.148 83);
   --sidebar-primary-foreground: oklch(0.118 0.01 65);
   --sidebar-accent: oklch(0.685 0.148 83);

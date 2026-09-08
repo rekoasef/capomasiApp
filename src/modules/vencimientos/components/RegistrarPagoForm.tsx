@@ -19,21 +19,29 @@ interface RegistrarPagoFormProps {
   onSaved: () => void
 }
 
-export function RegistrarPagoForm({ vencimiento, pago, onCancel, onSaved }: RegistrarPagoFormProps) {
+export function RegistrarPagoForm({
+  vencimiento,
+  pago,
+  onCancel,
+  onSaved,
+}: RegistrarPagoFormProps) {
   const { data: categorias = [] } = useCategoriasGastos()
   const registrar = useRegistrarPagoGasto()
   const actualizar = useActualizarPagoGasto()
 
-  const defaultValues = useMemo<Partial<TPagoGastoForm>>(() => ({
-    categoria_id: vencimiento?.categoria_id ?? pago?.categoria_id ?? categorias[0]?.id ?? '',
-    gasto_recurrente_id: vencimiento?.gasto_id ?? pago?.gasto_recurrente_id ?? null,
-    concepto: pago?.concepto ?? vencimiento?.descripcion ?? '',
-    fecha_pago: pago?.fecha_pago ?? toLocalDateInputValue(),
-    medio_pago: pago?.medio_pago ?? 'TRANSFERENCIA',
-    importe: pago?.importe,
-    comprobante_url: pago?.comprobante_url,
-    notas: pago?.notas,
-  }), [categorias, pago, vencimiento])
+  const defaultValues = useMemo<Partial<TPagoGastoForm>>(
+    () => ({
+      categoria_id: vencimiento?.categoria_id ?? pago?.categoria_id ?? categorias[0]?.id ?? '',
+      gasto_recurrente_id: vencimiento?.gasto_id ?? pago?.gasto_recurrente_id ?? null,
+      concepto: pago?.concepto ?? vencimiento?.descripcion ?? '',
+      fecha_pago: pago?.fecha_pago ?? toLocalDateInputValue(),
+      medio_pago: pago?.medio_pago ?? 'TRANSFERENCIA',
+      importe: pago?.importe,
+      comprobante_url: pago?.comprobante_url,
+      notas: pago?.notas,
+    }),
+    [categorias, pago, vencimiento]
+  )
 
   const form = useForm<TPagoGastoForm>({
     resolver: zodResolver(pagoGastoSchema) as Resolver<TPagoGastoForm>,
@@ -43,7 +51,11 @@ export function RegistrarPagoForm({ vencimiento, pago, onCancel, onSaved }: Regi
   const isLockedToRecurrente = !!vencimiento || !!pago?.gasto_recurrente_id
 
   const handleSubmit = form.handleSubmit((data) => {
-    const options = { onSuccess: (result: { ok: boolean }) => { if (result.ok) onSaved() } }
+    const options = {
+      onSuccess: (result: { ok: boolean }) => {
+        if (result.ok) onSaved()
+      },
+    }
     if (pago) {
       actualizar.mutate({ id: pago.id, form: data }, options)
       return
@@ -56,10 +68,11 @@ export function RegistrarPagoForm({ vencimiento, pago, onCancel, onSaved }: Regi
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {vencimiento && (
-        <div className="border border-border bg-muted/30 px-3 py-2">
+        <div className="border-border bg-muted/30 border px-3 py-2">
           <p className="text-sm font-semibold">{vencimiento.descripcion}</p>
-          <p className="text-xs text-muted-foreground">
-            {vencimiento.categoria_nombre} · vence {formatDate(vencimiento.proxima_fecha_vencimiento)}
+          <p className="text-muted-foreground text-xs">
+            {vencimiento.categoria_nombre} · vence{' '}
+            {formatDate(vencimiento.proxima_fecha_vencimiento)}
           </p>
         </div>
       )}
@@ -71,18 +84,24 @@ export function RegistrarPagoForm({ vencimiento, pago, onCancel, onSaved }: Regi
         </>
       ) : (
         <div>
-          <label className="mb-1 block text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Categoría *</label>
+          <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+            Categoría *
+          </label>
           <select
             {...form.register('categoria_id')}
-            className="w-full border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
           >
             <option value="">Seleccionar...</option>
             {categorias.map((categoria) => (
-              <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
+              <option key={categoria.id} value={categoria.id}>
+                {categoria.nombre}
+              </option>
             ))}
           </select>
           {form.formState.errors.categoria_id && (
-            <p className="mt-1 text-[11px] text-danger">{form.formState.errors.categoria_id.message}</p>
+            <p className="text-danger mt-1 text-[11px]">
+              {form.formState.errors.categoria_id.message}
+            </p>
           )}
         </div>
       )}
@@ -101,13 +120,17 @@ export function RegistrarPagoForm({ vencimiento, pago, onCancel, onSaved }: Regi
           error={form.formState.errors.fecha_pago?.message}
         />
         <div>
-          <label className="mb-1 block text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Medio *</label>
+          <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+            Medio *
+          </label>
           <select
             {...form.register('medio_pago')}
-            className="w-full border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
           >
             {MEDIOS_PAGO_GASTO.map((medio) => (
-              <option key={medio.value} value={medio.value}>{medio.label}</option>
+              <option key={medio.value} value={medio.value}>
+                {medio.label}
+              </option>
             ))}
           </select>
         </div>
@@ -117,7 +140,7 @@ export function RegistrarPagoForm({ vencimiento, pago, onCancel, onSaved }: Regi
         label="Importe *"
         type="number"
         step="0.01"
-        min="0.01"
+        min="0"
         {...form.register('importe', { valueAsNumber: true })}
         error={form.formState.errors.importe?.message}
       />

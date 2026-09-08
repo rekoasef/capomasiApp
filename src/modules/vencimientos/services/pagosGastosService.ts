@@ -158,6 +158,12 @@ export const pagosGastosService = {
     return { ok: true, data: data as TPagoGasto }
   },
 
+  async eliminar(id: string): Promise<ServiceResult<null>> {
+    const { error } = await supabase.rpc('fn_eliminar_pago_gasto', { p_pago_id: id })
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: null }
+  },
+
   async getResumenAnual(
     anio: number,
     filters?: Omit<TPagosGastosFilters, 'anio' | 'mes'>

@@ -160,7 +160,7 @@ export function Sidebar() {
             </span>
             <p
               className="text-[10px] tracking-widest uppercase"
-              style={{ color: 'var(--sidebar-foreground)' }}
+              style={{ color: 'var(--sidebar-foreground-muted)' }}
             >
               Estudio Contable
             </p>
@@ -188,7 +188,7 @@ export function Sidebar() {
                 'border-l-2',
                 isActive
                   ? 'border-[var(--sidebar-accent)] text-[var(--sidebar-accent)]'
-                  : 'border-transparent hover:border-[var(--sidebar-border)] hover:text-[oklch(0.78_0.008_65)]'
+                  : 'border-transparent hover:border-[var(--sidebar-border)] hover:text-white'
               )}
               style={{
                 color: isActive ? 'var(--sidebar-accent)' : 'var(--sidebar-foreground)',
@@ -216,15 +216,18 @@ export function Sidebar() {
 
       {/* User / logout */}
       <div className="space-y-2 px-5 py-4">
-        <p className="truncate text-[10px] tracking-wide" style={{ color: 'oklch(0.45 0.006 65)' }}>
+        <p
+          className="truncate text-[10px] tracking-wide"
+          style={{ color: 'var(--sidebar-foreground-muted)' }}
+        >
           {profile?.nombre ?? user?.email}
         </p>
         <button
           onClick={signOut}
           className="flex items-center gap-2 text-[10px] tracking-widest uppercase transition-colors"
-          style={{ color: 'oklch(0.42 0.006 65)' }}
+          style={{ color: 'var(--sidebar-foreground-muted)' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--sidebar-accent)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'oklch(0.42 0.006 65)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--sidebar-foreground-muted)')}
         >
           <LogOut style={{ width: 11, height: 11 }} />
           Salir

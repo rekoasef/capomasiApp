@@ -2355,6 +2355,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fn_eliminar_pago_gasto: { Args: { p_pago_id: string }; Returns: undefined }
       fn_eliminar_imputacion: {
         Args: { p_imputacion_id: string }
         Returns: boolean
