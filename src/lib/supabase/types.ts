@@ -498,6 +498,7 @@ export type Database = {
           telefono: string | null
           tipo_comision: string
           tipo_relacion: string
+          valor_hora: number | null
           usuario_id: string | null
         }
         Insert: {
@@ -519,6 +520,7 @@ export type Database = {
           telefono?: string | null
           tipo_comision?: string
           tipo_relacion: string
+          valor_hora?: number | null
           usuario_id?: string | null
         }
         Update: {
@@ -540,6 +542,7 @@ export type Database = {
           telefono?: string | null
           tipo_comision?: string
           tipo_relacion?: string
+          valor_hora?: number | null
           usuario_id?: string | null
         }
         Relationships: [
@@ -979,6 +982,7 @@ export type Database = {
       }
       liquidaciones_empleadas: {
         Row: {
+          cantidad_horas: number | null
           concepto: string
           created_at: string
           empleada_id: string
@@ -988,8 +992,10 @@ export type Database = {
           periodo_anio: number
           periodo_mes: number
           tipo_concepto: string
+          valor_hora: number | null
         }
         Insert: {
+          cantidad_horas?: number | null
           concepto: string
           created_at?: string
           empleada_id: string
@@ -999,8 +1005,10 @@ export type Database = {
           periodo_anio: number
           periodo_mes: number
           tipo_concepto: string
+          valor_hora?: number | null
         }
         Update: {
+          cantidad_horas?: number | null
           concepto?: string
           created_at?: string
           empleada_id?: string
@@ -1010,6 +1018,7 @@ export type Database = {
           periodo_anio?: number
           periodo_mes?: number
           tipo_concepto?: string
+          valor_hora?: number | null
         }
         Relationships: [
           {

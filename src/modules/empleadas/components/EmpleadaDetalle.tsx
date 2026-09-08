@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -18,6 +18,11 @@ import { liquidacionEmpleadaSchema, pagoEmpleadaSchema } from '../schemas/emplea
 import type { TLiquidacionEmpleadaForm, TPagoEmpleadaForm } from '../schemas/empleadaSchema'
 import type { TLiquidacionEmpleada, TPagoEmpleada, TEmpleada } from '../types'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
+import {
+  CONCEPTO_HORAS,
+  calcularImporteHoras,
+  calcularLiquidacionMes,
+} from '../services/calcularLiquidacionMes'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
@@ -124,6 +129,7 @@ export function EmpleadaDetalle({ empleadaId }: Props) {
       {tab === 'liquidacion' && (
         <LiquidacionTab
           empleadaId={empleadaId}
+          valorHoraLegajo={empleada.valor_hora}
           prefillHaber={prefillHaber}
           onConsumePrefillHaber={() => setPrefillHaber(null)}
         />
@@ -138,10 +144,12 @@ export function EmpleadaDetalle({ empleadaId }: Props) {
 
 function LiquidacionTab({
   empleadaId,
+  valorHoraLegajo,
   prefillHaber,
   onConsumePrefillHaber,
 }: {
   empleadaId: string
+  valorHoraLegajo: number | null
   prefillHaber: PrefillHaber | null
   onConsumePrefillHaber: () => void
 }) {
@@ -155,21 +163,18 @@ function LiquidacionTab({
     data: liquidaciones,
     isLoading: loadingLiq,
     error: errorLiq,
-  } = useLiquidacionesEmpleada(empleadaId, anio)
-  const { data: pagos, isLoading: loadingPag, error: errorPag } = usePagosEmpleada(empleadaId, anio)
+  } = useLiquidacionesEmpleada(empleadaId)
+  const { data: pagos, isLoading: loadingPag, error: errorPag } = usePagosEmpleada(empleadaId)
 
-  const liquidacionesMes = (liquidaciones ?? []).filter((l) => l.periodo_mes === mes)
-  const pagosMes = (pagos ?? []).filter((p) => p.periodo_mes === mes)
+  // Se traen todos los períodos, no solo el año elegido: el arrastre necesita
+  // el historial completo para saber qué quedó de los meses anteriores.
+  const liquidacionesMes = (liquidaciones ?? []).filter(
+    (l) => l.periodo_anio === anio && l.periodo_mes === mes
+  )
+  const pagosMes = (pagos ?? []).filter((p) => p.periodo_anio === anio && p.periodo_mes === mes)
 
-  const totalHaberes = liquidacionesMes
-    .filter((l) => l.tipo_concepto === 'HABER')
-    .reduce((s, l) => s + Number(l.importe), 0)
-  const totalDescuentos = liquidacionesMes
-    .filter((l) => l.tipo_concepto === 'DESCUENTO')
-    .reduce((s, l) => s + Number(l.importe), 0)
-  const neto = totalHaberes - totalDescuentos
-  const totalPagado = pagosMes.reduce((s, p) => s + Number(p.importe), 0)
-  const saldo = neto - totalPagado
+  const { totalHaberes, totalDescuentos, neto, totalPagado, saldoAnterior, pendiente } =
+    calcularLiquidacionMes(liquidaciones ?? [], pagos ?? [], anio, mes)
 
   if (errorLiq || errorPag) {
     return <p className="text-danger text-sm">{errorLiq?.message ?? errorPag?.message}</p>
@@ -218,21 +223,39 @@ function LiquidacionTab({
       </div>
 
       {/* Resumen del período */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div
+        className={`grid grid-cols-2 gap-3 ${saldoAnterior !== 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}
+      >
         <ResumenCard label="Haberes" value={totalHaberes} />
         <ResumenCard label="Descuentos" value={totalDescuentos} className="text-danger" />
         <ResumenCard label="Neto" value={neto} bold />
+        {saldoAnterior !== 0 && (
+          <ResumenCard
+            label={saldoAnterior > 0 ? 'Venía debiendo' : 'Pagado de más antes'}
+            value={saldoAnterior}
+            className={saldoAnterior > 0 ? 'text-danger' : 'text-success'}
+          />
+        )}
         <ResumenCard
           label="Pendiente"
-          value={saldo}
+          value={pendiente}
           bold
-          className={saldo > 0 ? 'text-danger' : 'text-success'}
+          className={pendiente > 0 ? 'text-danger' : 'text-success'}
         />
       </div>
+
+      {saldoAnterior !== 0 && (
+        <p className="text-muted-foreground -mt-3 text-xs">
+          {saldoAnterior > 0
+            ? `El pendiente incluye ${formatMoney(saldoAnterior)} que quedó sin pagar de meses anteriores.`
+            : `El pendiente ya descuenta ${formatMoney(Math.abs(saldoAnterior))} que se le pagó de más en meses anteriores.`}
+        </p>
+      )}
 
       {/* Liquidaciones */}
       <LiquidacionesSection
         empleadaId={empleadaId}
+        valorHoraLegajo={valorHoraLegajo}
         mes={mes}
         anio={anio}
         items={liquidacionesMes}
@@ -283,6 +306,7 @@ function ResumenCard({
 
 function LiquidacionesSection({
   empleadaId,
+  valorHoraLegajo,
   mes,
   anio,
   items,
@@ -291,6 +315,7 @@ function LiquidacionesSection({
   onConsumePrefillHaber,
 }: {
   empleadaId: string
+  valorHoraLegajo: number | null
   mes: number
   anio: number
   items: TLiquidacionEmpleada[]
@@ -318,7 +343,11 @@ function LiquidacionesSection({
   })
 
   const form = useForm<TLiquidacionEmpleadaForm>({
-    resolver: zodResolver(liquidacionEmpleadaSchema),
+    // El cast es por el z.preprocess de horas/valor hora: el tipo de entrada
+    // del schema no coincide con el de salida y zodResolver no lo concilia.
+    resolver: zodResolver(
+      liquidacionEmpleadaSchema
+    ) as unknown as Resolver<TLiquidacionEmpleadaForm>,
     defaultValues: {
       empleada_id: empleadaId,
       tipo_concepto: 'HABER',
@@ -331,6 +360,31 @@ function LiquidacionesSection({
 
   const tipoConcepto = form.watch('tipo_concepto')
   const conceptos = tipoConcepto === 'HABER' ? conceptosHaber : conceptosDescuento
+
+  // "Horas trabajadas": ella carga las horas, el importe lo calcula el sistema.
+  const conceptoElegido = form.watch('concepto')
+  const esPorHora = conceptoElegido === CONCEPTO_HORAS
+  const horas = Number(form.watch('cantidad_horas') || 0)
+  const valorHora = Number(form.watch('valor_hora') || 0)
+  const importeHoras = calcularImporteHoras(horas, valorHora)
+
+  useEffect(() => {
+    if (!esPorHora) return
+    // Al elegir el concepto se propone el valor hora del legajo; si lo pisa a
+    // mano, ese es el que queda guardado en la liquidación de este mes.
+    if (!form.getValues('valor_hora') && valorHoraLegajo) {
+      form.setValue('valor_hora', valorHoraLegajo)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esPorHora, valorHoraLegajo])
+
+  useEffect(() => {
+    if (!esPorHora) return
+    if (form.getValues('importe') !== importeHoras) {
+      form.setValue('importe', importeHoras, { shouldValidate: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esPorHora, importeHoras])
 
   // Viene de "Descontar puntos" en Comisiones: precarga el importe sugerido,
   // ella lo puede ajustar antes de guardar.
@@ -351,8 +405,15 @@ function LiquidacionesSection({
   }, [prefillHaber])
 
   const onSubmit = form.handleSubmit((data) => {
+    // Si cambió de concepto después de tipear horas, no se arrastran valores
+    // viejos: horas y valor hora solo viajan con el concepto que las usa.
+    const horasFields =
+      data.concepto === CONCEPTO_HORAS
+        ? { cantidad_horas: data.cantidad_horas, valor_hora: data.valor_hora }
+        : { cantidad_horas: undefined, valor_hora: undefined }
+
     crear.mutate(
-      { ...data, periodo_mes: mes, periodo_anio: anio },
+      { ...data, ...horasFields, periodo_mes: mes, periodo_anio: anio },
       {
         onSuccess: (r) => {
           if (r.ok) {
@@ -427,14 +488,49 @@ function LiquidacionesSection({
               )}
             </div>
             <Input
-              label="Importe *"
+              label={esPorHora ? 'Importe (calculado)' : 'Importe *'}
               type="number"
               step="0.01"
               min="0"
+              readOnly={esPorHora}
               {...form.register('importe', { valueAsNumber: true })}
               error={form.formState.errors.importe?.message}
             />
           </div>
+
+          {esPorHora && (
+            <div className="border-border bg-muted/20 grid grid-cols-2 gap-3 border p-3 sm:grid-cols-3">
+              <Input
+                label="Horas *"
+                type="number"
+                step="0.5"
+                min="0"
+                {...form.register('cantidad_horas')}
+                error={form.formState.errors.cantidad_horas?.message}
+              />
+              <Input
+                label="Valor hora *"
+                type="number"
+                step="0.01"
+                min="0"
+                {...form.register('valor_hora')}
+                error={form.formState.errors.valor_hora?.message}
+              />
+              <div className="flex flex-col justify-end pb-2">
+                <span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+                  Total
+                </span>
+                <span className="text-sm font-bold tabular-nums">{formatMoney(importeHoras)}</span>
+              </div>
+              {!valorHoraLegajo && (
+                <p className="text-muted-foreground col-span-full text-[11px]">
+                  Esta empleada no tiene valor hora cargado en el legajo. Podés escribirlo acá, y si
+                  lo dejás en el legajo se propone solo el mes que viene.
+                </p>
+              )}
+            </div>
+          )}
+
           <Input label="Observaciones" {...form.register('observaciones')} />
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={crear.isPending}>
@@ -480,7 +576,14 @@ function LiquidacionesSection({
             <tbody className="divide-border bg-surface divide-y">
               {items.map((l) => (
                 <tr key={l.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-2.5 font-medium">{l.concepto}</td>
+                  <td className="px-4 py-2.5 font-medium">
+                    {l.concepto}
+                    {l.cantidad_horas != null && l.valor_hora != null && (
+                      <div className="text-muted-foreground text-[11px] font-normal">
+                        {Number(l.cantidad_horas)} hs × {formatMoney(Number(l.valor_hora))}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5">
                     <span
                       className={`text-[10px] font-bold tracking-widest uppercase ${l.tipo_concepto === 'HABER' ? 'text-success' : 'text-danger'}`}

@@ -24,6 +24,8 @@ export interface TEmpleada {
   // Datos laborales
   fecha_ingreso: string | null
   sueldo_fijo: number | null
+  /** Valor hora vigente (empleadas POR_HORA). Se copia a cada liquidación. */
+  valor_hora: number | null
   // Sistema
   deleted_at: string | null
   created_at: string
@@ -38,6 +40,10 @@ export interface TLiquidacionEmpleada {
   periodo_anio: number
   importe: number
   observaciones: string | null
+  /** Solo en el concepto "Horas trabajadas"; null en los de importe plano. */
+  cantidad_horas: number | null
+  /** Valor hora con el que se liquidó ese mes. Congelado. */
+  valor_hora: number | null
   created_at: string
   empleadas?: { nombre: string }
 }
@@ -65,6 +71,9 @@ export interface TResumenPeriodo {
   total_descuentos: number
   neto: number
   total_pagado: number
+  /** Lo que venía de meses anteriores. Positivo: se le debe. Negativo: se le pagó de más. */
+  saldo_anterior: number
+  /** Lo que falta pagar contando el arrastre. */
   saldo: number
 }
 

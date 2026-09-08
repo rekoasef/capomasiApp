@@ -4,6 +4,7 @@ import {
   liquidacionEmpleadaSchema,
   pagoEmpleadaSchema,
 } from '../schemas/empleadaSchema'
+import { calcularLiquidacionMes } from './calcularLiquidacionMes'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
 import type { TEmpleada, TLiquidacionEmpleada, TPagoEmpleada, TResumenPeriodo } from '../types'
 import type {
@@ -142,42 +143,36 @@ export const empleadasService = {
       .is('deleted_at', null)
     if (empErr) return { ok: false, error: empErr.message, code: 'DB_ERROR' }
 
+    // Sin filtro de período: el arrastre necesita el historial completo para
+    // saber qué quedó de los meses anteriores.
     const { data: liq, error: liqErr } = await supabase
       .from('liquidaciones_empleadas')
-      .select('*')
-      .eq('periodo_anio', anio)
-      .eq('periodo_mes', mes)
+      .select('empleada_id, periodo_anio, periodo_mes, tipo_concepto, importe')
     if (liqErr) return { ok: false, error: liqErr.message, code: 'DB_ERROR' }
 
     const { data: pagos, error: pagosErr } = await supabase
       .from('pagos_empleadas')
-      .select('*')
-      .eq('periodo_anio', anio)
-      .eq('periodo_mes', mes)
+      .select('empleada_id, periodo_anio, periodo_mes, importe')
     if (pagosErr) return { ok: false, error: pagosErr.message, code: 'DB_ERROR' }
 
     const resumen: TResumenPeriodo[] = (emp ?? []).map((e) => {
-      const items = (liq ?? []).filter((l) => l.empleada_id === e.id)
-      const total_haberes = items
-        .filter((l) => l.tipo_concepto === 'HABER')
-        .reduce((s, l) => s + Number(l.importe), 0)
-      const total_descuentos = items
-        .filter((l) => l.tipo_concepto === 'DESCUENTO')
-        .reduce((s, l) => s + Number(l.importe), 0)
-      const total_pagado = (pagos ?? [])
-        .filter((p) => p.empleada_id === e.id)
-        .reduce((s, p) => s + Number(p.importe), 0)
-      const neto = total_haberes - total_descuentos
+      const totales = calcularLiquidacionMes(
+        (liq ?? []).filter((l) => l.empleada_id === e.id),
+        (pagos ?? []).filter((p) => p.empleada_id === e.id),
+        anio,
+        mes
+      )
       return {
         empleada_id: e.id,
         empleada_nombre: e.nombre,
         periodo_mes: mes,
         periodo_anio: anio,
-        total_haberes,
-        total_descuentos,
-        neto,
-        total_pagado,
-        saldo: neto - total_pagado,
+        total_haberes: totales.totalHaberes,
+        total_descuentos: totales.totalDescuentos,
+        neto: totales.neto,
+        total_pagado: totales.totalPagado,
+        saldo_anterior: totales.saldoAnterior,
+        saldo: totales.pendiente,
       }
     })
 
