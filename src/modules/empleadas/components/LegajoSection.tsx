@@ -43,8 +43,8 @@ export function LegajoSection({ empleada }: Props) {
       cbu: empleada.cbu ?? '',
       alias_cbu: empleada.alias_cbu ?? '',
       fecha_ingreso: empleada.fecha_ingreso ?? '',
-      sueldo_fijo: empleada.sueldo_fijo ?? undefined,
-      valor_hora: empleada.valor_hora ?? undefined,
+      sueldo_fijo: empleada.sueldo_fijo ?? null,
+      valor_hora: empleada.valor_hora ?? null,
       usuario_id: empleada.usuario_id ?? undefined,
     },
   })

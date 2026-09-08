@@ -27,6 +27,7 @@ import {
   type TRegistroPuntajeForm,
   type TRegistroHorasForm,
 } from '../schemas/empleadaSchema'
+import { CONCEPTO_HORAS } from '../services/calcularLiquidacionMes'
 import type { TEmpleada, TTipoComision } from '../types'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
@@ -71,6 +72,12 @@ export function ComisionesSection({ empleada, onDescontadoPuntaje }: Props) {
   const ANIOS = Array.from({ length: 4 }, (_, i) => hoy.getFullYear() - i)
 
   const tipoComision = empleada.tipo_comision ?? 'NINGUNA'
+
+  // Si el sueldo ya es por hora, las horas del mes van en la liquidación y no
+  // acá. Paola entró a esta pestaña buscando dónde cargarle las 46 horas a
+  // Agustina y chocó con el tope de 24 — que es correcto, porque este panel
+  // lleva una bitácora día por día, no el total del mes.
+  const horasVanEnLiquidacion = empleada.tipo_relacion === 'POR_HORA'
 
   return (
     <div className="space-y-6">
@@ -152,9 +159,23 @@ export function ComisionesSection({ empleada, onDescontadoPuntaje }: Props) {
         />
       )}
 
-      {tipoComision === 'HORAS' && (
-        <ComisionHorasPanel empleadaId={empleada.id} mes={mes} anio={anio} />
-      )}
+      {tipoComision === 'HORAS' &&
+        (horasVanEnLiquidacion ? (
+          <div className="border-border bg-muted/30 border px-4 py-6 text-center">
+            <p className="text-sm font-medium">Las horas de esta empleada van en la liquidación</p>
+            <p className="text-muted-foreground mx-auto mt-2 max-w-md text-xs leading-relaxed">
+              Cobra <strong>por hora</strong>, así que las horas del mes se cargan en la pestaña{' '}
+              <strong>Liquidación</strong>, con el concepto &laquo;{CONCEPTO_HORAS}&raquo;: ponés
+              las horas y el sistema calcula el importe con el valor hora del legajo.
+              <br />
+              <br />
+              Esta pestaña es para una comisión <em>además</em> del sueldo, y se lleva día por día.
+              Sobre un sueldo por hora sería contar la misma plata dos veces.
+            </p>
+          </div>
+        ) : (
+          <ComisionHorasPanel empleadaId={empleada.id} mes={mes} anio={anio} />
+        ))}
     </div>
   )
 }
@@ -773,7 +794,10 @@ function ComisionHorasPanel({
     <div className="space-y-4">
       {/* Resumen */}
       <div className="grid grid-cols-3 gap-3">
-        <SummaryCard label="Horas trabajadas" value={`${totalHoras.toFixed(2)} hs`} />
+        {/* "Horas del mes" y no "Horas trabajadas": ese es el nombre del
+            concepto de la liquidación y tenerlo repetido acá fue justamente lo
+            que mandó a Paola a la pestaña equivocada. */}
+        <SummaryCard label="Horas del mes" value={`${totalHoras.toFixed(2)} hs`} />
         <SummaryCard label="Valor por hora" value={formatMoney(resumen?.valor_hora ?? 0)} />
         <SummaryCard
           label="Total a pagar"
@@ -804,7 +828,7 @@ function ComisionHorasPanel({
                 error={form.formState.errors.fecha?.message}
               />
               <Input
-                label="Horas *"
+                label="Horas de ese día *"
                 type="number"
                 step="0.25"
                 min="0.25"

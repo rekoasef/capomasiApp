@@ -68,6 +68,8 @@ Legajo por empleada: relación de dependencia o por hora, tipo de comisión (pro
 - **Liquidación por hora:** concepto "Horas trabajadas" — se cargan las horas y el sistema calcula el importe con el valor hora del legajo (`empleadas.valor_hora`). Cada liquidación guarda las horas y el valor usado, así que cambiar el valor hoy no altera los meses ya liquidados.
 - **Arrastre entre meses:** los períodos no son estancos. Lo que queda de un mes (a favor o en contra) se descuenta o se suma solo en el siguiente; el encabezado muestra de dónde sale el pendiente. La regla vive en `calcularLiquidacionMes`.
 
+⚠️ **Las horas se cargan en dos lugares distintos y no son lo mismo.** En **Liquidación**, el concepto "Horas trabajadas" es el sueldo del mes (valor hora del legajo). En **Comisiones**, el registro de horas es una comisión _además_ del sueldo, día por día y con tope de 24 por fila (valor hora de `comisiones_config`). Si la empleada ya cobra por hora (`tipo_relacion = 'POR_HORA'`) el panel de Comisiones no aparece — sería contar la misma plata dos veces — y en su lugar hay un cartel que apunta a Liquidación.
+
 ## 7. Vencimientos
 
 Módulo solo-admin que agrupa dos funciones distintas:
