@@ -95,3 +95,40 @@ Le pagó $390.000 sobre un neto de $383.042 y preguntó cómo imputar los $6.958
 El cálculo salió del componente a `calcularLiquidacionMes` — lo usan el detalle de la empleada y el resumen de Liquidación Personal, y era la única forma de tener una sola regla. Consecuencia: el resumen del período ya **no** filtra por período en la query, trae el historial completo y filtra en memoria.
 
 En el encabezado aparece una tarjeta extra ("Venía debiendo" / "Pagado de más antes") solo cuando hay arrastre, con una línea que explica de dónde sale el pendiente.
+
+---
+
+## 2026-09-08 (tercera tanda — lo que salió de probar lo anterior)
+
+Al día siguiente de entregar lo de arriba, Paola fue a cargarle las horas a Agustina y no llegó. Los dos problemas salieron de la misma sesión.
+
+| #   | Pedido                                                | Estado |
+| :-- | :---------------------------------------------------- | :----- |
+| 1   | "No me deja poner más horas" — el tope de 24          | ✅     |
+| 2   | El sueldo fijo dice que puede ser 0 pero rechaza el 0 | ✅     |
+
+### 1 — Fue a la pestaña equivocada, y con razón
+
+Entró a **Comisiones** y quiso cargar 46 horas con fecha 08/09/2026 y la descripción "HORAS DESDE AGOSTO DE 2026". El navegador la frenó con "El valor debe ser inferior o igual a 24".
+
+El tope está bien: ese panel es una **bitácora diaria**, una fila por día. Lo que estaba mal es que hubiera dos lugares que dicen "horas" y que el equivocado se llamara igual que el correcto — el panel mostraba "HORAS TRABAJADAS / VALOR POR HORA / TOTAL A PAGAR", que es literalmente lo que ella buscaba.
+
+Son dos cosas distintas:
+
+- **Comisiones → horas**: comisión por hora, un extra **encima** del sueldo, día por día, valor hora de `comisiones_config`.
+- **Liquidación → "Horas trabajadas"**: el sueldo del mes, valor hora de `empleadas.valor_hora` (lo de la migración 0074).
+
+Sobre un sueldo que ya es por hora, la comisión por hora es la misma plata dos veces. Así que cuando `tipo_relacion = 'POR_HORA'` el panel de comisión por hora ya no aparece: en su lugar hay un cartel que dice dónde van las horas. Y se renombraron las etiquetas del panel diario ("Horas del mes", "Horas de ese día") para que no compitan con el nombre del concepto.
+
+**Ojo con los datos**: Agustina tenía `tipo_comision = 'HORAS'`, que es lo que le abría ese panel. Ese campo es para la comisión, no para el sueldo — va en `NINGUNA`.
+
+### 2 — El sueldo fijo no se podía vaciar
+
+Para pasarla a por hora había que vaciar `sueldo_fijo`, y no se podía por ningún lado:
+
+- Escribir `0` → "Debe ser mayor a 0" (el campo tiene el placeholder "0.00", así que el mensaje se contradice solo).
+- Borrar el campo → el `''` se volvía `undefined`, que Supabase **descarta del payload del update**. Guardaba sin error, la pantalla mostraba el campo vacío y la columna se quedaba con 8327. Silencioso, que es lo peor.
+
+Ahora vacío y `0` significan lo mismo y los dos van a `null`, que sí viaja y borra. Los negativos se siguen rechazando. La base nunca fue el problema: `empleadas` no tiene ningún CHECK sobre `sueldo_fijo`.
+
+El mismo arreglo cubre `valor_hora`, que tenía el bug idéntico.
