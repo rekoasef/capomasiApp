@@ -41,8 +41,9 @@ Saldo por cliente en tiempo real (`v_cuenta_corriente`), con antigüedad de deud
 
 - **Liquidado vs. facturado:** cada liquidación separa `importe_liquidado` (honorario neto, para estadísticas internas) de `importe_facturado` (lo que paga el cliente, base de la cuenta corriente). Factura A suma 21% de IVA automáticamente; Factura C y Presupuesto no. El total a facturar se muestra en vivo mientras se carga.
 - **Numeración automática:** los presupuestos se numeran solos (`P-0100` en adelante, secuencia interna). Factura A y C llevan número manual porque vienen de AFIP.
-- **Recibos con dos series independientes:** serie `A-0100...` para pagos de Factura A, serie `C-0100...` para pagos de Factura C o Presupuesto. El sistema determina la serie según lo que se impute; si un mismo cobro cubre ambos tipos a la vez, genera dos recibos separados.
-- **Medios de cobro:** transferencia (con cuenta bancaria), efectivo, cheque, USD (con tipo de cambio) y compensación (trueque sin movimiento de dinero).
+- **Numeración de recibos:** una sola serie, `C-0100...`. Hasta la migración 0073 había dos series (A para pagos de Factura A, C para el resto) y un mismo cobro que cubría ambas generaba dos recibos; ese corte se eliminó el 2026-09-08 — ver detalle en `CLAUDE.md` sección 19.
+- **Un recibo, varios medios de cobro:** un cobro puede combinar transferencia (con cuenta bancaria), efectivo, cheque, USD (con tipo de cambio) y compensación (trueque sin movimiento de dinero), en cualquier cantidad y mezcla. El recibo guarda el total y el desglose vive en `recibos_medios`; se ve expandiendo el recibo en el listado. Cada cheque entra a la cartera por separado, con su número y banco. El recibo queda marcado como `MIXTO` cuando tiene más de un medio.
+- **Vuelto en efectivo:** cuando el cheque tapa de más y se le devuelve la diferencia al cliente. Solo se ofrece sobre un recibo de un único cheque — con varios medios no hay forma de saber de cuál sale.
 - **Exportación:** cuenta corriente a PDF, filtrable por rango de fechas, nombre de archivo = cliente.
 
 ## 5. Control de Fondos
@@ -71,6 +72,8 @@ Módulo solo-admin que agrupa dos funciones distintas:
 **a) Vencimientos fiscales de clientes** — calendario configurable por cliente (mensual o anual, con día/fecha de vencimiento y empleada responsable). Genera automáticamente instancias de Trabajo para la empleada asignada (idempotente, no duplica). Vista de lista y vista de calendario, con alertas visuales (vencido / hoy / próximos 7 días). Las empleadas no entran a este módulo — ven el trabajo resultante en "Mis Trabajos".
 
 **b) Gastos de Paola (personales y del estudio)** — categorías libres que ella misma crea. Gastos recurrentes (luz, tarjetas, etc.) sin importe fijo: se carga al pagar cada mes y el sistema calcula solo el próximo vencimiento. Gastos únicos sin recurrencia. Historial con cortes por categoría, por gasto específico, mensual y anual, más un gráfico de torta de distribución. El dashboard alerta si hay un gasto vencido sin pagar.
+
+El pago puede ser de **$0**: Paola usa los gastos recurrentes como checklist y marca como pagados los impuestos anuales antes de saber el importe. Un pago en $0 avanza igual el vencimiento pero no genera movimiento de fondos. Los pagos también se pueden **eliminar** (`fn_eliminar_pago_gasto`): borra el pago y su movimiento de fondos, y si ese pago fue el que avanzó el calendario del gasto recurrente, lo devuelve al vencimiento anterior.
 
 ## 8. Proveedores y Gastos
 
