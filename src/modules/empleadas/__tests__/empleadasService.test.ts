@@ -1,3 +1,4 @@
+import { empleadaSchema } from '../schemas/empleadaSchema'
 import { empleadasService } from '../services/empleadasService'
 
 jest.mock('@/lib/supabase/client', () => ({
@@ -69,9 +70,9 @@ describe('empleadasService.create', () => {
   })
 
   it('retorna VALIDATION_ERROR si el tipo_relacion es inválido', async () => {
-    // @ts-expect-error — testeamos runtime con valor inválido
     const result = await empleadasService.create({
       nombre: 'Victoria',
+      // @ts-expect-error — testeamos runtime con valor inválido
       tipo_relacion: 'FREELANCE',
       activo: true,
     })
@@ -259,5 +260,52 @@ describe('empleadasService.getResumenPeriodo', () => {
       expect(r.saldo_anterior).toBe(-30000)
       expect(r.saldo).toBe(70000)
     }
+  })
+})
+
+// ── sueldo fijo / valor hora opcionales ──────────────────────
+//
+// Paola pasó a Agustina de sueldo fijo a por hora y no pudo vaciar el campo
+// viejo: escribir 0 rebotaba con "Debe ser mayor a 0", y borrarlo lo mandaba
+// como undefined, que Supabase descarta del update — la columna se quedaba
+// con el valor anterior sin avisar. Las dos formas tienen que dar null.
+
+describe('empleadaSchema — vaciar sueldo_fijo y valor_hora', () => {
+  const base = {
+    nombre: 'Agustina',
+    tipo_relacion: 'POR_HORA' as const,
+    tipo_comision: 'NINGUNA' as const,
+    activo: true,
+  }
+
+  it('acepta el 0 y lo guarda como null', () => {
+    const r = empleadaSchema.safeParse({ ...base, sueldo_fijo: 0, valor_hora: 8327 })
+    expect(r.success).toBe(true)
+    if (r.success) {
+      expect(r.data.sueldo_fijo).toBeNull()
+      expect(r.data.valor_hora).toBe(8327)
+    }
+  })
+
+  it('convierte el campo vacío en null, no en undefined', () => {
+    const r = empleadaSchema.safeParse({ ...base, sueldo_fijo: '', valor_hora: '' })
+    expect(r.success).toBe(true)
+    if (r.success) {
+      // null y no undefined: undefined desaparece del payload del update.
+      expect(r.data.sueldo_fijo).toBeNull()
+      expect(r.data.valor_hora).toBeNull()
+      expect('sueldo_fijo' in r.data).toBe(true)
+    }
+  })
+
+  it('sigue rechazando los importes negativos', () => {
+    const r = empleadaSchema.safeParse({ ...base, valor_hora: -100 })
+    expect(r.success).toBe(false)
+  })
+
+  it('deja pasar el string que llega del input number', () => {
+    const r = empleadaSchema.safeParse({ ...base, valor_hora: '8327' })
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data.valor_hora).toBe(8327)
   })
 })

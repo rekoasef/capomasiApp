@@ -1,6 +1,20 @@
 import { z } from 'zod'
 import { CONCEPTO_HORAS } from '../services/calcularLiquidacionMes'
 
+// Sueldo fijo y valor hora son excluyentes en la práctica: la empleada cobra
+// por mes o por hora, y al pasarla de una cosa a la otra hay que poder vaciar
+// el campo que ya no corre. Dejarlo vacío y escribir 0 significan lo mismo
+// —el placeholder es "0.00"— y las dos formas tienen que borrarlo.
+//
+// Va a `null` y no a `undefined`: `undefined` desaparece del payload del
+// update de Supabase, así que el campo se veía vacío en pantalla pero la
+// columna se quedaba con el valor viejo, sin ningún aviso.
+const montoOpcional = z.preprocess((v) => {
+  if (v === '' || v === null || v === undefined) return null
+  const n = Number(v)
+  return Number.isFinite(n) && n !== 0 ? n : null
+}, z.number().positive('Debe ser mayor a 0').nullable().optional())
+
 export const empleadaSchema = z.object({
   nombre: z.string().min(2, 'Nombre requerido'),
   apellido: z.string().optional().nullable(),
@@ -20,16 +34,10 @@ export const empleadaSchema = z.object({
   cbu: z.string().optional().nullable(),
   alias_cbu: z.string().optional().nullable(),
   fecha_ingreso: z.string().date().optional().nullable(),
-  sueldo_fijo: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
-    z.number().positive('Debe ser mayor a 0').optional()
-  ),
+  sueldo_fijo: montoOpcional,
   // Valor vigente para las empleadas POR_HORA. Se copia a cada liquidación
   // al cargarla, así cambiarlo no reescribe los meses ya liquidados.
-  valor_hora: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
-    z.number().positive('Debe ser mayor a 0').optional()
-  ),
+  valor_hora: montoOpcional,
 })
 
 const horasInput = z.preprocess(
