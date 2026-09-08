@@ -16,7 +16,7 @@ import { Skeleton } from '@/shared/components/ui/skeleton'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
 import { useAuth } from '@/lib/auth/useAuth'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import type { TReciboDisponible } from '../types'
+import type { TReciboDisponible, TReciboMedio } from '../types'
 import { labelTipoServicio } from '@/shared/lib/etiquetas'
 
 const TIPO_LABEL: Record<string, string> = {
@@ -26,6 +26,18 @@ const TIPO_LABEL: Record<string, string> = {
   USD: 'USD',
   COMPENSACION: 'Compensación',
   SALDO_INICIAL: 'Saldo inicial a favor',
+  MIXTO: 'Varios medios',
+}
+
+function etiquetaMedio(medio: TReciboMedio): string {
+  const base = TIPO_LABEL[medio.tipo_pago] ?? medio.tipo_pago
+  if (medio.tipo_pago === 'CHEQUE' && medio.cheque_numero) {
+    return `${base} N° ${medio.cheque_numero}${medio.cheque_banco ? ` — ${medio.cheque_banco}` : ''}`
+  }
+  if (medio.tipo_pago === 'TRANSFERENCIA' && medio.cuenta_bancaria) {
+    return `${base} — ${medio.cuenta_bancaria}`
+  }
+  return base
 }
 
 type Props = { clienteId: string; desde?: string; hasta?: string }
@@ -206,12 +218,33 @@ function RecibosRow({
       </tr>
       {expanded && (
         <tr className="bg-muted/10">
-          <td colSpan={8} className="px-3 py-3">
+          <td colSpan={8} className="space-y-3 px-3 py-3">
+            {rec.medios && rec.medios.length > 1 && <ReciboMedios medios={rec.medios} />}
             <RecibosImputaciones reciboId={rec.id} clienteId={clienteId} canDelete={isAdmin} />
           </td>
         </tr>
       )}
     </>
+  )
+}
+
+function ReciboMedios({ medios }: { medios: TReciboMedio[] }) {
+  return (
+    <div>
+      <p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wide uppercase">
+        Cómo pagó
+      </p>
+      <table className="w-full text-xs">
+        <tbody>
+          {medios.map((medio) => (
+            <tr key={medio.id} className="border-border/60 border-t">
+              <td className="py-1">{etiquetaMedio(medio)}</td>
+              <td className="py-1 text-right font-medium">{formatMoney(medio.importe ?? 0)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

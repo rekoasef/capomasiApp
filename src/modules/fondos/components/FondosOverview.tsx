@@ -42,7 +42,7 @@ const CUENTAS_TRANSFERIBLES: { value: TTransferenciaFondosForm['origen']; label:
   { value: 'banco', label: 'Banco' },
   { value: 'efectivo', label: 'Efectivo' },
   { value: 'usd', label: 'Dólares' },
-  { value: 'taralo', label: 'Taralo' },
+  { value: 'taralo', label: 'Tarallo' },
 ]
 
 const PAGE_SIZE = 25
@@ -147,7 +147,7 @@ export function FondosOverview() {
               { label: 'Cheques en cartera', value: saldo.saldo_cheques_cartera },
               { label: 'Efectivo', value: saldo.saldo_efectivo },
               { label: 'Dólares', value: saldo.saldo_usd },
-              { label: 'Taralo', value: saldo.saldo_taralo },
+              { label: 'Tarallo', value: saldo.saldo_taralo },
             ].map(({ label, value }) => (
               <div key={label} className="border-border border p-4">
                 <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
@@ -352,7 +352,7 @@ export function FondosOverview() {
               {...form.register('importe_usd', { valueAsNumber: true })}
             />
             <Input
-              label="Taralo $"
+              label="Tarallo $"
               type="number"
               step="0.01"
               min="0"
@@ -417,7 +417,7 @@ export function FondosOverview() {
                   Dólares
                 </th>
                 <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                  Taralo
+                  Tarallo
                 </th>
                 {isAdmin && <th className="px-4 py-2.5" />}
               </tr>

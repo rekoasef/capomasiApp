@@ -1,23 +1,17 @@
 import { supabase } from '@/lib/supabase/client'
-import { reciboSchema } from '../schemas/reciboSchema'
+import { reciboSchema, totalMedios, type TReciboForm } from '../schemas/reciboSchema'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
-import type { TRecibo, TReciboDisponible, TImputacionInline } from '../types'
+import type { TRecibo, TReciboDisponible } from '../types'
 
-type RegistrarParams = {
-  cliente_id: string
-  fecha: string
-  tipo_pago: 'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'USD' | 'COMPENSACION'
+// Lo que viaja al RPC como p_medios. El cheque ya viene creado (cheque_id):
+// los datos del papel (número, banco) viven en la tabla cheques, no acá.
+type MedioPayload = {
+  tipo_pago: string
   importe: number
-  numero_recibo?: string
   cuenta_bancaria?: string
+  cheque_id?: string
   importe_usd?: number
   tipo_cambio?: number
-  cheque_numero?: string
-  cheque_banco?: string
-  cheque_fecha_cobro?: string
-  vuelto_efectivo?: number
-  notas?: string
-  imputaciones?: TImputacionInline[]
 }
 
 export const recibosService = {
@@ -73,31 +67,69 @@ export const recibosService = {
   },
 }
 
-async function registrarRecibo(params: RegistrarParams): Promise<ServiceResult<TRecibo[]>> {
-  let chequeId: string | null = null
+async function registrarRecibo(params: TReciboForm): Promise<ServiceResult<TRecibo[]>> {
   const vuelto = params.vuelto_efectivo ?? 0
+  const importeTotal = totalMedios(params.medios)
 
-  if (params.tipo_pago === 'CHEQUE' && params.cheque_numero && params.cheque_banco) {
-    // El cheque cubre el importe total menos el vuelto en efectivo
-    const importeCheque = Math.round((params.importe - vuelto + Number.EPSILON) * 100) / 100
-    const { data: cheque, error: chequeError } = await supabase
-      .from('cheques')
-      .insert({
-        tipo: 'TERCERO',
-        numero: params.cheque_numero,
-        banco: params.cheque_banco,
-        importe: importeCheque,
-        fecha_emision: params.fecha,
-        fecha_cobro: params.cheque_fecha_cobro ?? null,
-        origen: 'CLIENTE',
-        estado: 'EN_CARTERA',
-        cliente_id: params.cliente_id,
+  // Cada cheque del cobro entra a cartera como su propio cheque. Se crean
+  // antes del recibo porque el medio los referencia por id; si el RPC falla
+  // después se borran todos, para no dejar cheques huérfanos en la cartera.
+  const chequesCreados: string[] = []
+  const medios: MedioPayload[] = []
+
+  for (const medio of params.medios) {
+    if (medio.tipo_pago === 'CHEQUE') {
+      // El schema ya lo exige; el chequeo acá es para estrechar el tipo antes
+      // de insertar en cheques, donde número y banco no son opcionales.
+      if (!medio.cheque_numero || !medio.cheque_banco) {
+        await borrarCheques(chequesCreados)
+        return {
+          ok: false,
+          error: 'Falta el número o el banco de uno de los cheques',
+          code: 'VALIDATION_ERROR',
+        }
+      }
+
+      // Con vuelto, el cheque queda registrado por lo que efectivamente
+      // se cobra — el resto vuelve al cliente en efectivo.
+      const importeCheque = Math.round((medio.importe - vuelto + Number.EPSILON) * 100) / 100
+      const { data: cheque, error: chequeError } = await supabase
+        .from('cheques')
+        .insert({
+          tipo: 'TERCERO',
+          numero: medio.cheque_numero,
+          banco: medio.cheque_banco,
+          importe: importeCheque,
+          fecha_emision: params.fecha,
+          fecha_cobro: medio.cheque_fecha_cobro || null,
+          origen: 'CLIENTE',
+          estado: 'EN_CARTERA',
+          cliente_id: params.cliente_id,
+        })
+        .select()
+        .single()
+
+      if (chequeError) {
+        await borrarCheques(chequesCreados)
+        return { ok: false, error: chequeError.message, code: 'DB_ERROR' }
+      }
+
+      chequesCreados.push(cheque.id)
+      medios.push({
+        tipo_pago: 'CHEQUE',
+        importe: medio.importe,
+        cheque_id: cheque.id,
       })
-      .select()
-      .single()
+      continue
+    }
 
-    if (chequeError) return { ok: false, error: chequeError.message, code: 'DB_ERROR' }
-    chequeId = cheque.id
+    medios.push({
+      tipo_pago: medio.tipo_pago,
+      importe: medio.importe,
+      cuenta_bancaria: medio.cuenta_bancaria || undefined,
+      importe_usd: medio.importe_usd ?? undefined,
+      tipo_cambio: medio.tipo_cambio ?? undefined,
+    })
   }
 
   const imputacionesPayload = (params.imputaciones ?? []).map((i) => ({
@@ -105,29 +137,34 @@ async function registrarRecibo(params: RegistrarParams): Promise<ServiceResult<T
     importe: i.importe,
   }))
 
+  const primero = medios[0]
+
   const { data, error } = await supabase.rpc('fn_registrar_recibo', {
     p_cliente_id: params.cliente_id,
     p_fecha: params.fecha,
-    p_tipo_pago: params.tipo_pago,
-    p_importe: params.importe,
+    // p_tipo_pago sigue siendo obligatorio en la firma; con p_medios cargado
+    // el RPC lo ignora y calcula el tipo del recibo (o MIXTO) desde los medios.
+    p_tipo_pago: primero.tipo_pago,
+    p_importe: importeTotal,
+    p_medios: medios,
     p_imputaciones: imputacionesPayload,
-    p_numero_recibo: params.numero_recibo ?? undefined,
-    p_importe_usd: params.importe_usd ?? undefined,
-    p_tipo_cambio: params.tipo_cambio ?? undefined,
-    p_cuenta_bancaria: params.cuenta_bancaria ?? undefined,
-    p_cheque_id: chequeId ?? undefined,
-    p_notas: params.notas ?? undefined,
+    p_numero_recibo: params.numero_recibo || undefined,
+    p_notas: params.notas || undefined,
     p_vuelto_efectivo: vuelto > 0 ? vuelto : undefined,
   })
 
   if (error) {
-    if (chequeId) {
-      await supabase.from('cheques').delete().eq('id', chequeId)
-    }
+    await borrarCheques(chequesCreados)
     return { ok: false, error: error.message, code: 'DB_ERROR' }
   }
 
-  // El RPC retorna JSONB con array de recibos creados (1 ó 2 por auto-split)
+  // El RPC devuelve un array — hoy siempre de un recibo, pero antes podían
+  // salir dos por el corte de series y la firma se mantuvo.
   const recibos = Array.isArray(data) ? (data as TRecibo[]) : [data as TRecibo]
   return { ok: true, data: recibos }
+}
+
+async function borrarCheques(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  await supabase.from('cheques').delete().in('id', ids)
 }

@@ -2355,6 +2355,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fn_eliminar_pago_gasto: { Args: { p_pago_id: string }; Returns: undefined }
       fn_eliminar_imputacion: {
         Args: { p_imputacion_id: string }
         Returns: boolean
@@ -2588,6 +2589,7 @@ export type Database = {
           p_importe: number
           p_importe_usd?: number
           p_imputaciones?: Json
+          p_medios?: Json
           p_notas?: string
           p_numero_recibo?: string
           p_tipo_cambio?: number

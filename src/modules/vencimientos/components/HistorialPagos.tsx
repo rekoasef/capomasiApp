@@ -7,12 +7,17 @@ import { PaginationControls } from '@/shared/components/PaginationControls'
 import { formatDate, formatMoney } from '@/shared/utils/formatters'
 import { useCategoriasGastos } from '../hooks/useCategoriasGastos'
 import { useGastosRecurrentes } from '../hooks/useGastosRecurrentes'
-import { useHistorialPagosGastos, useResumenAnualGastos } from '../hooks/usePagosGastos'
+import {
+  useEliminarPagoGasto,
+  useHistorialPagosGastos,
+  useResumenAnualGastos,
+} from '../hooks/usePagosGastos'
 import { MEDIOS_PAGO_GASTO, type TPagoGastoDetalle, type TPagosGastosFilters } from '../types'
 import { RegistrarPagoForm } from './RegistrarPagoForm'
 import { ResumenCategoria } from './ResumenCategoria'
 import { GastosPieChart } from './GastosPieChart'
-import { Edit2, ExternalLink } from 'lucide-react'
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
+import { Edit2, ExternalLink, Trash2 } from 'lucide-react'
 
 const PAGE_SIZE = 25
 
@@ -49,6 +54,8 @@ export function HistorialPagos() {
   const [gastoId, setGastoId] = useState('TODOS')
   const [page, setPage] = useState(0)
   const [editing, setEditing] = useState<TPagoGastoDetalle | null>(null)
+  const [deleting, setDeleting] = useState<TPagoGastoDetalle | null>(null)
+  const { mutate: eliminarPago, isPending: isDeleting } = useEliminarPagoGasto()
 
   const { data: categorias = [] } = useCategoriasGastos({ includeInactive: true })
   const { data: gastos = [] } = useGastosRecurrentes({ includeInactive: true })
@@ -267,6 +274,14 @@ export function HistorialPagos() {
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleting(pago)}
+                        className="text-muted-foreground hover:bg-muted hover:text-danger p-1.5"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -298,6 +313,29 @@ export function HistorialPagos() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleting}
+        title="Eliminar pago"
+        description={
+          deleting
+            ? `Se elimina el pago de ${deleting.concepto} por ${formatMoney(
+                Number(deleting.importe)
+              )}${
+                deleting.fecha_vencimiento_pagado
+                  ? ' y el gasto vuelve a quedar pendiente del vencimiento que habia cubierto'
+                  : ''
+              }. No se puede deshacer.`
+            : ''
+        }
+        confirmLabel="Eliminar"
+        isPending={isDeleting}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => {
+          if (!deleting) return
+          eliminarPago(deleting.id, { onSuccess: () => setDeleting(null) })
+        }}
+      />
     </div>
   )
 }

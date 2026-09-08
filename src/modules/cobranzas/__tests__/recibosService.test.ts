@@ -19,6 +19,7 @@ function mockChain(terminal: Record<string, unknown> = {}) {
     update: jest.fn().mockReturnThis(),
     delete: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    in: jest.fn().mockReturnThis(),
     gt: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
     single: jest.fn().mockReturnThis(),
@@ -32,16 +33,28 @@ function mockChain(terminal: Record<string, unknown> = {}) {
 describe('recibosService.registrar', () => {
   beforeEach(() => jest.clearAllMocks())
 
+  const CLIENTE = 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+  const LIQ_A = 'a47ac10b-58cc-4372-a567-0e02b2c3d479'
+  const LIQ_B = 'b47ac10b-58cc-4372-a567-0e02b2c3d479'
+
   const validBase = {
-    cliente_id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+    cliente_id: CLIENTE,
     fecha: '2026-04-15',
-    tipo_pago: 'TRANSFERENCIA',
-    importe: 5000,
+    medios: [{ tipo_pago: 'TRANSFERENCIA', importe: 5000 }],
     imputaciones: [],
   }
 
   it('valida que el importe sea positivo', async () => {
-    const result = await recibosService.registrar({ ...validBase, importe: -100 })
+    const result = await recibosService.registrar({
+      ...validBase,
+      medios: [{ tipo_pago: 'TRANSFERENCIA', importe: -100 }],
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('exige al menos un medio de pago', async () => {
+    const result = await recibosService.registrar({ ...validBase, medios: [] })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
   })
@@ -49,9 +62,7 @@ describe('recibosService.registrar', () => {
   it('valida campos requeridos para USD', async () => {
     const result = await recibosService.registrar({
       ...validBase,
-      tipo_pago: 'USD',
-      importe_usd: undefined,
-      tipo_cambio: undefined,
+      medios: [{ tipo_pago: 'USD', importe: 5000 }],
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
@@ -60,27 +71,29 @@ describe('recibosService.registrar', () => {
   it('valida campos requeridos para CHEQUE', async () => {
     const result = await recibosService.registrar({
       ...validBase,
-      tipo_pago: 'CHEQUE',
+      medios: [{ tipo_pago: 'CHEQUE', importe: 5000 }],
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
   })
 
-  it('rechaza si las imputaciones superan el importe del recibo', async () => {
+  it('rechaza si las imputaciones superan el total de los medios', async () => {
     const result = await recibosService.registrar({
       ...validBase,
-      importe: 1000,
+      medios: [{ tipo_pago: 'TRANSFERENCIA', importe: 1000 }],
       imputaciones: [
-        { liquidacion_id: 'a47ac10b-58cc-4372-a567-0e02b2c3d479', importe: 600 },
-        { liquidacion_id: 'b47ac10b-58cc-4372-a567-0e02b2c3d479', importe: 600 },
+        { liquidacion_id: LIQ_A, importe: 600 },
+        { liquidacion_id: LIQ_B, importe: 600 },
       ],
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
   })
 
-  it('registra recibo sin imputaciones (queda saldo a favor, serie C)', async () => {
-    const recibos = [{ id: 'r-1', numero_recibo: 'C-0100', cliente_id: 'c-1', importe: 5000, anulado: false }]
+  it('registra recibo sin imputaciones (queda saldo a favor)', async () => {
+    const recibos = [
+      { id: 'r-1', numero_recibo: 'C-0100', cliente_id: 'c-1', importe: 5000, anulado: false },
+    ]
     mockRpc.mockResolvedValue({ data: recibos, error: null })
 
     const result = await recibosService.registrar(validBase)
@@ -89,44 +102,72 @@ describe('recibosService.registrar', () => {
       expect(result.data).toHaveLength(1)
       expect(result.data[0].numero_recibo).toBe('C-0100')
     }
-    expect(mockRpc).toHaveBeenCalledWith('fn_registrar_recibo', expect.objectContaining({
-      p_cliente_id: validBase.cliente_id,
-      p_importe: 5000,
-      p_imputaciones: [],
-    }))
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_registrar_recibo',
+      expect.objectContaining({
+        p_cliente_id: CLIENTE,
+        p_importe: 5000,
+        p_imputaciones: [],
+        p_medios: [{ tipo_pago: 'TRANSFERENCIA', importe: 5000 }],
+      })
+    )
   })
 
   it('registra recibo con imputaciones inline', async () => {
-    const recibos = [{ id: 'r-2', numero_recibo: 'A-0100', cliente_id: 'c-1', importe: 5000 }]
-    mockRpc.mockResolvedValue({ data: recibos, error: null })
+    mockRpc.mockResolvedValue({
+      data: [{ id: 'r-2', numero_recibo: 'C-0101', cliente_id: 'c-1', importe: 5000 }],
+      error: null,
+    })
 
     const result = await recibosService.registrar({
       ...validBase,
-      imputaciones: [{ liquidacion_id: 'a47ac10b-58cc-4372-a567-0e02b2c3d479', importe: 3000 }],
+      imputaciones: [{ liquidacion_id: LIQ_A, importe: 3000 }],
     })
     expect(result.ok).toBe(true)
-    expect(mockRpc).toHaveBeenCalledWith('fn_registrar_recibo', expect.objectContaining({
-      p_imputaciones: [{ liquidacion_id: 'a47ac10b-58cc-4372-a567-0e02b2c3d479', importe: 3000 }],
-    }))
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_registrar_recibo',
+      expect.objectContaining({
+        p_imputaciones: [{ liquidacion_id: LIQ_A, importe: 3000 }],
+      })
+    )
   })
 
-  it('auto-split: el RPC devuelve 2 recibos cuando las imputaciones son mixtas', async () => {
-    const recibos = [
-      { id: 'r-a', numero_recibo: 'A-0100', importe: 3000 },
-      { id: 'r-c', numero_recibo: 'C-0100', importe: 2000 },
-    ]
-    mockRpc.mockResolvedValue({ data: recibos, error: null })
+  // El caso de Paola: le pagan con dos cheques y el efectivo que completa el
+  // monto exacto. Antes salían tres recibos; ahora es uno con tres medios.
+  it('crea un solo recibo con dos cheques y efectivo, y un cheque por cada uno', async () => {
+    const single = jest
+      .fn()
+      .mockResolvedValueOnce({ data: { id: 'cheque-1' }, error: null })
+      .mockResolvedValueOnce({ data: { id: 'cheque-2' }, error: null })
+    mockChain({ single })
+    mockRpc.mockResolvedValue({
+      data: [{ id: 'r-3', numero_recibo: 'C-0137', importe: 1315400.75 }],
+      error: null,
+    })
 
     const result = await recibosService.registrar({
       ...validBase,
-      importe: 5000,
-      imputaciones: [
-        { liquidacion_id: 'a47ac10b-58cc-4372-a567-0e02b2c3d479', importe: 3000 },
-        { liquidacion_id: 'b47ac10b-58cc-4372-a567-0e02b2c3d479', importe: 2000 },
+      medios: [
+        { tipo_pago: 'CHEQUE', importe: 531398, cheque_numero: '1', cheque_banco: 'Nación' },
+        { tipo_pago: 'CHEQUE', importe: 763510, cheque_numero: '2', cheque_banco: 'Galicia' },
+        { tipo_pago: 'EFECTIVO', importe: 20492.75 },
       ],
     })
+
     expect(result.ok).toBe(true)
-    if (result.ok) expect(result.data).toHaveLength(2)
+    if (result.ok) expect(result.data).toHaveLength(1)
+    expect(single).toHaveBeenCalledTimes(2)
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_registrar_recibo',
+      expect.objectContaining({
+        p_importe: 1315400.75,
+        p_medios: [
+          { tipo_pago: 'CHEQUE', importe: 531398, cheque_id: 'cheque-1' },
+          { tipo_pago: 'CHEQUE', importe: 763510, cheque_id: 'cheque-2' },
+          expect.objectContaining({ tipo_pago: 'EFECTIVO', importe: 20492.75 }),
+        ],
+      })
+    )
   })
 
   it('retorna DB_ERROR si la RPC falla', async () => {
@@ -137,26 +178,54 @@ describe('recibosService.registrar', () => {
     if (!result.ok) expect(result.code).toBe('DB_ERROR')
   })
 
-  it('crea cheque antes de registrar para tipo_pago=CHEQUE', async () => {
-    mockChain({ single: jest.fn().mockResolvedValue({ data: { id: 'cheque-1' }, error: null }) })
-    mockRpc.mockResolvedValue({ data: [{ id: 'r-3', numero_recibo: 'A-0100' }], error: null })
+  it('borra los cheques ya creados si la RPC falla', async () => {
+    const chain = mockChain({
+      single: jest.fn().mockResolvedValue({ data: { id: 'cheque-1' }, error: null }),
+    })
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'DB down' } })
 
     const result = await recibosService.registrar({
       ...validBase,
-      tipo_pago: 'CHEQUE',
-      cheque_numero: '0001',
-      cheque_banco: 'Nación',
+      medios: [{ tipo_pago: 'CHEQUE', importe: 5000, cheque_numero: '1', cheque_banco: 'Nación' }],
     })
-    expect(result.ok).toBe(true)
-    expect(mockRpc).toHaveBeenCalledWith('fn_registrar_recibo', expect.objectContaining({
-      p_cheque_id: 'cheque-1',
-    }))
+
+    expect(result.ok).toBe(false)
+    expect(chain.delete).toHaveBeenCalled()
+    expect(chain.in).toHaveBeenCalledWith('id', ['cheque-1'])
   })
 
-  it('rechaza vuelto en efectivo si tipo_pago no es CHEQUE', async () => {
+  it('crea el cheque antes de registrar y lo manda como medio', async () => {
+    mockChain({ single: jest.fn().mockResolvedValue({ data: { id: 'cheque-1' }, error: null }) })
+    mockRpc.mockResolvedValue({ data: [{ id: 'r-4', numero_recibo: 'C-0102' }], error: null })
+
     const result = await recibosService.registrar({
       ...validBase,
-      tipo_pago: 'TRANSFERENCIA',
+      medios: [
+        { tipo_pago: 'CHEQUE', importe: 5000, cheque_numero: '0001', cheque_banco: 'Nación' },
+      ],
+    })
+    expect(result.ok).toBe(true)
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_registrar_recibo',
+      expect.objectContaining({
+        p_medios: [{ tipo_pago: 'CHEQUE', importe: 5000, cheque_id: 'cheque-1' }],
+      })
+    )
+  })
+
+  it('rechaza vuelto en efectivo si el medio no es un cheque', async () => {
+    const result = await recibosService.registrar({ ...validBase, vuelto_efectivo: 100 })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('rechaza vuelto en efectivo si hay más de un medio', async () => {
+    const result = await recibosService.registrar({
+      ...validBase,
+      medios: [
+        { tipo_pago: 'CHEQUE', importe: 5000, cheque_numero: '1', cheque_banco: 'X' },
+        { tipo_pago: 'EFECTIVO', importe: 1000 },
+      ],
       vuelto_efectivo: 100,
     })
     expect(result.ok).toBe(false)
@@ -166,39 +235,38 @@ describe('recibosService.registrar', () => {
   it('rechaza vuelto >= importe del recibo', async () => {
     const result = await recibosService.registrar({
       ...validBase,
-      tipo_pago: 'CHEQUE',
-      cheque_numero: '1',
-      cheque_banco: 'X',
-      importe: 1000,
+      medios: [{ tipo_pago: 'CHEQUE', importe: 1000, cheque_numero: '1', cheque_banco: 'X' }],
       vuelto_efectivo: 1000,
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
   })
 
-  it('inserta el cheque por el importe menos el vuelto (caso cheque + vuelto)', async () => {
-    const chequeInsert = jest.fn().mockResolvedValue({ data: { id: 'cheque-vuelto' }, error: null })
-    mockChain({ single: chequeInsert })
+  it('inserta el cheque por el importe menos el vuelto', async () => {
+    const insert = jest.fn().mockReturnThis()
+    mockChain({
+      insert,
+      single: jest.fn().mockResolvedValue({ data: { id: 'cheque-vuelto' }, error: null }),
+    })
     mockRpc.mockResolvedValue({
-      data: [
-        { id: 'r-a', numero_recibo: 'A-0100', importe: 8000 },
-        { id: 'r-c', numero_recibo: 'C-0100', importe: 2000 },
-      ],
+      data: [{ id: 'r-5', numero_recibo: 'C-0103', importe: 10000 }],
       error: null,
     })
 
     const result = await recibosService.registrar({
       ...validBase,
-      tipo_pago: 'CHEQUE',
-      importe: 10000,
-      cheque_numero: '1234',
-      cheque_banco: 'Nación',
+      medios: [
+        { tipo_pago: 'CHEQUE', importe: 10000, cheque_numero: '1234', cheque_banco: 'Nación' },
+      ],
       vuelto_efectivo: 2000,
     })
+
     expect(result.ok).toBe(true)
-    expect(mockRpc).toHaveBeenCalledWith('fn_registrar_recibo', expect.objectContaining({
-      p_vuelto_efectivo: 2000,
-    }))
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ importe: 8000 }))
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_registrar_recibo',
+      expect.objectContaining({ p_vuelto_efectivo: 2000, p_importe: 10000 })
+    )
   })
 })
 

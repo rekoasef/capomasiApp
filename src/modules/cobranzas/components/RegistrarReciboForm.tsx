@@ -1,24 +1,28 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useForm, type Resolver } from 'react-hook-form'
+import { useFieldArray, useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { reciboSchema, type TReciboForm } from '../schemas/reciboSchema'
+import { reciboSchema, totalMedios, type TReciboForm } from '../schemas/reciboSchema'
 import { calcularImportePagoUSD } from '../services/calcularSaldo'
 import { useRegistrarRecibo } from '../hooks/useCobranzas'
 import { Input } from '@/shared/components/ui/input'
 import { Select } from '@/shared/components/ui/select'
 import { Textarea } from '@/shared/components/ui/textarea'
 import { Button } from '@/shared/components/ui/button'
+import { formatMoney } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
 import { useParametros } from '@/shared/hooks/useParametros'
 import { FALLBACK_CUENTAS_BANCARIAS, FALLBACK_TIPOS_PAGO_COBRANZAS } from '@/shared/lib/parametros'
+import { Plus, X } from 'lucide-react'
 
 type Props = {
   clienteId: string
   onSuccess?: () => void
   onCancel?: () => void
 }
+
+const MEDIO_VACIO = { tipo_pago: 'TRANSFERENCIA', importe: 0 } as const
 
 export function RegistrarReciboForm({ clienteId, onSuccess, onCancel }: Props) {
   const registrar = useRegistrarRecibo(clienteId)
@@ -37,37 +41,56 @@ export function RegistrarReciboForm({ clienteId, onSuccess, onCancel }: Props) {
     watch,
     reset,
     setValue,
+    control,
     formState: { errors },
   } = useForm<TReciboForm>({
     resolver: zodResolver(reciboSchema) as unknown as Resolver<TReciboForm>,
     defaultValues: {
       cliente_id: clienteId,
-      tipo_pago: 'TRANSFERENCIA',
       fecha: toLocalDateInputValue(),
+      medios: [{ ...MEDIO_VACIO }],
       imputaciones: [],
     },
   })
 
-  const tipoPago = watch('tipo_pago')
-  const importeUsd = watch('importe_usd')
-  const tipoCambio = watch('tipo_cambio')
-  const vuelto = Number(watch('vuelto_efectivo') || 0)
-  const importeArs =
-    tipoPago === 'USD' && importeUsd && tipoCambio
-      ? calcularImportePagoUSD(Number(importeUsd), Number(tipoCambio))
-      : null
+  const { fields, append, remove } = useFieldArray({ control, name: 'medios' })
+  const medios = watch('medios')
+  const total = totalMedios(medios ?? [])
 
-  // En USD, el Importe ARS es el equivalente calculado — no se vuelve a tipear a mano.
+  // El vuelto solo se ofrece sobre un cheque único: con varios medios no se
+  // sabría de cuál sale la plata que se devuelve.
+  const esChequeUnico = medios?.length === 1 && medios[0]?.tipo_pago === 'CHEQUE'
+  const vuelto = Number(watch('vuelto_efectivo') || 0)
+
+  // En USD el importe en pesos es el equivalente calculado, no se tipea.
   useEffect(() => {
-    if (tipoPago === 'USD') {
-      setValue('importe', importeArs ?? 0, { shouldValidate: true })
+    medios?.forEach((medio, i) => {
+      if (medio.tipo_pago !== 'USD') return
+      const equivalente =
+        medio.importe_usd && medio.tipo_cambio
+          ? calcularImportePagoUSD(Number(medio.importe_usd), Number(medio.tipo_cambio))
+          : 0
+      if (Number(medio.importe) !== equivalente) {
+        setValue(`medios.${i}.importe`, equivalente, { shouldValidate: true })
+      }
+    })
+  }, [medios, setValue])
+
+  useEffect(() => {
+    if (!esChequeUnico && vuelto > 0) {
+      setValue('vuelto_efectivo', 0, { shouldValidate: true })
     }
-  }, [tipoPago, importeArs, setValue])
+  }, [esChequeUnico, vuelto, setValue])
 
   async function onSubmit(data: TReciboForm) {
     const result = await registrar.mutateAsync(data)
     if (result.ok) {
-      reset()
+      reset({
+        cliente_id: clienteId,
+        fecha: toLocalDateInputValue(),
+        medios: [{ ...MEDIO_VACIO }],
+        imputaciones: [],
+      })
       onSuccess?.()
     }
   }
@@ -76,116 +99,169 @@ export function RegistrarReciboForm({ clienteId, onSuccess, onCancel }: Props) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <input type="hidden" {...register('cliente_id')} />
 
-      <div className="grid grid-cols-2 gap-3">
-        <Select
-          id="tipo_pago"
-          label="Tipo de pago *"
-          options={tiposPago}
-          error={errors.tipo_pago?.message}
-          disabled={registrar.isPending}
-          {...register('tipo_pago')}
-        />
-        <Input
-          id="fecha"
-          label="Fecha *"
-          type="date"
-          error={errors.fecha?.message}
-          disabled={registrar.isPending}
-          {...register('fecha')}
-        />
-      </div>
-
       <Input
-        id="importe"
-        label={tipoPago === 'USD' ? 'Importe ARS (equivalente, calculado)' : 'Importe ARS *'}
-        type="number"
-        step="0.01"
-        min="0.01"
-        error={errors.importe?.message}
-        disabled={registrar.isPending || tipoPago === 'USD'}
-        {...register('importe')}
+        id="fecha"
+        label="Fecha *"
+        type="date"
+        error={errors.fecha?.message}
+        disabled={registrar.isPending}
+        {...register('fecha')}
       />
 
-      {tipoPago === 'TRANSFERENCIA' && (
-        <Select
-          id="cuenta_bancaria"
-          label="Cuenta bancaria"
-          options={cuentas}
-          placeholder="Seleccionar cuenta"
-          error={errors.cuenta_bancaria?.message}
-          disabled={registrar.isPending}
-          {...register('cuenta_bancaria')}
-        />
-      )}
-
-      {tipoPago === 'USD' && (
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            id="importe_usd"
-            label="Importe USD *"
-            type="number"
-            step="0.01"
-            min="0.01"
-            error={errors.importe_usd?.message}
-            disabled={registrar.isPending}
-            {...register('importe_usd')}
-          />
-          <Input
-            id="tipo_cambio"
-            label="Tipo de cambio *"
-            type="number"
-            step="0.01"
-            min="0.01"
-            error={errors.tipo_cambio?.message}
-            disabled={registrar.isPending}
-            {...register('tipo_cambio')}
-          />
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+            Cómo pagó
+          </span>
+          <span className="text-muted-foreground text-xs">
+            Total del recibo{' '}
+            <strong className="text-foreground tabular-nums">{formatMoney(total)}</strong>
+          </span>
         </div>
-      )}
 
-      {tipoPago === 'CHEQUE' && (
-        <div className="border-border space-y-3 rounded-md border p-3">
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              id="cheque_numero"
-              label="Número de cheque *"
-              error={errors.cheque_numero?.message}
-              disabled={registrar.isPending}
-              {...register('cheque_numero')}
-            />
-            <Input
-              id="cheque_banco"
-              label="Banco *"
-              error={errors.cheque_banco?.message}
-              disabled={registrar.isPending}
-              {...register('cheque_banco')}
-            />
-          </div>
+        {fields.map((field, index) => {
+          const tipo = medios?.[index]?.tipo_pago
+          const medioErrors = errors.medios?.[index]
+
+          return (
+            <div key={field.id} className="border-border space-y-3 rounded-md border p-3">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <Select
+                    id={`medios.${index}.tipo_pago`}
+                    label="Medio de pago *"
+                    options={tiposPago}
+                    error={medioErrors?.tipo_pago?.message}
+                    disabled={registrar.isPending}
+                    {...register(`medios.${index}.tipo_pago`)}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    id={`medios.${index}.importe`}
+                    label={tipo === 'USD' ? 'Importe ARS (calculado)' : 'Importe ARS *'}
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    error={medioErrors?.importe?.message}
+                    disabled={registrar.isPending || tipo === 'USD'}
+                    {...register(`medios.${index}.importe`)}
+                  />
+                </div>
+                {fields.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    disabled={registrar.isPending}
+                    className="text-muted-foreground hover:text-danger mt-6 p-1.5"
+                    title="Quitar este medio de pago"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {tipo === 'TRANSFERENCIA' && (
+                <Select
+                  id={`medios.${index}.cuenta_bancaria`}
+                  label="Cuenta bancaria"
+                  options={cuentas}
+                  placeholder="Seleccionar cuenta"
+                  error={medioErrors?.cuenta_bancaria?.message}
+                  disabled={registrar.isPending}
+                  {...register(`medios.${index}.cuenta_bancaria`)}
+                />
+              )}
+
+              {tipo === 'USD' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    id={`medios.${index}.importe_usd`}
+                    label="Importe USD *"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    error={medioErrors?.importe_usd?.message}
+                    disabled={registrar.isPending}
+                    {...register(`medios.${index}.importe_usd`)}
+                  />
+                  <Input
+                    id={`medios.${index}.tipo_cambio`}
+                    label="Tipo de cambio *"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    error={medioErrors?.tipo_cambio?.message}
+                    disabled={registrar.isPending}
+                    {...register(`medios.${index}.tipo_cambio`)}
+                  />
+                </div>
+              )}
+
+              {tipo === 'CHEQUE' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      id={`medios.${index}.cheque_numero`}
+                      label="Número de cheque *"
+                      error={medioErrors?.cheque_numero?.message}
+                      disabled={registrar.isPending}
+                      {...register(`medios.${index}.cheque_numero`)}
+                    />
+                    <Input
+                      id={`medios.${index}.cheque_banco`}
+                      label="Banco *"
+                      error={medioErrors?.cheque_banco?.message}
+                      disabled={registrar.isPending}
+                      {...register(`medios.${index}.cheque_banco`)}
+                    />
+                  </div>
+                  <Input
+                    id={`medios.${index}.cheque_fecha_cobro`}
+                    label="Fecha de cobro"
+                    type="date"
+                    disabled={registrar.isPending}
+                    {...register(`medios.${index}.cheque_fecha_cobro`)}
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
+
+        {errors.medios?.message && <p className="text-danger text-xs">{errors.medios.message}</p>}
+
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => append({ ...MEDIO_VACIO })}
+          disabled={registrar.isPending}
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          Agregar otro medio de pago
+        </Button>
+      </div>
+
+      {esChequeUnico && (
+        <div>
           <Input
-            id="cheque_fecha_cobro"
-            label="Fecha de cobro"
-            type="date"
+            id="vuelto_efectivo"
+            label="Vuelto en efectivo (opcional)"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="0"
+            error={errors.vuelto_efectivo?.message}
             disabled={registrar.isPending}
-            {...register('cheque_fecha_cobro')}
+            {...register('vuelto_efectivo')}
           />
-          <div>
-            <Input
-              id="vuelto_efectivo"
-              label="Vuelto en efectivo (opcional)"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0"
-              error={errors.vuelto_efectivo?.message}
-              disabled={registrar.isPending}
-              {...register('vuelto_efectivo')}
-            />
-            {vuelto > 0 && (
-              <p className="text-muted-foreground mt-1 text-xs">
-                Se generarán 2 recibos: serie A por el cheque y serie C por el vuelto en efectivo.
-              </p>
-            )}
-          </div>
+          {vuelto > 0 && (
+            <p className="text-muted-foreground mt-1 text-xs">
+              El recibo queda por {formatMoney(total)}: {formatMoney(total - vuelto)} en el cheque y{' '}
+              {formatMoney(vuelto)} que le devolvés en efectivo.
+            </p>
+          )}
         </div>
       )}
 

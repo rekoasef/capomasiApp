@@ -65,3 +65,21 @@ export function useActualizarPagoGasto() {
     },
   })
 }
+
+export function useEliminarPagoGasto() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => pagosGastosService.eliminar(id),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success('Pago eliminado')
+      qc.invalidateQueries({ queryKey: ['pagos_gastos_historial'] })
+      qc.invalidateQueries({ queryKey: ['pagos_gastos_resumen_anual'] })
+      qc.invalidateQueries({ queryKey: ['gastos_recurrentes'] })
+      qc.invalidateQueries({ queryKey: ['proximos_vencimientos'] })
+    },
+  })
+}
