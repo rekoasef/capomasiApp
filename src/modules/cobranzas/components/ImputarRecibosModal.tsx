@@ -16,6 +16,7 @@ const TIPO_LABEL: Record<string, string> = {
   USD: 'USD',
   COMPENSACION: 'Compensación',
   SALDO_INICIAL: 'Saldo inicial a favor',
+  MIXTO: 'Varios medios',
 }
 
 type Props = {

@@ -2589,6 +2589,7 @@ export type Database = {
           p_importe: number
           p_importe_usd?: number
           p_imputaciones?: Json
+          p_medios?: Json
           p_notas?: string
           p_numero_recibo?: string
           p_tipo_cambio?: number

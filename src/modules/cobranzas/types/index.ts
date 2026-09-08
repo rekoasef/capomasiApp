@@ -1,6 +1,24 @@
 export type TEstadoLiquidacion = 'PENDIENTE' | 'PARCIALMENTE_COBRADA' | 'COBRADA' | 'ANULADA'
+// MIXTO no es un medio de pago real: es como queda marcado el recibo
+// que se cobró con más de uno (dos cheques y efectivo, por ejemplo).
+// El desglose vive en recibos_medios.
 export type TTipoPago =
-  'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'USD' | 'COMPENSACION' | 'SALDO_INICIAL'
+  'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE' | 'USD' | 'COMPENSACION' | 'SALDO_INICIAL' | 'MIXTO'
+
+// Los medios que sí se pueden elegir al cargar un recibo.
+export type TTipoMedioPago = Exclude<TTipoPago, 'SALDO_INICIAL' | 'MIXTO'>
+
+export type TReciboMedio = {
+  id: string
+  tipo_pago: TTipoMedioPago
+  importe: number
+  cuenta_bancaria: string | null
+  cheque_id: string | null
+  cheque_numero: string | null
+  cheque_banco: string | null
+  importe_usd: number | null
+  tipo_cambio: number | null
+}
 
 // Con qué saldo entra el cliente al sistema, mirado igual venga como deuda
 // (liquidación SALDO_INICIAL) o como plata a favor (recibo sin imputar).
@@ -57,6 +75,8 @@ export type TRecibo = {
 export type TReciboDisponible = TRecibo & {
   total_imputado: number
   saldo_libre: number
+  // null en los recibos de saldo inicial a favor, que no tienen medio de pago.
+  medios: TReciboMedio[] | null
 }
 
 export type TImputacion = {
