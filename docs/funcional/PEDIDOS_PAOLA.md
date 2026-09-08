@@ -68,3 +68,30 @@ Pedía las dos cosas juntas porque usa los gastos recurrentes como **checklist**
 
 - Un pago en $0 avanza igual el vencimiento (que es todo el punto) pero no genera movimiento de fondos.
 - `fn_eliminar_pago_gasto` borra el pago y su movimiento de fondos, y si ese pago fue el que avanzó el calendario, devuelve el gasto recurrente al vencimiento anterior — así borrar el duplicado deja el calendario bien.
+
+---
+
+## 2026-09-08 (segunda tanda — Empleadas)
+
+Apenas empezó a liquidarle al personal: _"AHI ARRANQUE CON LAS EMPLEADAS"_.
+
+| #   | Pedido                                                          | Estado            |
+| :-- | :-------------------------------------------------------------- | :---------------- |
+| 1   | Liquidar por hora ("ESTA ES POR HORA PERO NO TENGO ESA OPCION") | ✅ migración 0074 |
+| 2   | Qué hacer con el saldo a favor ("¿DESPUES COMO LO IMPUTO?")     | ✅ migración 0074 |
+
+### 1 — Concepto "Horas trabajadas"
+
+El legajo **ya tenía** `tipo_relacion = 'POR_HORA'` y 4 de las 5 empleadas están cargadas así, pero la liquidación solo ofrecía conceptos de importe plano. Hizo la cuenta a mano (46 × 8.327 = 383.042), la cargó como "Sueldo fijo" y se explicó en observaciones: _"46 HORAS A 8327 DESDE AGOSTO DE 2026"_.
+
+El valor hora vigente vive en el legajo (`empleadas.valor_hora`) y se **copia a cada fila** de liquidación (`cantidad_horas`, `valor_hora`). Así el historial sale solo: cada mes conserva el valor con el que se liquidó y cambiar el valor de hoy no reescribe los meses viejos. Eso es lo que ella pedía con el "DESDE AGOSTO DE 2026".
+
+⚠️ El select de conceptos usa `descripcion` como value, no `codigo`: en `liquidaciones_empleadas.concepto` se guarda el texto **"Horas trabajadas"**. Cambiar esa descripción en `parametros` rompe la detección en el formulario. La constante está en `calcularLiquidacionMes.ts` (`CONCEPTO_HORAS`).
+
+### 2 — Arrastre entre meses
+
+Le pagó $390.000 sobre un neto de $383.042 y preguntó cómo imputar los $6.958 que quedaron a favor. La respuesta es que **no los imputa**: los períodos dejaron de ser estancos y el saldo pasa solo al mes siguiente, en los dos sentidos (si quedó debiendo, se acumula).
+
+El cálculo salió del componente a `calcularLiquidacionMes` — lo usan el detalle de la empleada y el resumen de Liquidación Personal, y era la única forma de tener una sola regla. Consecuencia: el resumen del período ya **no** filtra por período en la query, trae el historial completo y filtra en memoria.
+
+En el encabezado aparece una tarjeta extra ("Venía debiendo" / "Pagado de más antes") solo cuando hay arrastre, con una línea que explica de dónde sale el pendiente.

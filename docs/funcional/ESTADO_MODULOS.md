@@ -65,6 +65,9 @@ Legajo por empleada: relación de dependencia o por hora, tipo de comisión (pro
 - **Comisión por producción/hora:** cálculo sobre el total facturado en el mes o sobre horas registradas, según el tipo asignado a la empleada.
 - **Portal de acceso:** Paola crea usuario y contraseña para cada empleada desde su ficha. La empleada entra directo a su vista restringida — reforzado tanto por redirección de rutas por rol como por RLS en la base.
 
+- **Liquidación por hora:** concepto "Horas trabajadas" — se cargan las horas y el sistema calcula el importe con el valor hora del legajo (`empleadas.valor_hora`). Cada liquidación guarda las horas y el valor usado, así que cambiar el valor hoy no altera los meses ya liquidados.
+- **Arrastre entre meses:** los períodos no son estancos. Lo que queda de un mes (a favor o en contra) se descuenta o se suma solo en el siguiente; el encabezado muestra de dónde sale el pendiente. La regla vive en `calcularLiquidacionMes`.
+
 ## 7. Vencimientos
 
 Módulo solo-admin que agrupa dos funciones distintas:
