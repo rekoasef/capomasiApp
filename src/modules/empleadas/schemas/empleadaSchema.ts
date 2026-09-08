@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CONCEPTO_HORAS } from '../services/calcularLiquidacionMes'
 
 export const empleadaSchema = z.object({
   nombre: z.string().min(2, 'Nombre requerido'),
@@ -23,17 +24,41 @@ export const empleadaSchema = z.object({
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('Debe ser mayor a 0').optional()
   ),
+  // Valor vigente para las empleadas POR_HORA. Se copia a cada liquidación
+  // al cargarla, así cambiarlo no reescribe los meses ya liquidados.
+  valor_hora: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
+    z.number().positive('Debe ser mayor a 0').optional()
+  ),
 })
 
-export const liquidacionEmpleadaSchema = z.object({
-  empleada_id: z.string().uuid(),
-  concepto: z.string().min(1, 'Concepto requerido'),
-  tipo_concepto: z.enum(['HABER', 'DESCUENTO']),
-  periodo_mes: z.number().int().min(1).max(12),
-  periodo_anio: z.number().int().min(2020),
-  importe: z.number().positive('Importe debe ser positivo'),
-  observaciones: z.string().optional().nullable(),
-})
+const horasInput = z.preprocess(
+  (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
+  z.number().positive('Debe ser mayor a 0').optional()
+)
+
+export const liquidacionEmpleadaSchema = z
+  .object({
+    empleada_id: z.string().uuid(),
+    concepto: z.string().min(1, 'Concepto requerido'),
+    tipo_concepto: z.enum(['HABER', 'DESCUENTO']),
+    periodo_mes: z.number().int().min(1).max(12),
+    periodo_anio: z.number().int().min(2020),
+    importe: z.number().positive('Importe debe ser positivo'),
+    observaciones: z.string().optional().nullable(),
+    // Solo en el concepto "Horas trabajadas". Van juntas o no van.
+    cantidad_horas: horasInput,
+    valor_hora: horasInput,
+  })
+  .superRefine((data, ctx) => {
+    if (data.concepto !== CONCEPTO_HORAS) return
+    if (!data.cantidad_horas) {
+      ctx.addIssue({ code: 'custom', path: ['cantidad_horas'], message: 'Horas requeridas' })
+    }
+    if (!data.valor_hora) {
+      ctx.addIssue({ code: 'custom', path: ['valor_hora'], message: 'Valor hora requerido' })
+    }
+  })
 
 export const pagoEmpleadaSchema = z.object({
   empleada_id: z.string().uuid(),
