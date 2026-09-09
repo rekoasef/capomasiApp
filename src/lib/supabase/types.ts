@@ -2041,6 +2041,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_ingresos_por_empleada_mes_con_historico: {
+        Row: {
+          cantidad: number | null
+          empleada: string | null
+          mes: string | null
+          total_liquidado: number | null
+        }
+        Relationships: []
+      }
       v_ingresos_por_empleada_mes: {
         Row: {
           cantidad: number | null

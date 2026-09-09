@@ -182,3 +182,33 @@ Se agregó el tipo **`MESES_ESPECIFICOS`** (migración 0076) con una columna `me
 La regla de qué mes aplica se sacó del service a una función pura, `configAplicaAlMes`, con tests que cubren los 5 anticipos de PF, los 9 de sociedades, y que `A_DEMANDA` nunca se autogenere.
 
 **Pendiente de Paola:** las 87 configuraciones `MENSUAL` que ya existen siguen generando los 12 meses hasta que ella marque los meses reales de cada una. Las 20 de `ANTICIPOS_DE_GANANCIAS` son las que le importan. El calendario depende del cierre fiscal de cada cliente, así que no se puede adivinar desde el código — si ella pasa la lista de meses, se puede hacer por SQL en bloque.
+
+---
+
+## 2026-09-09 (tarde) — Los comparativos con la facturación migrada
+
+Paola por WhatsApp: _"me tenés que migrar lo que te pasé de facturación"_ y _"después me lo tiene que mostrar en los comparativos y no sé si lo hace"_. No lo hacía: Reportes solo miraba `liquidaciones`, que arrancan en septiembre 2026, así que los comparativos tenían **un solo mes**.
+
+Se unieron las dos fuentes en vistas nuevas (migraciones 0077 y 0078). Los comparativos pasaron de 1 mes a **11** (nov-2025 → sep-2026).
+
+**Por qué se puede unir sin doble conteo:** el corte de fechas es limpio. `facturacion_historica` termina el 2026-08-31 y las liquidaciones reales arrancan el 2026-09-01 (las que figuran con fecha 31/08 son `SALDO_INICIAL`, que ya quedaban afuera por `tipo_liquidacion = 'NORMAL'`). Se verificó mes por mes.
+
+**Por qué vistas nuevas y no tocar las existentes:** `v_ingresos_mensuales` alimenta a `v_resultado_mensual`, que es el resultado del mes en el Dashboard. Nunca se migraron los **gastos** históricos, así que meterle los ingresos viejos habría mostrado una ganancia falsa enorme en esos meses. El Dashboard sigue leyendo solo datos reales; los comparativos leen las vistas `*_con_historico`.
+
+**Tres decisiones de datos:**
+
+1. **Los 11 "SALDO INICIAL" del Excel se excluyen.** Son saldos de arranque, no facturación; sumarlos inflaba octubre 2025 en ~$8,3M. Como octubre era _solo_ saldos iniciales, ese mes desaparece del comparativo, que es lo correcto.
+2. **Comprobantes y servicios se normalizan** del texto libre del Excel al vocabulario del sistema, pero solo donde la equivalencia es inequívoca. Quedan sin mapear a propósito, porque elegir el equivalente es decisión de Paola: `CERTIFICACION DE BALANCE` (¿BALANCE o CERTIFICACIONES?), `RECATEGORIZACION MONOTRIBUTO` (hay código de enero y de julio), `SALDO TECNICO DE IVA` y `RECUPERO IVA DE EXPORTACION`.
+3. **Las 10 filas de trabajo compartido van mitad y mitad** (decisión de Renzo): "LUCIANA + VICTORIA" ×8 y "PAOLA + VICTORIA" ×2. El importe se divide; la cantidad suma 1 a cada una porque las dos participaron, así que la suma de "cantidad" puede superar la cantidad de facturas. Verificado que la partición no crea ni pierde plata: $284.970.191,06 en la vista = $284.970.191,06 sumando las fuentes.
+
+**Ojo con los nombres:** `empleadas.nombre` tiene espacios al final en la base real (`'LUCIANA '`, `'VICTORIA '`) y el Excel a veces escribe en minúscula. Sin normalizar con `upper(btrim())` en los dos lados, Luciana aparecía **dos veces** en el mismo reporte.
+
+### ⚠️ Pendiente de Paola: la fila de ZELARAYAN
+
+`ZELARAYAN, DANIEL — 31/08/2026 — SALDO TECNICO DE IVA — $78.284.834,40`, sin comprobante, sin importe facturado y sin período. Parece cargada a medias y **deforma tres reportes**:
+
+- Agosto 2026 da $111,7M contra ~$22M de los demás meses.
+- Victoria queda con el 41,6% de los ingresos con solo 26 trabajos (sin esa fila estaría en ~$40M).
+- El total del comparativo anual.
+
+Hay que preguntarle si está bien cargada. Si no, se corrige en el Excel y se recarga la tabla entera.

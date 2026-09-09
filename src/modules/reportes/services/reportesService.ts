@@ -107,7 +107,7 @@ export const reportesService = {
     mes?: number
   ): Promise<ServiceResult<TResumenEmpleada[]>> {
     let query = supabase
-      .from('v_ingresos_por_empleada_mes')
+      .from('v_ingresos_por_empleada_mes_con_historico')
       .select('mes, empleada, cantidad, total_liquidado')
 
     if (anio) {
