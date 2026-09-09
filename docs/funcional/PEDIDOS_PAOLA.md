@@ -132,3 +132,39 @@ Para pasarla a por hora había que vaciar `sueldo_fijo`, y no se podía por ning
 Ahora vacío y `0` significan lo mismo y los dos van a `null`, que sí viaja y borra. Los negativos se siguen rechazando. La base nunca fue el problema: `empleadas` no tiene ningún CHECK sobre `sueldo_fijo`.
 
 El mismo arreglo cubre `valor_hora`, que tenía el bug idéntico.
+
+---
+
+## 2026-09-09 — Audio de Paola usando el sistema
+
+Seis problemas en un audio. Tres son la misma raíz: la migración 0064 sacó el paso "pendiente → pagar" de las compras y quedaron cabos sueltos.
+
+| #   | Pedido                                                               | Estado       |
+| :-- | :------------------------------------------------------------------- | :----------- |
+| 1   | Endosar un cheque a un proveedor es un callejón sin salida           | ✅           |
+| 2   | Un gasto personal le baja el resultado del estudio                   | ✅           |
+| 3   | Quedó plata fantasma en la caja por anular mal                       | ✅           |
+| 4   | Las anulaciones se acumulan en el historial                          | ✅           |
+| 5   | El PDF dice "Estudio Contable Capomasi", falta "Paola"               | ⏳ pendiente |
+| 6   | Los anticipos se marcan los 12 meses (son 5 en PF y 9 en sociedades) | ⏳ pendiente |
+
+### 1 a 4 — El nudo de las compras a proveedores
+
+El circuito se mordía la cola. Tenía un cheque de tercero en cartera y se lo quiso endosar a Aceros Cufer:
+
+1. El form de endoso solo ofrecía compras `PENDIENTE` o `PARCIALMENTE_PAGADA`.
+2. Pero desde la 0064 toda compra nueva nacía pagada — el alta exigía medio de pago.
+3. Entonces el desplegable del endoso **siempre estaba vacío**. Cargó la factura, el sistema la obligó a poner "efectivo", y el cheque ya no se podía endosar.
+
+Encima ese gasto era de la casa, no del estudio, y `compras_proveedores` no tenía `ambito` (los gastos manuales sí lo tienen desde la 0045). Toda compra a proveedor se computaba como gasto del estudio.
+
+Y cuando quiso deshacerlo, anular solo cambiaba el estado: el pago y su `EGRESO` en `fondos_movimientos` seguían vivos. La 0049 ya lo avisaba en su comentario ("No se maneja reversión") y la 0064 habilitó anular sobre compras pagadas sin tapar el agujero. **Su caja en efectivo quedó $886.353,35 abajo de lo real.**
+
+Lo que se hizo (migración 0075):
+
+- **Medio de pago opcional** — "Todavía no lo pagué" deja la compra `PENDIENTE`, lista para recibir el endoso.
+- **`compras_proveedores.ambito`** (ESTUDIO/PERSONAL), filtrado en `v_resultado_mensual` y `v_historial_egresos_estudio`. Las compras ya cargadas arrancan en ESTUDIO, que es como venían computando: ningún número histórico se movió solo.
+- **Anular → Eliminar.** `fn_eliminar_compra_proveedor` revierte el movimiento de fondos, borra el pago, devuelve el cheque endosado a cartera y borra la fila. Decisión de Renzo: si fue un error de carga, no sirve que quede en el historial.
+- **Triggers de auditoría** en `compras_proveedores` y `pagos_proveedores`, que nunca los habían tenido. El borrado queda recuperable desde `audit_log` (solo-admin, fuera de sus pantallas).
+
+**Limpieza de producción hecha el 2026-09-09:** se borró la compra que ella había anulado y se le sacó el pago falso en efectivo a la de MANTENIMIENTO ($779.424,88), que volvió a `PENDIENTE` con ámbito `PERSONAL` para que le endose el cheque de verdad. Caja en efectivo: **−$955.477,37 → −$69.124,02**.
