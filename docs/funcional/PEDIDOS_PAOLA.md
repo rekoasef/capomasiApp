@@ -139,14 +139,14 @@ El mismo arreglo cubre `valor_hora`, que tenía el bug idéntico.
 
 Seis problemas en un audio. Tres son la misma raíz: la migración 0064 sacó el paso "pendiente → pagar" de las compras y quedaron cabos sueltos.
 
-| #   | Pedido                                                               | Estado       |
-| :-- | :------------------------------------------------------------------- | :----------- |
-| 1   | Endosar un cheque a un proveedor es un callejón sin salida           | ✅           |
-| 2   | Un gasto personal le baja el resultado del estudio                   | ✅           |
-| 3   | Quedó plata fantasma en la caja por anular mal                       | ✅           |
-| 4   | Las anulaciones se acumulan en el historial                          | ✅           |
-| 5   | El PDF dice "Estudio Contable Capomasi", falta "Paola"               | ⏳ pendiente |
-| 6   | Los anticipos se marcan los 12 meses (son 5 en PF y 9 en sociedades) | ⏳ pendiente |
+| #   | Pedido                                                               | Estado |
+| :-- | :------------------------------------------------------------------- | :----- |
+| 1   | Endosar un cheque a un proveedor es un callejón sin salida           | ✅     |
+| 2   | Un gasto personal le baja el resultado del estudio                   | ✅     |
+| 3   | Quedó plata fantasma en la caja por anular mal                       | ✅     |
+| 4   | Las anulaciones se acumulan en el historial                          | ✅     |
+| 5   | El PDF dice "Estudio Contable Capomasi", falta "Paola"               | ✅     |
+| 6   | Los anticipos se marcan los 12 meses (son 5 en PF y 9 en sociedades) | ✅     |
 
 ### 1 a 4 — El nudo de las compras a proveedores
 
@@ -168,3 +168,17 @@ Lo que se hizo (migración 0075):
 - **Triggers de auditoría** en `compras_proveedores` y `pagos_proveedores`, que nunca los habían tenido. El borrado queda recuperable desde `audit_log` (solo-admin, fuera de sus pantallas).
 
 **Limpieza de producción hecha el 2026-09-09:** se borró la compra que ella había anulado y se le sacó el pago falso en efectivo a la de MANTENIMIENTO ($779.424,88), que volvió a `PENDIENTE` con ámbito `PERSONAL` para que le endose el cheque de verdad. Caja en efectivo: **−$955.477,37 → −$69.124,02**.
+
+### 5 — El nombre en el PDF
+
+El encabezado y el pie de la cuenta corriente que le manda a los clientes decían "Estudio Contable Capomasi". Ahora dicen **"Estudio Contable Paola Capomasi"**. Solo el PDF: el sidebar y el título de la pestaña quedaron como estaban.
+
+### 6 — Los anticipos no caen todos los meses
+
+Un trabajo recurrente solo podía ser `MENSUAL` (los 12 meses, sin excepción — el generador hacía literalmente `if (MENSUAL) return true`) o `ANUAL` (un único mes). Los anticipos de ganancias son **5 al año en persona física y 9 en sociedades**, así que cargarlos como mensuales le llenaba el calendario de vencimientos que no existen.
+
+Se agregó el tipo **`MESES_ESPECIFICOS`** (migración 0076) con una columna `meses_vencimiento SMALLINT[]`. El día del mes se reutiliza de `dia_vencimiento_mensual` en vez de crear otra columna: es el mismo dato y ya estaba validado 1-31. En la ficha del cliente aparece la opción "Meses puntuales (ej: anticipos)" con las 12 casillas para tildar.
+
+La regla de qué mes aplica se sacó del service a una función pura, `configAplicaAlMes`, con tests que cubren los 5 anticipos de PF, los 9 de sociedades, y que `A_DEMANDA` nunca se autogenere.
+
+**Pendiente de Paola:** las 87 configuraciones `MENSUAL` que ya existen siguen generando los 12 meses hasta que ella marque los meses reales de cada una. Las 20 de `ANTICIPOS_DE_GANANCIAS` son las que le importan. El calendario depende del cierre fiscal de cada cliente, así que no se puede adivinar desde el código — si ella pasa la lista de meses, se puede hacer por SQL en bloque.
