@@ -1367,6 +1367,7 @@ export type Database = {
           facturar_aparte: boolean
           id: string
           mes_vencimiento_anual: number | null
+          meses_vencimiento: number[] | null
           puntos: number
           tipo_trabajo: string
           tipo_vencimiento: string
@@ -1381,6 +1382,7 @@ export type Database = {
           facturar_aparte?: boolean
           id?: string
           mes_vencimiento_anual?: number | null
+          meses_vencimiento?: number[] | null
           puntos: number
           tipo_trabajo: string
           tipo_vencimiento?: string
@@ -1395,6 +1397,7 @@ export type Database = {
           facturar_aparte?: boolean
           id?: string
           mes_vencimiento_anual?: number | null
+          meses_vencimiento?: number[] | null
           puntos?: number
           tipo_trabajo?: string
           tipo_vencimiento?: string

@@ -30,6 +30,7 @@ const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'O
 const TIPO_LABEL: Record<TTipoVencimientoConfig, string> = {
   MENSUAL: 'Mensual',
   ANUAL: 'Anual',
+  MESES_ESPECIFICOS: 'Meses puntuales',
   A_DEMANDA: 'A demanda',
 }
 
@@ -38,9 +39,17 @@ function vencimientoLabel(config: {
   dia_vencimiento_mensual: number | null
   mes_vencimiento_anual: number | null
   dia_vencimiento_anual: number | null
+  meses_vencimiento?: number[] | null
 }) {
   if (config.tipo_vencimiento === 'MENSUAL' && config.dia_vencimiento_mensual) {
     return `Día ${config.dia_vencimiento_mensual} de cada mes`
+  }
+  if (config.tipo_vencimiento === 'MESES_ESPECIFICOS' && config.meses_vencimiento?.length) {
+    const nombres = [...config.meses_vencimiento]
+      .sort((a, b) => a - b)
+      .map((m) => MESES[m - 1])
+      .join(', ')
+    return `Día ${config.dia_vencimiento_mensual} de ${nombres}`
   }
   if (
     config.tipo_vencimiento === 'ANUAL' &&
@@ -67,6 +76,7 @@ const DEFAULT_VALUES = (clienteId: string): TPuntosTrabajoConfigForm => ({
   dia_vencimiento_mensual: null,
   mes_vencimiento_anual: null,
   dia_vencimiento_anual: null,
+  meses_vencimiento: null,
   fecha_demanda: null,
 })
 
@@ -91,6 +101,7 @@ export function PuntosClienteSection({ clienteId }: Props) {
   })
 
   const tipoVencimiento = form.watch('tipo_vencimiento')
+  const mesesElegidos = form.watch('meses_vencimiento')
 
   const onSubmit = form.handleSubmit(async (data) => {
     const { fecha_demanda, ...configData } = data
@@ -119,9 +130,14 @@ export function PuntosClienteSection({ clienteId }: Props) {
       }
     }
 
-    // MENSUAL/ANUAL no crean el vencimiento acá — generarlo ahora para el mes actual en vez de
+    // Los recurrentes no crean el vencimiento acá — generarlo ahora para el mes actual en vez de
     // esperar a que alguien abra un calendario, para que se vea de inmediato en "Mis trabajos".
-    if (data.tipo_vencimiento === 'MENSUAL' || data.tipo_vencimiento === 'ANUAL') {
+    // Si es de meses puntuales y este mes no está marcado, el generador no crea nada: es correcto.
+    if (
+      data.tipo_vencimiento === 'MENSUAL' ||
+      data.tipo_vencimiento === 'ANUAL' ||
+      data.tipo_vencimiento === 'MESES_ESPECIFICOS'
+    ) {
       const hoy = new Date()
       await generarVencimientos.mutateAsync({
         anio: hoy.getFullYear(),
@@ -222,6 +238,7 @@ export function PuntosClienteSection({ clienteId }: Props) {
               >
                 <option value="A_DEMANDA">A demanda</option>
                 <option value="MENSUAL">Mensual (se repite cada mes)</option>
+                <option value="MESES_ESPECIFICOS">Meses puntuales (ej: anticipos)</option>
                 <option value="ANUAL">Anual (se repite cada año)</option>
               </select>
             </div>
@@ -252,6 +269,69 @@ export function PuntosClienteSection({ clienteId }: Props) {
                 {...form.register('dia_vencimiento_mensual')}
                 error={form.formState.errors.dia_vencimiento_mensual?.message}
               />
+            </div>
+          )}
+
+          {tipoVencimiento === 'MESES_ESPECIFICOS' && (
+            <div className="border-border space-y-3 border p-3">
+              <div className="max-w-xs">
+                <Input
+                  label="Día del mes que vence (1–31) *"
+                  type="number"
+                  min="1"
+                  max="31"
+                  placeholder="Ej: 15"
+                  {...form.register('dia_vencimiento_mensual')}
+                  error={form.formState.errors.dia_vencimiento_mensual?.message}
+                />
+              </div>
+              <div>
+                <p className="text-muted-foreground mb-2 text-[11px] font-semibold tracking-wide uppercase">
+                  ¿En qué meses vence? *
+                </p>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                  {MESES.map((nombre, i) => {
+                    const mes = i + 1
+                    const marcado = (mesesElegidos ?? []).includes(mes)
+                    return (
+                      <label
+                        key={mes}
+                        className={`flex cursor-pointer items-center gap-1.5 border px-2 py-1.5 text-xs transition-colors ${
+                          marcado
+                            ? 'border-primary bg-primary/10 text-primary font-medium'
+                            : 'border-border text-muted-foreground hover:border-foreground'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={marcado}
+                          onChange={(e) => {
+                            const actuales = mesesElegidos ?? []
+                            form.setValue(
+                              'meses_vencimiento',
+                              e.target.checked
+                                ? [...actuales, mes].sort((a, b) => a - b)
+                                : actuales.filter((m) => m !== mes),
+                              { shouldValidate: true }
+                            )
+                          }}
+                        />
+                        {nombre.slice(0, 3)}
+                      </label>
+                    )
+                  })}
+                </div>
+                {form.formState.errors.meses_vencimiento && (
+                  <p className="text-destructive mt-1.5 text-xs">
+                    {form.formState.errors.meses_vencimiento.message}
+                  </p>
+                )}
+                <p className="text-muted-foreground mt-2 text-[11px]">
+                  Solo se genera el vencimiento en los meses marcados. Los anticipos de ganancias
+                  son 5 al año en persona física y 9 en sociedades.
+                </p>
+              </div>
             </div>
           )}
 

@@ -118,7 +118,7 @@ export function CuentaCorrientePdfDocument({
           {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image, not an HTML img */}
           <Image style={styles.logo} src="/sello-capomasi.png" />
           <View style={styles.headerText}>
-            <Text style={styles.studioName}>Estudio Contable Capomasi</Text>
+            <Text style={styles.studioName}>Estudio Contable Paola Capomasi</Text>
             <Text style={styles.title}>{clienteNombre}</Text>
             <Text style={styles.subtitle}>Cuenta corriente — {rango}</Text>
           </View>
@@ -200,7 +200,7 @@ export function CuentaCorrientePdfDocument({
         )}
 
         <Text style={styles.footer}>
-          Generado el {formatDate(new Date().toISOString())} — Estudio Contable Capomasi
+          Generado el {formatDate(new Date().toISOString())} — Estudio Contable Paola Capomasi
         </Text>
       </Page>
     </Document>
