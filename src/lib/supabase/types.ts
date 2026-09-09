@@ -413,6 +413,7 @@ export type Database = {
       }
       compras_proveedores: {
         Row: {
+          ambito: string
           concepto: string
           created_at: string
           created_by: string | null
@@ -427,6 +428,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ambito?: string
           concepto: string
           created_at?: string
           created_by?: string | null
@@ -441,6 +443,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ambito?: string
           concepto?: string
           created_at?: string
           created_by?: string | null
@@ -2368,6 +2371,12 @@ export type Database = {
       fn_eliminar_imputacion: {
         Args: { p_imputacion_id: string }
         Returns: boolean
+      }
+      fn_eliminar_compra_proveedor: {
+        Args: {
+          p_compra_id: string
+        }
+        Returns: undefined
       }
       fn_endosar_cheque_a_proveedor: {
         Args: {

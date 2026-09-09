@@ -8,7 +8,7 @@ import {
   useCrearProveedor,
   useComprasProveedores,
   useCrearGastoPagado,
-  useAnularCompra,
+  useEliminarCompra,
   usePagosProveedor,
   useHistorialEgresos,
 } from '../hooks/useProveedores'
@@ -75,7 +75,7 @@ export function ProveedoresOverview() {
   const compras = comprasData?.rows
   const crearProv = useCrearProveedor()
   const crearGasto = useCrearGastoPagado()
-  const anular = useAnularCompra()
+  const eliminar = useEliminarCompra()
   const { isAdmin } = useAuth()
   const { data: rubrosProveedor = FALLBACK_RUBROS_PROVEEDOR } = useParametros({
     categorias: ['RUBRO_PROVEEDOR'],
@@ -97,7 +97,7 @@ export function ProveedoresOverview() {
   const [tab, setTab] = useState<'historial' | 'compras' | 'proveedores'>('historial')
   const [showProvForm, setShowProvForm] = useState(false)
   const [showCompraForm, setShowCompraForm] = useState(false)
-  const [anularId, setAnularId] = useState<string | null>(null)
+  const [eliminarId, setEliminarId] = useState<string | null>(null)
   const [expandedCompra, setExpandedCompra] = useState<string | null>(null)
 
   const provForm = useForm<TProveedorForm>({
@@ -107,7 +107,11 @@ export function ProveedoresOverview() {
 
   const compraForm = useForm<TGastoProveedorForm>({
     resolver: zodResolver(gastoProveedorSchema) as unknown as Resolver<TGastoProveedorForm>,
-    defaultValues: { fecha: toLocalDateInputValue(), tipo_pago: 'TRANSFERENCIA' },
+    defaultValues: {
+      fecha: toLocalDateInputValue(),
+      tipo_pago: 'TRANSFERENCIA',
+      ambito: 'ESTUDIO',
+    },
   })
 
   const handleProvSubmit = provForm.handleSubmit((d) => {
@@ -125,7 +129,11 @@ export function ProveedoresOverview() {
     crearGasto.mutate(d, {
       onSuccess: (r) => {
         if (r.ok) {
-          compraForm.reset({ fecha: toLocalDateInputValue(), tipo_pago: 'TRANSFERENCIA' })
+          compraForm.reset({
+            fecha: toLocalDateInputValue(),
+            tipo_pago: 'TRANSFERENCIA',
+            ambito: 'ESTUDIO',
+          })
           setShowCompraForm(false)
         }
       },
@@ -223,6 +231,22 @@ export function ProveedoresOverview() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+                  ¿Este gasto es del estudio?
+                </label>
+                <select
+                  {...compraForm.register('ambito')}
+                  className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+                >
+                  <option value="ESTUDIO">Sí, es del estudio</option>
+                  <option value="PERSONAL">No, es personal</option>
+                </select>
+                <p className="text-muted-foreground mt-1 text-[11px]">
+                  Los gastos personales no bajan el resultado del estudio ni aparecen en el
+                  historial de egresos.
+                </p>
+              </div>
               <div className="border-border space-y-3 border-t pt-3">
                 <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
                   Medio de pago
@@ -230,12 +254,13 @@ export function ProveedoresOverview() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
-                      Tipo *
+                      Tipo
                     </label>
                     <select
                       {...compraForm.register('tipo_pago')}
                       className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
                     >
+                      <option value="">Todavía no lo pagué</option>
                       {tiposPago.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -400,11 +425,9 @@ export function ProveedoresOverview() {
                         </td>
                         {isAdmin && (
                           <td className="px-4 py-2.5 text-right">
-                            {c.estado !== 'ANULADA' && (
-                              <Button size="sm" variant="outline" onClick={() => setAnularId(c.id)}>
-                                Anular
-                              </Button>
-                            )}
+                            <Button size="sm" variant="outline" onClick={() => setEliminarId(c.id)}>
+                              Eliminar
+                            </Button>
                           </td>
                         )}
                       </tr>
@@ -527,16 +550,16 @@ export function ProveedoresOverview() {
       )}
 
       <ConfirmDialog
-        open={!!anularId}
-        title="Anular gasto"
-        description="Esta acción no se puede deshacer."
-        confirmLabel="Anular"
+        open={!!eliminarId}
+        title="Eliminar gasto"
+        description="Se borra el gasto y se revierte lo que generó: el pago, el movimiento en Fondos y, si se pagó endosando un cheque, el cheque vuelve a cartera. No se puede deshacer."
+        confirmLabel="Eliminar"
         onConfirm={() => {
-          if (anularId) anular.mutate(anularId)
-          setAnularId(null)
+          if (eliminarId) eliminar.mutate(eliminarId)
+          setEliminarId(null)
         }}
-        onCancel={() => setAnularId(null)}
-        isPending={anular.isPending}
+        onCancel={() => setEliminarId(null)}
+        isPending={eliminar.isPending}
       />
     </div>
   )

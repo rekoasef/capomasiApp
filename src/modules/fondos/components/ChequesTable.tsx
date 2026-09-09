@@ -462,7 +462,9 @@ function EndosarChequeForm({
           </select>
           {proveedorId && !comprasPendientes.length && (
             <p className="text-muted-foreground mt-1 text-[11px]">
-              Sin compras pendientes para este proveedor
+              Este proveedor no tiene facturas impagas. Cargá la factura en Proveedores &gt; Nuevo
+              gasto y, en Medio de pago, elegí &quot;Todavía no lo pagué&quot; para poder endosarle
+              el cheque acá.
             </p>
           )}
         </div>

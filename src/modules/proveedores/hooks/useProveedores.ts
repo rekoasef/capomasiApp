@@ -80,18 +80,21 @@ export function useCrearGastoPagado() {
   })
 }
 
-export function useAnularCompra() {
+export function useEliminarCompra() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => proveedoresService.anularCompra(id),
+    mutationFn: (id: string) => proveedoresService.eliminarCompra(id),
     onSuccess: (r) => {
       if (!r.ok) {
         toast.error(r.error)
         return
       }
-      toast.success('Gasto anulado')
+      toast.success('Gasto eliminado')
       qc.invalidateQueries({ queryKey: ['compras_proveedores'] })
       qc.invalidateQueries({ queryKey: ['historial_egresos_estudio'] })
+      // El borrado revierte el pago y puede devolver un cheque a cartera.
+      qc.invalidateQueries({ queryKey: ['fondos'] })
+      qc.invalidateQueries({ queryKey: ['cheques'] })
     },
   })
 }

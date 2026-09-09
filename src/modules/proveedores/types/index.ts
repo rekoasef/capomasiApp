@@ -1,5 +1,6 @@
 export type TEstadoCompra = 'PENDIENTE' | 'PAGADA' | 'PARCIALMENTE_PAGADA' | 'ANULADA'
 export type TTipoPagoProveedor = 'TRANSFERENCIA' | 'EFECTIVO' | 'CHEQUE'
+export type TAmbitoCompra = 'ESTUDIO' | 'PERSONAL'
 
 export interface TProveedor {
   id: string
@@ -23,6 +24,7 @@ export interface TCompraProveedor {
   tipo_comprobante: string | null
   importe_total: number
   estado: TEstadoCompra
+  ambito: TAmbitoCompra
   notas: string | null
   created_by: string | null
   created_at: string
