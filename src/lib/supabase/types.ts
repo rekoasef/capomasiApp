@@ -2007,6 +2007,28 @@ export type Database = {
           },
         ]
       }
+      v_ingresos_mensuales_con_historico: {
+        Row: {
+          cantidad_liquidaciones: number | null
+          facturado_cliente_neto: number | null
+          ingreso_base_negro: number | null
+          iva_facturado: number | null
+          mes: string | null
+          total_facturado: number | null
+          total_liquidado: number | null
+        }
+        Relationships: []
+      }
+      v_ingresos_por_tipo_mes_con_historico: {
+        Row: {
+          cantidad: number | null
+          mes: string | null
+          tipo_servicio: string | null
+          total_facturado: number | null
+          total_liquidado: number | null
+        }
+        Relationships: []
+      }
       v_ingresos_mensuales: {
         Row: {
           cantidad_liquidaciones: number | null

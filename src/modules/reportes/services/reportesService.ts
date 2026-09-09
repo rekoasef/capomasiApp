@@ -18,13 +18,21 @@ function rangoAnio(anio: number, mes?: number) {
   return { desde: `${anio}-01-01`, hasta: `${anio}-12-31` }
 }
 
+// Los comparativos leen las vistas *_con_historico, que unen las
+// liquidaciones reales (desde sep-2026) con la facturación migrada del
+// Excel (oct-2025 a ago-2026). El corte por fecha es limpio, así que no
+// hay doble conteo. Ver migración 0077.
+//
+// El Dashboard sigue leyendo v_resultado_mensual, que usa las vistas sin
+// histórico: no migramos gastos históricos, y mezclar ingresos viejos con
+// gastos nuevos daría una ganancia falsa en esos meses.
 export const reportesService = {
   async getIngresosMensuales(
     anio?: number,
     mes?: number
   ): Promise<ServiceResult<TIngresoMensual[]>> {
     let query = supabase
-      .from('v_ingresos_mensuales')
+      .from('v_ingresos_mensuales_con_historico')
       .select('mes, cantidad_liquidaciones, total_liquidado, total_facturado')
       .order('mes', { ascending: true })
 
@@ -48,7 +56,7 @@ export const reportesService = {
   },
 
   async getAniosDisponibles(): Promise<ServiceResult<number[]>> {
-    const { data, error } = await supabase.from('v_ingresos_mensuales').select('mes')
+    const { data, error } = await supabase.from('v_ingresos_mensuales_con_historico').select('mes')
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
 
     const anios = new Set(
@@ -62,7 +70,7 @@ export const reportesService = {
 
   async getIngresosPorTipo(anio?: number, mes?: number): Promise<ServiceResult<TResumenTipo[]>> {
     let query = supabase
-      .from('v_ingresos_por_tipo_mes')
+      .from('v_ingresos_por_tipo_mes_con_historico')
       .select('mes, tipo_servicio, cantidad, total_liquidado, total_facturado')
 
     if (anio) {
