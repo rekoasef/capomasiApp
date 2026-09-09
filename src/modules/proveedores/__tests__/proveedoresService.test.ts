@@ -85,6 +85,7 @@ describe('proveedoresService.crearCompra', () => {
       fecha: '2026-04-21',
       concepto: '',
       importe_total: 5000,
+      ambito: 'ESTUDIO',
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
@@ -96,6 +97,7 @@ describe('proveedoresService.crearCompra', () => {
       fecha: '2026-04-21',
       concepto: 'Compra test',
       importe_total: 0,
+      ambito: 'ESTUDIO',
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
@@ -107,6 +109,7 @@ describe('proveedoresService.crearCompra', () => {
       proveedor_id: UUID,
       concepto: 'Compra test',
       importe_total: 5000,
+      ambito: 'ESTUDIO',
       estado: 'PENDIENTE',
     }
     mockChain({ single: jest.fn().mockResolvedValue({ data: compra, error: null }) })
@@ -116,24 +119,37 @@ describe('proveedoresService.crearCompra', () => {
       fecha: '2026-04-21',
       concepto: 'Compra test',
       importe_total: 5000,
+      ambito: 'ESTUDIO',
     })
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data.estado).toBe('PENDIENTE')
   })
 })
 
-// ── anularCompra ─────────────────────────────────────────────
+// ── eliminarCompra ───────────────────────────────────────────
 
-describe('proveedoresService.anularCompra', () => {
+describe('proveedoresService.eliminarCompra', () => {
   beforeEach(() => jest.clearAllMocks())
 
-  it('anula la compra', async () => {
-    const chain = mockChain()
-    chain.eq = jest.fn().mockResolvedValue({ error: null })
+  it('borra la compra via RPC, que revierte pago, fondos y cheque', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null })
 
-    const result = await proveedoresService.anularCompra('c-1')
+    const result = await proveedoresService.eliminarCompra(COMPRA_UUID)
     expect(result.ok).toBe(true)
-    expect(chain.update).toHaveBeenCalledWith({ estado: 'ANULADA' })
+    expect(mockRpc).toHaveBeenCalledWith('fn_eliminar_compra_proveedor', {
+      p_compra_id: COMPRA_UUID,
+    })
+  })
+
+  it('devuelve DB_ERROR si el RPC falla', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'Solo admin puede eliminar compras' },
+    })
+
+    const result = await proveedoresService.eliminarCompra(COMPRA_UUID)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
   })
 })
 
@@ -199,6 +215,7 @@ describe('proveedoresService.crearGastoPagado', () => {
       fecha: '2026-04-21',
       concepto: '',
       importe_total: 5000,
+      ambito: 'ESTUDIO',
       tipo_pago: 'EFECTIVO',
     })
     expect(result.ok).toBe(false)
@@ -211,6 +228,7 @@ describe('proveedoresService.crearGastoPagado', () => {
       proveedor_id: UUID,
       concepto: 'Gasto test',
       importe_total: 5000,
+      ambito: 'ESTUDIO',
       estado: 'PENDIENTE',
     }
     const pago = { id: 'p-1', compra_id: COMPRA_UUID, importe: 5000, tipo_pago: 'EFECTIVO' }
@@ -222,6 +240,7 @@ describe('proveedoresService.crearGastoPagado', () => {
       fecha: '2026-04-21',
       concepto: 'Gasto test',
       importe_total: 5000,
+      ambito: 'ESTUDIO',
       tipo_pago: 'EFECTIVO',
     })
     expect(result.ok).toBe(true)
@@ -235,6 +254,30 @@ describe('proveedoresService.crearGastoPagado', () => {
     )
   })
 
+  it('deja la compra PENDIENTE y no registra pago si no se eligió medio de pago', async () => {
+    const compra = {
+      id: COMPRA_UUID,
+      proveedor_id: UUID,
+      concepto: 'Factura a pagar con cheque endosado',
+      importe_total: 5000,
+      ambito: 'ESTUDIO',
+      estado: 'PENDIENTE',
+    }
+    mockChain({ single: jest.fn().mockResolvedValue({ data: compra, error: null }) })
+
+    const result = await proveedoresService.crearGastoPagado({
+      proveedor_id: UUID,
+      fecha: '2026-04-21',
+      concepto: 'Factura a pagar con cheque endosado',
+      importe_total: 5000,
+      ambito: 'ESTUDIO',
+      tipo_pago: null,
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.estado).toBe('PENDIENTE')
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
   it('no llama al RPC de pago si la creación de la compra falla', async () => {
     mockChain({
       single: jest.fn().mockResolvedValue({ data: null, error: { message: 'DB down' } }),
@@ -245,6 +288,7 @@ describe('proveedoresService.crearGastoPagado', () => {
       fecha: '2026-04-21',
       concepto: 'Gasto test',
       importe_total: 5000,
+      ambito: 'ESTUDIO',
       tipo_pago: 'EFECTIVO',
     })
     expect(result.ok).toBe(false)

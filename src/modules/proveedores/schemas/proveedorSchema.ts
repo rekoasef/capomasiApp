@@ -20,6 +20,7 @@ export const compraProveedorSchema = z.object({
   nro_comprobante: z.string().optional().nullable(),
   tipo_comprobante: z.string().optional().nullable(),
   importe_total: z.number().positive('Importe debe ser positivo'),
+  ambito: z.enum(['ESTUDIO', 'PERSONAL']).default('ESTUDIO'),
   notas: z.string().optional().nullable(),
 })
 
@@ -59,8 +60,16 @@ export const gastoProveedorSchema = z
     nro_comprobante: z.string().optional().nullable(),
     tipo_comprobante: z.string().optional().nullable(),
     importe_total: z.number().positive('Importe debe ser positivo'),
+    ambito: z.enum(['ESTUDIO', 'PERSONAL']).default('ESTUDIO'),
     notas: z.string().optional().nullable(),
-    tipo_pago: z.enum(['TRANSFERENCIA', 'EFECTIVO', 'CHEQUE']),
+    // Sin medio de pago la compra queda PENDIENTE: es el caso de la
+    // factura que todavía no se pagó, o la que se va a cancelar
+    // endosando un cheque de cartera (Fondos > Cheques > Endosar,
+    // que solo puede imputarse contra una compra impaga).
+    tipo_pago: z.preprocess(
+      (v) => (v === '' || v === undefined ? null : v),
+      z.enum(['TRANSFERENCIA', 'EFECTIVO', 'CHEQUE']).nullable()
+    ),
     cuenta_bancaria: z.string().optional().nullable(),
     cheque_numero: z.string().optional().nullable(),
     cheque_banco: z.string().optional().nullable(),

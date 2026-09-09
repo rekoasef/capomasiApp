@@ -76,7 +76,10 @@ export const proveedoresService = {
       .order('fecha', { ascending: false })
       .range(from, to)
     if (opts?.proveedorId) query = query.eq('proveedor_id', opts.proveedorId)
+    // Las compras anuladas son cargas equivocadas de antes de la 0075,
+    // cuando anular no borraba. No ensucian más el historial.
     if (opts?.estado) query = query.eq('estado', opts.estado)
+    else query = query.neq('estado', 'ANULADA')
     const { data, error, count } = await query
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return {
@@ -98,11 +101,14 @@ export const proveedoresService = {
     return { ok: true, data: data as TCompraProveedor }
   },
 
-  async anularCompra(id: string): Promise<ServiceResult<void>> {
-    const { error } = await supabase
-      .from('compras_proveedores')
-      .update({ estado: 'ANULADA' })
-      .eq('id', id)
+  // Borra la compra revirtiendo todo lo que generó: devuelve el cheque
+  // endosado a cartera, borra el EGRESO en fondos y el pago. Antes esto
+  // era anularCompra, que solo marcaba el estado y dejaba la plata viva
+  // en la caja (ver migración 0075).
+  async eliminarCompra(id: string): Promise<ServiceResult<void>> {
+    const { error } = await supabase.rpc('fn_eliminar_compra_proveedor', {
+      p_compra_id: id,
+    })
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: undefined }
   },
@@ -190,9 +196,14 @@ export const proveedoresService = {
       nro_comprobante: parsed.data.nro_comprobante,
       tipo_comprobante: parsed.data.tipo_comprobante,
       importe_total: parsed.data.importe_total,
+      ambito: parsed.data.ambito,
       notas: parsed.data.notas,
     })
     if (!compraResult.ok) return compraResult
+
+    // Sin medio de pago la compra queda PENDIENTE, lista para pagarse
+    // después o para recibir el endoso de un cheque de cartera.
+    if (!parsed.data.tipo_pago) return compraResult
 
     const pagoResult = await this.registrarPago({
       compra_id: compraResult.data.id,
