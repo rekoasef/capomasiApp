@@ -4,6 +4,7 @@ import {
   actualizarEstadoAvanceSchema,
 } from '../schemas/vencimientoFiscalSchema'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
+import { configAplicaAlMes } from './configAplicaAlMes'
 import type {
   TVencimientoFiscal,
   TVencimientoFiscalConCliente,
@@ -22,6 +23,7 @@ type TPuntoConfigRow = {
   dia_vencimiento_mensual: number | null
   mes_vencimiento_anual: number | null
   dia_vencimiento_anual: number | null
+  meses_vencimiento: number[] | null
   created_at: string
 }
 
@@ -251,20 +253,16 @@ export const vencimientosFiscalesService = {
     const { data: configs, error: configErr } = await supabase
       .from('puntos_trabajo_config')
       .select(
-        'id, cliente_id, empleada_id, tipo_trabajo, puntos, facturar_aparte, tipo_vencimiento, dia_vencimiento_mensual, mes_vencimiento_anual, dia_vencimiento_anual, created_at'
+        'id, cliente_id, empleada_id, tipo_trabajo, puntos, facturar_aparte, tipo_vencimiento, dia_vencimiento_mensual, mes_vencimiento_anual, dia_vencimiento_anual, meses_vencimiento, created_at'
       )
       .eq('activo', true)
-      .in('tipo_vencimiento', ['MENSUAL', 'ANUAL'])
+      .in('tipo_vencimiento', ['MENSUAL', 'ANUAL', 'MESES_ESPECIFICOS'])
 
     if (configErr) return { ok: false, error: configErr.message, code: 'DB_ERROR' }
     if (!configs?.length) return { ok: true, data: { creados: 0 } }
 
     // 2. Filtrar las que aplican a este mes
-    const relevantes = (configs as TPuntoConfigRow[]).filter((c) => {
-      if (c.tipo_vencimiento === 'MENSUAL') return true
-      if (c.tipo_vencimiento === 'ANUAL') return c.mes_vencimiento_anual === mes
-      return false
-    })
+    const relevantes = (configs as TPuntoConfigRow[]).filter((c) => configAplicaAlMes(c, mes))
 
     if (!relevantes.length) return { ok: true, data: { creados: 0 } }
 
@@ -290,7 +288,7 @@ export const vencimientosFiscalesService = {
       .filter((c) => !yaExisten.has(c.id))
       .map((c) => {
         const dia =
-          c.tipo_vencimiento === 'MENSUAL' ? c.dia_vencimiento_mensual : c.dia_vencimiento_anual
+          c.tipo_vencimiento === 'ANUAL' ? c.dia_vencimiento_anual : c.dia_vencimiento_mensual
 
         if (dia == null) return null
 

@@ -130,7 +130,7 @@ export interface TRegistroPuntaje {
   created_at: string
 }
 
-export type TTipoVencimientoConfig = 'MENSUAL' | 'ANUAL' | 'A_DEMANDA'
+export type TTipoVencimientoConfig = 'MENSUAL' | 'ANUAL' | 'MESES_ESPECIFICOS' | 'A_DEMANDA'
 
 export interface TPuntosTrabajoConfig {
   id: string
@@ -141,6 +141,7 @@ export interface TPuntosTrabajoConfig {
   facturar_aparte: boolean
   empleada_id: string | null
   tipo_vencimiento: TTipoVencimientoConfig
+  meses_vencimiento: number[] | null
   dia_vencimiento_mensual: number | null
   mes_vencimiento_anual: number | null
   dia_vencimiento_anual: number | null

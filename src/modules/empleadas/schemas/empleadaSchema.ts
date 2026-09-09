@@ -110,7 +110,13 @@ export const puntosTrabajoConfigSchema = z
       (v) => (v === '' || v === null || v === undefined ? null : v),
       z.string().uuid().nullable()
     ),
-    tipo_vencimiento: z.enum(['MENSUAL', 'ANUAL', 'A_DEMANDA']).default('A_DEMANDA'),
+    tipo_vencimiento: z
+      .enum(['MENSUAL', 'ANUAL', 'MESES_ESPECIFICOS', 'A_DEMANDA'])
+      .default('A_DEMANDA'),
+    // Meses del año en que cae el trabajo (1-12). Solo para
+    // MESES_ESPECIFICOS: los anticipos son 5 al año en persona
+    // física y 9 en sociedades, no 12.
+    meses_vencimiento: z.array(z.number().int().min(1).max(12)).nullable().optional(),
     dia_vencimiento_mensual: z
       .preprocess(
         (v) => (v === '' || v === null || v === undefined ? null : Number(v)),
@@ -138,6 +144,20 @@ export const puntosTrabajoConfigSchema = z
         message: 'Ingresá el día del mes',
         path: ['dia_vencimiento_mensual'],
       })
+    }
+    if (val.tipo_vencimiento === 'MESES_ESPECIFICOS') {
+      if (!val.meses_vencimiento?.length)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Marcá al menos un mes',
+          path: ['meses_vencimiento'],
+        })
+      if (!val.dia_vencimiento_mensual)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Ingresá el día del mes',
+          path: ['dia_vencimiento_mensual'],
+        })
     }
     if (val.tipo_vencimiento === 'ANUAL') {
       if (!val.mes_vencimiento_anual)
