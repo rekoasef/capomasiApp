@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm, type Resolver } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useParametros } from '@/shared/hooks/useParametros'
 import { useEmpleadas } from '@/modules/empleadas/hooks/useEmpleadas'
@@ -23,7 +23,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { toast } from 'sonner'
-import { Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
@@ -101,7 +101,6 @@ export function PuntosClienteSection({ clienteId }: Props) {
   })
 
   const tipoVencimiento = form.watch('tipo_vencimiento')
-  const mesesElegidos = form.watch('meses_vencimiento')
 
   const onSubmit = form.handleSubmit(async (data) => {
     const { fecha_demanda, ...configData } = data
@@ -149,6 +148,30 @@ export function PuntosClienteSection({ clienteId }: Props) {
     setShowForm(false)
   })
 
+  // Editar una configuración ya cargada. La tabla tiene UNIQUE(cliente_id,
+  // tipo_trabajo) y el service hace upsert sobre esa clave, así que guardar
+  // con el mismo trabajo pisa la fila. Sin este botón la única forma de
+  // cambiar algo era volver a cargarla desde cero con el formulario vacío,
+  // que borraba en silencio la empleada asignada, los puntos y el
+  // "facturar aparte".
+  const handleEditar = (c: (typeof config)[number]) => {
+    form.reset({
+      cliente_id: clienteId,
+      tipo_trabajo: c.tipo_trabajo,
+      puntos: Number(c.puntos),
+      activo: c.activo,
+      facturar_aparte: c.facturar_aparte,
+      empleada_id: c.empleada_id ?? null,
+      tipo_vencimiento: c.tipo_vencimiento as TTipoVencimientoConfig,
+      dia_vencimiento_mensual: c.dia_vencimiento_mensual,
+      mes_vencimiento_anual: c.mes_vencimiento_anual,
+      dia_vencimiento_anual: c.dia_vencimiento_anual,
+      meses_vencimiento: c.meses_vencimiento ?? null,
+      fecha_demanda: null,
+    })
+    setShowForm(true)
+  }
+
   const handleCancel = () => {
     form.reset(DEFAULT_VALUES(clienteId))
     setShowForm(false)
@@ -164,7 +187,14 @@ export function PuntosClienteSection({ clienteId }: Props) {
           </p>
         </div>
         {isAdmin && (
-          <Button size="sm" variant="outline" onClick={() => setShowForm((v) => !v)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              form.reset(DEFAULT_VALUES(clienteId))
+              setShowForm((v) => !v)
+            }}
+          >
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Agregar
           </Button>
@@ -289,44 +319,54 @@ export function PuntosClienteSection({ clienteId }: Props) {
                 <p className="text-muted-foreground mb-2 text-[11px] font-semibold tracking-wide uppercase">
                   ¿En qué meses vence? *
                 </p>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-                  {MESES.map((nombre, i) => {
-                    const mes = i + 1
-                    const marcado = (mesesElegidos ?? []).includes(mes)
+                {/* Controller y no register: el valor es un array que se arma
+                    a mano, y con setValue suelto sobre un campo sin registrar
+                    RHF no vuelve a renderizar y las casillas no se marcan. */}
+                <Controller
+                  control={form.control}
+                  name="meses_vencimiento"
+                  render={({ field, fieldState }) => {
+                    const elegidos = field.value ?? []
                     return (
-                      <label
-                        key={mes}
-                        className={`flex cursor-pointer items-center gap-1.5 border px-2 py-1.5 text-xs transition-colors ${
-                          marcado
-                            ? 'border-primary bg-primary/10 text-primary font-medium'
-                            : 'border-border text-muted-foreground hover:border-foreground'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={marcado}
-                          onChange={(e) => {
-                            const actuales = mesesElegidos ?? []
-                            form.setValue(
-                              'meses_vencimiento',
-                              e.target.checked
-                                ? [...actuales, mes].sort((a, b) => a - b)
-                                : actuales.filter((m) => m !== mes),
-                              { shouldValidate: true }
+                      <>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                          {MESES.map((nombre, i) => {
+                            const mes = i + 1
+                            const marcado = elegidos.includes(mes)
+                            return (
+                              <label
+                                key={mes}
+                                className={`flex cursor-pointer items-center justify-center gap-1.5 border px-2 py-1.5 text-xs transition-colors ${
+                                  marcado
+                                    ? 'border-primary bg-primary/10 text-primary font-medium'
+                                    : 'border-border text-muted-foreground hover:border-foreground'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="accent-primary h-3.5 w-3.5"
+                                  checked={marcado}
+                                  onBlur={field.onBlur}
+                                  onChange={(e) => {
+                                    field.onChange(
+                                      e.target.checked
+                                        ? [...elegidos, mes].sort((a, b) => a - b)
+                                        : elegidos.filter((m) => m !== mes)
+                                    )
+                                  }}
+                                />
+                                {nombre}
+                              </label>
                             )
-                          }}
-                        />
-                        {nombre.slice(0, 3)}
-                      </label>
+                          })}
+                        </div>
+                        {fieldState.error && (
+                          <p className="text-danger mt-1.5 text-xs">{fieldState.error.message}</p>
+                        )}
+                      </>
                     )
-                  })}
-                </div>
-                {form.formState.errors.meses_vencimiento && (
-                  <p className="text-destructive mt-1.5 text-xs">
-                    {form.formState.errors.meses_vencimiento.message}
-                  </p>
-                )}
+                  }}
+                />
                 <p className="text-muted-foreground mt-2 text-[11px]">
                   Solo se genera el vencimiento en los meses marcados. Los anticipos de ganancias
                   son 5 al año en persona física y 9 en sociedades.
@@ -438,6 +478,7 @@ export function PuntosClienteSection({ clienteId }: Props) {
                       dia_vencimiento_mensual: number | null
                       mes_vencimiento_anual: number | null
                       dia_vencimiento_anual: number | null
+                      meses_vencimiento: number[] | null
                     }
                   )}
                   {c.puntos > 0 && (
@@ -451,12 +492,22 @@ export function PuntosClienteSection({ clienteId }: Props) {
                 </p>
               </div>
               {isAdmin && (
-                <button
-                  onClick={() => setDeleteId(c.id)}
-                  className="text-muted-foreground hover:text-danger shrink-0 p-1"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={() => handleEditar(c)}
+                    aria-label={`Editar ${c.tipo_trabajo}`}
+                    className="text-muted-foreground hover:text-primary p-1"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteId(c.id)}
+                    aria-label={`Eliminar ${c.tipo_trabajo}`}
+                    className="text-muted-foreground hover:text-danger p-1"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           ))}
