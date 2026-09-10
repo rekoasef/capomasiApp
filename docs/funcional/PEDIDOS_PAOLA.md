@@ -265,3 +265,22 @@ Con su rango, el Período A pasa de $7.058.746,88 (23) a **$284.970.191,06 (375 
 
 1. Ese total **incluye los $78.284.834,40 de la fila de ZELARAYAN** que sigue sin confirmar (ver el pendiente de arriba). Sin ella son ~$206,7M.
 2. Su Período B seguía dando **$0,00** y eso no es un error: había quedado en el default (agosto-septiembre 2025) y los datos arrancan en **noviembre de 2025**. Para comparar contra algo, el período B tiene que caer de nov-2025 en adelante.
+
+### 3 — Reportes: gráficos, atajos en el comparativo y vista de tabla
+
+Pedido de Renzo, no de Paola: _"lo que muestra me parece que está bien, solo lo haría un poco más lindo"_ — antes de mostrárselo a ella.
+
+Lo que hay ahora:
+
+- **Cuatro cifras arriba de todo**: ingresos base, facturado c/IVA, promedio mensual y mejor mes. El promedio se calcula sobre los meses **con movimiento**, no sobre 12: dividir por el año entero achicaría el promedio de un año que recién empieza.
+- **Ingresos mensuales en columnas apiladas**: base abajo, IVA arriba, y el total apilado es el facturado. Se puede apilar porque en los 11 meses cargados el facturado nunca queda por debajo de la base (verificado en la base). El mes más alto va a color pleno y el resto apenas atenuado — es "énfasis", que muestra el pico sin gastar un color nuevo.
+- **Rankings en barras horizontales** para tipo de servicio y empleada, con el valor y el porcentaje siempre visibles (no escondidos detrás del hover) y la cola plegada en "Otros".
+- **Cada sección tiene conmutador Gráfico / Tabla.** La tabla no es un extra: es el equivalente accesible: todo lo que el gráfico dice con color o largo de barra tiene que poder leerse como número.
+- **El comparativo estrena atajos**: "este mes vs. el anterior", "vs. el mismo mes del año pasado", "últimos 3 meses vs. los 3 anteriores" y "este año vs. el pasado". Compara las tres métricas (base, facturado y cantidad), cada una con su propia escala — importes y cantidad de comprobantes son magnitudes distintas y meterlas en un solo eje inventaría una relación entre ellas.
+- **Cuando el período B cae antes de nov-2025 lo avisa** en vez de mostrar $0,00 a secas. Es exactamente lo que la confundió a Paola: ahora dice que el sistema arranca en noviembre de 2025 y que mueva el rango.
+
+**Sobre los colores:** salen de la paleta categórica validada del skill de dataviz, la misma que ya usaba el gráfico de gastos. Se corrieron contra la superficie real de la app (`#ffffff`) y pasan las seis pruebas, incluida la separación para daltonismo. El ámbar de la marca **no** se usa para las barras: sobre blanco da 2,68:1 de contraste y queda por debajo del piso; se queda en el chrome de la UI.
+
+**Un bug que apareció al revisarlo en el navegador:** los rangos por defecto del comparativo se calculaban durante el render, o sea también en el server. Vercel corre en UTC, así que entre las 21 y la medianoche de Argentina el server ya estaba en el día siguiente y los rangos salían con un día de más. Ahora "hoy" se resuelve recién en el navegador (`useSyncExternalStore`, sin efectos, que el linter del proyecto no permite).
+
+⚠️ **Los gráficos dejan la fila de ZELARAYAN a la vista.** Con $78,3M en una sola fila, agosto se lleva media escala del gráfico mensual y aplasta a los otros meses, Victoria queda primera con 20 trabajos contra los 197 de Luciana, y el comparativo contra agosto da −93,6%. No se tocó nada: es el pendiente de confirmación de arriba. Pero conviene resolverlo **antes** de mostrarle los reportes a Paola.
