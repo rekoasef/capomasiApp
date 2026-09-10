@@ -727,7 +727,7 @@ export type Database = {
           dia_vencimiento: number
           id: string
           notas: string | null
-          proxima_fecha_vencimiento: string
+          proxima_fecha_vencimiento: string | null
           updated_at: string
         }
         Insert: {
@@ -739,7 +739,7 @@ export type Database = {
           dia_vencimiento: number
           id?: string
           notas?: string | null
-          proxima_fecha_vencimiento: string
+          proxima_fecha_vencimiento?: string | null
           updated_at?: string
         }
         Update: {
@@ -751,7 +751,7 @@ export type Database = {
           dia_vencimiento?: number
           id?: string
           notas?: string | null
-          proxima_fecha_vencimiento?: string
+          proxima_fecha_vencimiento?: string | null
           updated_at?: string
         }
         Relationships: [

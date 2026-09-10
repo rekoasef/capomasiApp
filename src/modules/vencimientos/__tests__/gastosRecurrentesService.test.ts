@@ -1,5 +1,4 @@
 import { gastosRecurrentesService } from '../services/gastosRecurrentesService'
-import { avanzarFechaVencimiento, calcularProximaFechaVencimiento } from '../utils/fechas'
 
 jest.mock('@/lib/supabase/client', () => ({
   supabase: { from: jest.fn() },
@@ -25,28 +24,6 @@ function mockChain(overrides: Record<string, unknown> = {}) {
 }
 
 const UUID = 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
-
-describe('fechas de gastos recurrentes', () => {
-  it('calcula el próximo día disponible del mes actual', () => {
-    const result = calcularProximaFechaVencimiento(25, new Date(2026, 4, 18))
-    expect(result).toBe('2026-05-25')
-  })
-
-  it('pasa al mes siguiente si el día ya pasó', () => {
-    const result = calcularProximaFechaVencimiento(10, new Date(2026, 4, 18))
-    expect(result).toBe('2026-06-10')
-  })
-
-  it('ajusta día 31 al último día de febrero', () => {
-    const result = avanzarFechaVencimiento('2026-01-31', 31)
-    expect(result).toBe('2026-02-28')
-  })
-
-  it('respeta febrero bisiesto', () => {
-    const result = avanzarFechaVencimiento('2028-01-31', 31)
-    expect(result).toBe('2028-02-29')
-  })
-})
 
 describe('gastosRecurrentesService.getProximos', () => {
   beforeEach(() => jest.clearAllMocks())
@@ -85,7 +62,7 @@ describe('gastosRecurrentesService.create', () => {
     if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
   })
 
-  it('crea gasto recurrente con próxima fecha calculada', async () => {
+  it('crea el gasto sin mandar la próxima fecha — la pone la DB', async () => {
     const row = {
       id: 'g-1',
       categoria_id: UUID,
@@ -104,9 +81,40 @@ describe('gastosRecurrentesService.create', () => {
     })
 
     expect(result.ok).toBe(true)
-    expect(chain.insert).toHaveBeenCalledWith(expect.objectContaining({
-      descripcion: 'Luz',
-      proxima_fecha_vencimiento: expect.any(String),
-    }))
+    expect(chain.insert).toHaveBeenCalledWith(expect.objectContaining({ descripcion: 'Luz' }))
+    expect(chain.insert.mock.calls[0][0]).not.toHaveProperty('proxima_fecha_vencimiento')
+  })
+})
+
+// Regresión del reporte de Paola (2026-09-10): "el cable y las expensas las marqué
+// como pagadas y me vuelven a aparecer". Editar el gasto mandaba una
+// proxima_fecha_vencimiento recalculada desde hoy, que caía en el período ya pagado.
+describe('gastosRecurrentesService.update', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('no manda proxima_fecha_vencimiento aunque el form traiga dia_vencimiento', async () => {
+    const chain = mockChain({
+      single: jest.fn().mockResolvedValue({ data: { id: 'g-1' }, error: null }),
+    })
+
+    const result = await gastosRecurrentesService.update('g-1', {
+      categoria_id: UUID,
+      descripcion: 'CABLE IMAGEN ARMST.',
+      dia_vencimiento: 10,
+      activo: true,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(chain.update.mock.calls[0][0]).not.toHaveProperty('proxima_fecha_vencimiento')
+  })
+
+  it('toggleActivo solo toca activo', async () => {
+    const chain = mockChain({
+      single: jest.fn().mockResolvedValue({ data: { id: 'g-1' }, error: null }),
+    })
+
+    await gastosRecurrentesService.toggleActivo('g-1', false)
+
+    expect(chain.update).toHaveBeenCalledWith({ activo: false })
   })
 })
