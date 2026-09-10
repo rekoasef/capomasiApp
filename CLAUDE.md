@@ -20,6 +20,7 @@ Sistema web tipo CRM/ERP liviano para un estudio contable. **Reemplaza un Excel 
 - `docs/core/DATABASE.md` — DDL completo, RLS, triggers, views
 - `docs/core/ARQUITECTURA.md` — estructura, patrones con ejemplos extendidos
 - `docs/core/BACKUPS.md` — estrategia de backups, script, procedimientos de restore
+- `docs/core/PENDIENTES.md` — **lo que quedó abierto**: qué aplicar a mano, deuda técnica y qué espera respuesta de Paola
 - `docs/referencia/GUIA_EXCEL.md` — transcripción hoja GUIA del Excel operativo
 - `docs/funcional/` — specs y decisiones por módulo/feature
 
@@ -143,6 +144,8 @@ SUPABASE\_SERVICE\_ROLE\_KEY=eyJ...
 **⚠️ Pendiente de preguntarle a Paola:** la fila `ZELARAYAN, DANIEL — 31/08/2026 — SALDO TECNICO DE IVA — $78.284.834,40` de `facturacion_historica` no tiene comprobante ni importe facturado y parece cargada a medias. Deforma tres reportes: agosto da $111,7M contra ~$22M del resto, y Victoria queda con 41,6% de los ingresos con solo 26 trabajos.
 
 **Feedback en producción (2026-09-04 en adelante):** Paola usa el sistema y manda pedidos por WhatsApp a medida que le aparecen. Ver `docs/funcional/PEDIDOS_PAOLA.md` para el registro. La regla de trabajo acordada: **la prueba funcional la hace ella en producción**, no se cargan datos de prueba en la base real (ver sección 15.1).
+
+**Sesión 2026-09-10:** se arregló el comparativo entre períodos, que era el único reporte que seguía sin mirar la facturación migrada (Paola: _"lo histórico no me lo compara"_). Buscando eso apareció que **las 16 vistas eran legibles con la anon key sin loguearse** — migración 0080, escrita y **sin aplicar**. Antes de tocar nada, leer `docs/core/PENDIENTES.md`.
 
 **Pendientes reales (no de código) antes de la entrega final:** personalizar el PDF de liquidación/recibo según modelo de Paola (cambio simple, se puede hacer ya en producción) y publicar en subdominio de prueba. El saldo inicial de cuenta corriente se implementó el 2026-09-03 a pedido de Paola — ver sección 19. Ver memoria de sesión "reunion_2026-08-04_revision_y_cierre" para el detalle completo.
 
