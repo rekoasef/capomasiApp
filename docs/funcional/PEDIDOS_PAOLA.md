@@ -212,3 +212,20 @@ Se unieron las dos fuentes en vistas nuevas (migraciones 0077 y 0078). Los compa
 - El total del comparativo anual.
 
 Hay que preguntarle si está bien cargada. Si no, se corrige en el Excel y se recarga la tabla entera.
+
+---
+
+## 2026-09-10 — El comparativo entre períodos tampoco traía lo histórico
+
+Paola por WhatsApp, con captura: _"fijate que lo histórico no me lo compara"_. Había puesto **Período A = 01/11/2025 → 10/09/2026** y le devolvía **$7.058.746,88 con 23 liquidaciones** — solo lo real de septiembre. Diez meses de facturación migrada quedaban afuera.
+
+Es la mitad que faltó de la 0077. Ahí se arreglaron los tres reportes de arriba (mensual, por tipo, por empleada), que leen las vistas `*_con_historico`; el **comparativo entre períodos** quedó pegando derecho a `liquidaciones` y nadie lo notó porque el default compara el mes actual contra el mismo mes del año pasado, donde no hay nada de ninguna de las dos fuentes.
+
+**Qué se hizo:** `getComparativoPeriodos` ahora consulta las dos fuentes por período y las suma. No usa las vistas `*_con_historico` porque esas agrupan por mes y acá los períodos son fechas sueltas (ella comparó hasta el 10/09). Va a las filas de `v_facturacion_historica_normalizada`, que ya trae excluidos los `SALDO INICIAL`, y mantiene el mismo corte limpio de fechas: sin migración nueva, solo el service.
+
+Con su rango, el Período A pasa de $7.058.746,88 (23) a **$284.970.191,06 (375 comprobantes)**.
+
+**Dos cosas para avisarle:**
+
+1. Ese total **incluye los $78.284.834,40 de la fila de ZELARAYAN** que sigue sin confirmar (ver el pendiente de arriba). Sin ella son ~$206,7M.
+2. Su Período B seguía dando **$0,00** y eso no es un error: había quedado en el default (agosto-septiembre 2025) y los datos arrancan en **noviembre de 2025**. Para comparar contra algo, el período B tiene que caer de nov-2025 en adelante.

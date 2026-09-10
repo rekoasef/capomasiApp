@@ -2007,6 +2007,17 @@ export type Database = {
           },
         ]
       }
+      v_facturacion_historica_normalizada: {
+        Row: {
+          fecha_liquidacion: string | null
+          generado_por: string | null
+          importe_facturado: number | null
+          importe_liquidado: number | null
+          tipo_comprobante: string | null
+          tipo_servicio: string | null
+        }
+        Relationships: []
+      }
       v_ingresos_mensuales_con_historico: {
         Row: {
           cantidad_liquidaciones: number | null

@@ -18,10 +18,10 @@ function rangoAnio(anio: number, mes?: number) {
   return { desde: `${anio}-01-01`, hasta: `${anio}-12-31` }
 }
 
-// Los comparativos leen las vistas *_con_historico, que unen las
-// liquidaciones reales (desde sep-2026) con la facturación migrada del
-// Excel (oct-2025 a ago-2026). El corte por fecha es limpio, así que no
-// hay doble conteo. Ver migración 0077.
+// Los reportes por mes, tipo y empleada leen las vistas *_con_historico,
+// que unen las liquidaciones reales (desde sep-2026) con la facturación
+// migrada del Excel (oct-2025 a ago-2026). El corte por fecha es limpio,
+// así que no hay doble conteo. Ver migración 0077.
 //
 // El Dashboard sigue leyendo v_resultado_mensual, que usa las vistas sin
 // histórico: no migramos gastos históricos, y mezclar ingresos viejos con
@@ -133,21 +133,45 @@ export const reportesService = {
     }
   },
 
+  // El comparativo entre períodos también suma la facturación migrada del
+  // Excel (pedido de Paola, 2026-09-10: "lo histórico no me lo compara" —
+  // le daba $7M para un período que arrancaba en nov-2025).
+  //
+  // No usa las vistas *_con_historico porque esas agrupan por mes y acá los
+  // períodos son fechas sueltas (ella comparó hasta el 10/09). Va a las
+  // filas, con el mismo corte limpio de la 0077 — histórica hasta ago-2026,
+  // liquidaciones desde sep-2026 — y la misma exclusión de los SALDO
+  // INICIAL, que ya viene resuelta en v_facturacion_historica_normalizada.
   async getComparativoPeriodos(
     periodoA: { desde: string; hasta: string },
     periodoB: { desde: string; hasta: string }
   ): Promise<ServiceResult<TComparativoResultado>> {
     const fetchRango = async (desde: string, hasta: string) => {
-      const { data, error } = await supabase
-        .from('liquidaciones')
-        .select('importe_liquidado, importe_facturado')
-        .eq('tipo_liquidacion', 'NORMAL')
-        .neq('estado', 'ANULADA')
-        .gte('fecha_liquidacion', desde)
-        .lte('fecha_liquidacion', hasta)
+      const [reales, historicas] = await Promise.all([
+        supabase
+          .from('liquidaciones')
+          .select('importe_liquidado, importe_facturado')
+          .eq('tipo_liquidacion', 'NORMAL')
+          .neq('estado', 'ANULADA')
+          .gte('fecha_liquidacion', desde)
+          .lte('fecha_liquidacion', hasta),
+        supabase
+          .from('v_facturacion_historica_normalizada')
+          .select('importe_liquidado, importe_facturado')
+          .gte('fecha_liquidacion', desde)
+          .lte('fecha_liquidacion', hasta),
+      ])
 
-      if (error) throw new Error(error.message)
-      return sumarIngresos(data ?? [])
+      if (reales.error) throw new Error(reales.error.message)
+      if (historicas.error) throw new Error(historicas.error.message)
+
+      return sumarIngresos([
+        ...(reales.data ?? []),
+        ...(historicas.data ?? []).map((r) => ({
+          importe_liquidado: r.importe_liquidado ?? 0,
+          importe_facturado: r.importe_facturado,
+        })),
+      ])
     }
 
     try {
