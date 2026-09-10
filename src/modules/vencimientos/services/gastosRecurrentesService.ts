@@ -3,10 +3,12 @@ import type { ServiceResult } from '@/shared/utils/serviceResult'
 import { gastoRecurrenteSchema } from '../schemas/gastoRecurrenteSchema'
 import type { TGastoRecurrenteForm } from '../schemas/gastoRecurrenteSchema'
 import type { TGastoRecurrente, TProximoVencimiento } from '../types'
-import { calcularProximaFechaVencimiento } from '../utils/fechas'
 
 export const gastosRecurrentesService = {
-  async getAll(opts?: { includeInactive?: boolean; categoriaId?: string }): Promise<ServiceResult<TGastoRecurrente[]>> {
+  async getAll(opts?: {
+    includeInactive?: boolean
+    categoriaId?: string
+  }): Promise<ServiceResult<TGastoRecurrente[]>> {
     let query = supabase
       .from('gastos_recurrentes')
       .select('*, categorias_gastos(nombre, color, activo)')
@@ -39,16 +41,14 @@ export const gastosRecurrentesService = {
 
   async create(form: TGastoRecurrenteForm): Promise<ServiceResult<TGastoRecurrente>> {
     const parsed = gastoRecurrenteSchema.safeParse(form)
-    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
 
-    const payload = {
-      ...parsed.data,
-      proxima_fecha_vencimiento: calcularProximaFechaVencimiento(parsed.data.dia_vencimiento),
-    }
-
+    // proxima_fecha_vencimiento la calcula la DB (trigger
+    // trg_gastos_recurrentes_proxima_fecha). Mandarla desde acá duplicaba la regla.
     const { data, error } = await supabase
       .from('gastos_recurrentes')
-      .insert(payload)
+      .insert(parsed.data)
       .select('*, categorias_gastos(nombre, color, activo)')
       .single()
 
@@ -56,20 +56,20 @@ export const gastosRecurrentesService = {
     return { ok: true, data: data as unknown as TGastoRecurrente }
   },
 
-  async update(id: string, form: Partial<TGastoRecurrenteForm>): Promise<ServiceResult<TGastoRecurrente>> {
+  async update(
+    id: string,
+    form: Partial<TGastoRecurrenteForm>
+  ): Promise<ServiceResult<TGastoRecurrente>> {
     const parsed = gastoRecurrenteSchema.partial().safeParse(form)
-    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
 
-    const payload = {
-      ...parsed.data,
-      ...(parsed.data.dia_vencimiento
-        ? { proxima_fecha_vencimiento: calcularProximaFechaVencimiento(parsed.data.dia_vencimiento) }
-        : {}),
-    }
-
+    // Nunca mandar proxima_fecha_vencimiento: el trigger la recalcula solo cuando
+    // cambia dia_vencimiento. Pisarla en cada edición devolvía a "pendiente" un
+    // gasto ya pagado (reporte de Paola, 2026-09-10).
     const { data, error } = await supabase
       .from('gastos_recurrentes')
-      .update(payload)
+      .update(parsed.data)
       .eq('id', id)
       .select('*, categorias_gastos(nombre, color, activo)')
       .single()

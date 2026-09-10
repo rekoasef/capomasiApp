@@ -212,3 +212,40 @@ Se unieron las dos fuentes en vistas nuevas (migraciones 0077 y 0078). Los compa
 - El total del comparativo anual.
 
 Hay que preguntarle si está bien cargada. Si no, se corrige en el Excel y se recarga la tabla entera.
+
+---
+
+## 2026-09-10
+
+| #   | Pedido                                                                   | Estado            |
+| :-- | :----------------------------------------------------------------------- | :---------------- |
+| 1   | "El cable y las expensas las marco como pagadas y me vuelven a aparecer" | ✅ migración 0079 |
+
+### 1 — Gastos recurrentes que revivían después de pagarlos
+
+Textual: _"RENZO EL CABLE Y LAS EXPENSAS LAS MARCO COMO PAGADAS Y ME VUELVEN A APARECER"_.
+
+Estaba pasando de verdad, y en tres gastos, no dos:
+
+```
+CABLE IMAGEN ARMST.  próxima 2026-09-10  último pagado 2026-09-10
+EXPENSAS             próxima 2026-09-10  último pagado 2026-09-10
+GAS CASA             próxima 2026-10-03  último pagado 2026-10-03
+```
+
+**No era el pago.** Registrar el pago funcionaba bien: `fn_registrar_pago_gasto` avanzaba la fecha al mes siguiente. Lo que la traía de vuelta era **editar el gasto después**. Los timestamps lo dejan claro: el pago del cable es del 07/09 a las 16:44 y el gasto se editó el 10/09 a las 17:52; los gastos que ella no editó quedaron todos bien.
+
+**Causa:** la regla de "dónde cae el próximo vencimiento" estaba escrita dos veces — en `fn_calcular_proxima_fecha_gasto` (DB) y en `calcularProximaFechaVencimiento` (cliente). `gastosRecurrentesService.update()` la recalculaba **desde hoy** y la mandaba en el payload de cada edición, y el trigger de la DB no la revertía porque solo recalcula cuando cambia `dia_vencimiento`. Con vencimiento el día 10 y editando un día 10, el resultado era volver al período ya pagado.
+
+**Se arregló en los dos lados:**
+
+- El cálculo sale del cliente. El service ya no manda `proxima_fecha_vencimiento` ni en `create` ni en `update`; la pone la DB (regla 4 de `CLAUDE.md`: una regla de negocio, un solo lugar). Se borraron `calcularProximaFechaVencimiento` y `avanzarFechaVencimiento` de `utils/fechas.ts` — la segunda ya no se usaba ni en producción.
+- Red de seguridad en la DB: el trigger ahora corre en **cualquier** UPDATE y nunca deja la próxima fecha en un período que ya tiene pago registrado, venga de donde venga.
+
+**Un efecto de rebote que hubo que resolver:** `fn_eliminar_pago_gasto` retrocedía la fecha _antes_ de borrar el pago, así que el guard nuevo veía el pago que se estaba borrando y volvía a empujar la fecha adelante — deshacer un pago habría dejado de funcionar. Se reordenó: primero el `DELETE`, después el retroceso. Verificado en seco que deshacer sigue devolviendo la fecha al período correcto.
+
+**Sobre el `NOT NULL`:** como el cliente ya no manda la columna, el tipo generado la seguía exigiendo en el `INSERT`. Se cambió el `NOT NULL` por un `CHECK (proxima_fecha_vencimiento IS NOT NULL)`, que garantiza lo mismo (el trigger `BEFORE` corre antes de los checks) pero deja la columna opcional en el tipo.
+
+Las tres filas quedaron reparadas en producción.
+
+**Para que Paola verifique:** entrar a Gastos, ver que el cable, las expensas y el gas de casa ya no figuran pendientes, y después editar cualquiera de esos tres (cambiarle una nota) y confirmar que no vuelven a aparecer.
