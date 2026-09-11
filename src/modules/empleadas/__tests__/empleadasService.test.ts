@@ -176,6 +176,86 @@ describe('empleadasService.crearLiquidacion', () => {
   })
 })
 
+// ── actualizarPago / eliminarPago ────────────────────────────
+
+const pagoValido = {
+  empleada_id: UUID,
+  periodo_mes: 9,
+  periodo_anio: 2026,
+  tipo_pago: 'TRANSFERENCIA' as const,
+  importe: 1428333,
+  fecha_pago: '2026-09-11',
+}
+
+describe('empleadasService.actualizarPago', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('corrige el importe de un pago mal cargado', async () => {
+    const chain = mockChain({
+      single: jest.fn().mockResolvedValue({
+        data: { ...pagoValido, id: 'p-1', importe: 1283128 },
+        error: null,
+      }),
+    })
+
+    const result = await empleadasService.actualizarPago('p-1', {
+      ...pagoValido,
+      importe: 1283128,
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.importe).toBe(1283128)
+    expect(chain.eq).toHaveBeenCalledWith('id', 'p-1')
+  })
+
+  it('retorna VALIDATION_ERROR si el importe es cero', async () => {
+    const result = await empleadasService.actualizarPago('p-1', { ...pagoValido, importe: 0 })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('retorna VALIDATION_ERROR si el tipo de pago no existe', async () => {
+    const result = await empleadasService.actualizarPago('p-1', {
+      ...pagoValido,
+      tipo_pago: 'CRIPTO' as unknown as 'TRANSFERENCIA',
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('retorna DB_ERROR si falla la query', async () => {
+    mockChain({
+      single: jest.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+    })
+
+    const result = await empleadasService.actualizarPago('p-1', pagoValido)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
+  })
+})
+
+describe('empleadasService.eliminarPago', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('elimina el pago por id', async () => {
+    const chain = mockChain({ eq: jest.fn().mockResolvedValue({ error: null }) })
+
+    const result = await empleadasService.eliminarPago('p-1')
+
+    expect(result.ok).toBe(true)
+    expect(chain.delete).toHaveBeenCalled()
+    expect(chain.eq).toHaveBeenCalledWith('id', 'p-1')
+  })
+
+  it('retorna DB_ERROR si falla la query', async () => {
+    mockChain({ eq: jest.fn().mockResolvedValue({ error: { message: 'DB error' } }) })
+
+    const result = await empleadasService.eliminarPago('p-1')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
+  })
+})
+
 // ── getResumenPeriodo ────────────────────────────────────────
 
 describe('empleadasService.getResumenPeriodo', () => {
