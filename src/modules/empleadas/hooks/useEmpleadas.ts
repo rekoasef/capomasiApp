@@ -116,6 +116,15 @@ export function usePagosEmpleada(empleadaId: string, anio?: number) {
   })
 }
 
+// Un pago de sueldo mueve la caja (trigger de la 0049), así que las tres
+// mutaciones invalidan también Fondos.
+function invalidarPagoEmpleada(qc: ReturnType<typeof useQueryClient>, empleadaId: string) {
+  qc.invalidateQueries({ queryKey: ['pagos_empleadas', empleadaId] })
+  qc.invalidateQueries({ queryKey: ['resumen_periodo'] })
+  qc.invalidateQueries({ queryKey: ['fondos_movimientos'] })
+  qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
+}
+
 export function useRegistrarPagoEmpleada(empleadaId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -126,8 +135,38 @@ export function useRegistrarPagoEmpleada(empleadaId: string) {
         return
       }
       toast.success('Pago registrado')
-      qc.invalidateQueries({ queryKey: ['pagos_empleadas', empleadaId] })
-      qc.invalidateQueries({ queryKey: ['resumen_periodo'] })
+      invalidarPagoEmpleada(qc, empleadaId)
+    },
+  })
+}
+
+export function useActualizarPagoEmpleada(empleadaId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, form }: { id: string; form: TPagoEmpleadaForm }) =>
+      empleadasService.actualizarPago(id, form),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success('Pago actualizado')
+      invalidarPagoEmpleada(qc, empleadaId)
+    },
+  })
+}
+
+export function useEliminarPagoEmpleada(empleadaId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => empleadasService.eliminarPago(id),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success('Pago eliminado')
+      invalidarPagoEmpleada(qc, empleadaId)
     },
   })
 }

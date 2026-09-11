@@ -134,6 +134,29 @@ export const empleadasService = {
     return { ok: true, data: data as TPagoEmpleada }
   },
 
+  async actualizarPago(id: string, form: TPagoEmpleadaForm): Promise<ServiceResult<TPagoEmpleada>> {
+    const parsed = pagoEmpleadaSchema.safeParse(form)
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    // El movimiento de fondos que generó este pago lo re-sincroniza el
+    // trigger de la 0081, no hace falta tocarlo desde acá.
+    const { data, error } = await supabase
+      .from('pagos_empleadas')
+      .update(parsed.data)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: data as TPagoEmpleada }
+  },
+
+  async eliminarPago(id: string): Promise<ServiceResult<void>> {
+    // El EGRESO en fondos se va con el pago: lo borra el trigger de la 0081.
+    const { error } = await supabase.from('pagos_empleadas').delete().eq('id', id)
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: undefined }
+  },
+
   // --- Resumen por periodo ---
 
   async getResumenPeriodo(anio: number, mes: number): Promise<ServiceResult<TResumenPeriodo[]>> {

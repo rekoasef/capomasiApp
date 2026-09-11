@@ -12,6 +12,8 @@ import {
   useEliminarLiquidacionEmpleada,
   usePagosEmpleada,
   useRegistrarPagoEmpleada,
+  useActualizarPagoEmpleada,
+  useEliminarPagoEmpleada,
   useEmpleadaById,
 } from '../hooks/useEmpleadas'
 import { liquidacionEmpleadaSchema, pagoEmpleadaSchema } from '../schemas/empleadaSchema'
@@ -28,7 +30,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
-import { Plus, Trash2, KeyRound, CheckCircle2 } from 'lucide-react'
+import { Plus, Trash2, Pencil, KeyRound, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth/useAuth'
 import { useParametros } from '@/shared/hooks/useParametros'
 import {
@@ -656,40 +658,61 @@ function PagosSection({
   totalPagado: number
 }) {
   const [showForm, setShowForm] = useState(false)
+  // Cuando hay un pago en edición el mismo formulario pasa a modo editar.
+  const [editando, setEditando] = useState<TPagoEmpleada | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
   const registrar = useRegistrarPagoEmpleada(empleadaId)
+  const actualizar = useActualizarPagoEmpleada(empleadaId)
+  const eliminar = useEliminarPagoEmpleada(empleadaId)
+
+  const valoresIniciales = (): TPagoEmpleadaForm => ({
+    empleada_id: empleadaId,
+    periodo_mes: mes,
+    periodo_anio: anio,
+    tipo_pago: 'TRANSFERENCIA',
+    importe: 0,
+    fecha_pago: toLocalDateInputValue(),
+  })
 
   const form = useForm<TPagoEmpleadaForm>({
     resolver: zodResolver(pagoEmpleadaSchema),
-    defaultValues: {
-      empleada_id: empleadaId,
-      periodo_mes: mes,
-      periodo_anio: anio,
-      tipo_pago: 'TRANSFERENCIA',
-      importe: 0,
-      fecha_pago: toLocalDateInputValue(),
-    },
+    defaultValues: valoresIniciales(),
   })
 
+  const cerrarForm = () => {
+    form.reset(valoresIniciales())
+    setEditando(null)
+    setShowForm(false)
+  }
+
+  const abrirEdicion = (p: TPagoEmpleada) => {
+    form.reset({
+      empleada_id: p.empleada_id,
+      periodo_mes: p.periodo_mes,
+      periodo_anio: p.periodo_anio,
+      tipo_pago: p.tipo_pago,
+      importe: Number(p.importe),
+      fecha_pago: p.fecha_pago,
+      cuenta_bancaria: p.cuenta_bancaria ?? '',
+      notas: p.notas ?? '',
+    })
+    setEditando(p)
+    setShowForm(true)
+  }
+
   const onSubmit = form.handleSubmit((data) => {
-    registrar.mutate(
-      { ...data, periodo_mes: mes, periodo_anio: anio },
-      {
-        onSuccess: (r) => {
-          if (r.ok) {
-            form.reset({
-              empleada_id: empleadaId,
-              periodo_mes: mes,
-              periodo_anio: anio,
-              tipo_pago: 'TRANSFERENCIA',
-              importe: 0,
-              fecha_pago: toLocalDateInputValue(),
-            })
-            setShowForm(false)
-          }
-        },
-      }
-    )
+    const payload = { ...data, periodo_mes: mes, periodo_anio: anio }
+    if (editando) {
+      actualizar.mutate(
+        { id: editando.id, form: payload },
+        { onSuccess: (r) => r.ok && cerrarForm() }
+      )
+      return
+    }
+    registrar.mutate(payload, { onSuccess: (r) => r.ok && cerrarForm() })
   })
+
+  const guardando = registrar.isPending || actualizar.isPending
 
   return (
     <div className="space-y-3">
@@ -702,7 +725,11 @@ function PagosSection({
             </span>
           )}
         </h3>
-        <Button size="sm" variant="outline" onClick={() => setShowForm((v) => !v)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => (showForm ? cerrarForm() : setShowForm(true))}
+        >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Registrar pago
         </Button>
@@ -742,10 +769,10 @@ function PagosSection({
           </div>
           <Input label="Notas" {...form.register('notas')} />
           <div className="flex gap-2">
-            <Button type="submit" size="sm" disabled={registrar.isPending}>
-              {registrar.isPending ? 'Guardando...' : 'Guardar'}
+            <Button type="submit" size="sm" disabled={guardando}>
+              {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Guardar'}
             </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>
+            <Button type="button" size="sm" variant="outline" onClick={cerrarForm}>
               Cancelar
             </Button>
           </div>
@@ -779,6 +806,7 @@ function PagosSection({
                 <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
                   Notas
                 </th>
+                <th className="w-20 px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-border bg-surface divide-y">
@@ -794,12 +822,45 @@ function PagosSection({
                     {formatMoney(Number(p.importe))}
                   </td>
                   <td className="text-muted-foreground px-4 py-2.5 text-xs">{p.notas ?? '—'}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => abrirEdicion(p)}
+                        aria-label="Editar pago"
+                        className="text-muted-foreground hover:text-primary p-1"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteId(p.id)}
+                        aria-label="Eliminar pago"
+                        className="text-muted-foreground hover:text-danger p-1"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteId}
+        title="Eliminar pago"
+        description="Se eliminará el pago y el egreso que generó en Fondos. No se puede deshacer."
+        confirmLabel="Eliminar"
+        onConfirm={() => {
+          if (deleteId) eliminar.mutate(deleteId)
+          setDeleteId(null)
+        }}
+        onCancel={() => setDeleteId(null)}
+        isPending={eliminar.isPending}
+      />
     </div>
   )
 }
