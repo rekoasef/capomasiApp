@@ -293,3 +293,136 @@ describe('recibosService.anular', () => {
     if (!result.ok) expect(result.code).toBe('DB_ERROR')
   })
 })
+
+// ── editar / eliminar (migración 0085) ───────────────────────
+// La regla de "solo si no está imputado" la hace cumplir la DB
+// (fn_verificar_recibo_editable). Acá se prueba que el service arme bien
+// el payload, cree los cheques nuevos y limpie si el RPC rechaza.
+
+describe('recibosService.editar', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  const RECIBO = 'c47ac10b-58cc-4372-a567-0e02b2c3d479'
+  const CLIENTE = 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+
+  const base = {
+    recibo_id: RECIBO,
+    fecha: '2026-09-16',
+    medios: [{ tipo_pago: 'EFECTIVO', importe: 500 }],
+  }
+
+  it('manda fecha, medios y notas al RPC', async () => {
+    mockChain({
+      single: jest.fn().mockResolvedValue({ data: { cliente_id: CLIENTE }, error: null }),
+    })
+    mockRpc.mockResolvedValue({ data: { id: RECIBO, importe: 500 }, error: null })
+
+    const result = await recibosService.editar({ ...base, notas: 'corregido' })
+
+    expect(result.ok).toBe(true)
+    expect(mockRpc).toHaveBeenCalledWith('fn_editar_recibo', {
+      p_recibo_id: RECIBO,
+      p_fecha: '2026-09-16',
+      p_medios: [expect.objectContaining({ tipo_pago: 'EFECTIVO', importe: 500 })],
+      p_notas: 'corregido',
+    })
+  })
+
+  it('crea un cheque nuevo por cada medio CHEQUE y lo pasa por id', async () => {
+    const single = jest
+      .fn()
+      .mockResolvedValueOnce({ data: { cliente_id: CLIENTE }, error: null })
+      .mockResolvedValueOnce({ data: { id: 'cheque-nuevo' }, error: null })
+    mockChain({ single })
+    mockRpc.mockResolvedValue({ data: { id: RECIBO }, error: null })
+
+    const result = await recibosService.editar({
+      ...base,
+      medios: [{ tipo_pago: 'CHEQUE', importe: 2000, cheque_numero: '77', cheque_banco: 'Macro' }],
+    })
+
+    expect(result.ok).toBe(true)
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_editar_recibo',
+      expect.objectContaining({
+        p_medios: [{ tipo_pago: 'CHEQUE', importe: 2000, cheque_id: 'cheque-nuevo' }],
+      })
+    )
+  })
+
+  it('borra los cheques que acababa de crear si el RPC rechaza', async () => {
+    const single = jest
+      .fn()
+      .mockResolvedValueOnce({ data: { cliente_id: CLIENTE }, error: null })
+      .mockResolvedValueOnce({ data: { id: 'cheque-nuevo' }, error: null })
+    const chain = mockChain({ single })
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'Este recibo ya está imputado a 1 factura(s)' },
+    })
+
+    const result = await recibosService.editar({
+      ...base,
+      medios: [{ tipo_pago: 'CHEQUE', importe: 2000, cheque_numero: '77', cheque_banco: 'Macro' }],
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
+    expect(chain.delete).toHaveBeenCalled()
+    expect(chain.in).toHaveBeenCalledWith('id', ['cheque-nuevo'])
+  })
+
+  it('no llama al RPC si falta el banco de un cheque', async () => {
+    mockChain({
+      single: jest.fn().mockResolvedValue({ data: { cliente_id: CLIENTE }, error: null }),
+    })
+
+    const result = await recibosService.editar({
+      ...base,
+      medios: [{ tipo_pago: 'CHEQUE', importe: 2000, cheque_numero: '77' }],
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('rechaza un recibo sin medios', async () => {
+    const result = await recibosService.editar({ ...base, medios: [] })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('recibosService.eliminar', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  const RECIBO = 'c47ac10b-58cc-4372-a567-0e02b2c3d479'
+
+  it('llama al RPC con el id del recibo', async () => {
+    mockRpc.mockResolvedValue({ data: true, error: null })
+
+    const result = await recibosService.eliminar(RECIBO)
+
+    expect(result.ok).toBe(true)
+    expect(mockRpc).toHaveBeenCalledWith('fn_eliminar_recibo', { p_recibo_id: RECIBO })
+  })
+
+  // El mensaje viene de la DB: es el que ve Paola en el toast.
+  it('devuelve DB_ERROR con el mensaje de la DB cuando el cheque ya se movió', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'El cheque N° 123 (Macro) ya está depositado.' },
+    })
+
+    const result = await recibosService.eliminar(RECIBO)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.code).toBe('DB_ERROR')
+      expect(result.error).toContain('ya está depositado')
+    }
+  })
+})
