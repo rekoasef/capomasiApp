@@ -153,6 +153,8 @@ SUPABASE\_SERVICE\_ROLE\_KEY=eyJ...
 
 **Migración 0083 (2026-09-17):** `fn_transferir_fondos` acepta **un importe por lado** (`p_importe_destino`), así que comprar y vender dólares por fin se registra bien. Los importes solo pueden diferir cuando exactamente una punta es `usd`; entre cuentas en pesos la DB exige que entre lo mismo que sale. **Aplicada en producción.**
 
+**Migración 0084 (2026-09-17):** cada tarjeta de Fondos (banco, efectivo, dólares, tarallo) tiene un botón **"Ajustar balance"**: Paola carga el saldo real — la tarjeta de Dólares decía US$ 50 porque nunca se cargó un saldo inicial de caja — y `fn_ajustar_saldo_fondos` escribe **un movimiento por la diferencia** (INGRESO si falta plata, EGRESO si sobra), con nota obligatoria y `referencia_tipo = 'ajuste_saldo'`. `v_saldo_fondos` sigue siendo la suma de los movimientos. **Cheques en cartera no se ajusta** — ese saldo lo manda el lifecycle de cada cheque. **Aplicada en producción.**
+
 **Pendientes reales (no de código) antes de la entrega final:** personalizar el PDF de liquidación/recibo según modelo de Paola (cambio simple, se puede hacer ya en producción) y publicar en subdominio de prueba. El saldo inicial de cuenta corriente se implementó el 2026-09-03 a pedido de Paola — ver sección 19. Ver memoria de sesión "reunion_2026-08-04_revision_y_cierre" para el detalle completo.
 
 ---

@@ -1,12 +1,17 @@
 import { supabase } from '@/lib/supabase/client'
 import {
+  ajusteSaldoFondosSchema,
   esCambioDeMoneda,
   fondoMovimientoSchema,
   transferenciaFondosSchema,
 } from '../schemas/fondoSchema'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
 import type { TCuentaFondos, TFondoMovimiento, TSaldoFondos } from '../types'
-import type { TFondoMovimientoForm, TTransferenciaFondosForm } from '../schemas/fondoSchema'
+import type {
+  TAjusteSaldoFondosForm,
+  TFondoMovimientoForm,
+  TTransferenciaFondosForm,
+} from '../schemas/fondoSchema'
 
 const COLUMNA_POR_CUENTA: Record<TCuentaFondos, string> = {
   banco: 'importe_banco',
@@ -100,5 +105,26 @@ export const fondosService = {
     })
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: (data ?? []) as unknown as TFondoMovimiento[] }
+  },
+
+  // El importe del ajuste lo calcula la DB: es la diferencia contra
+  // v_saldo_fondos, y sacarla acá significaria leer el saldo, decidir
+  // y escribir en tres viajes, con el saldo cambiando en el medio.
+  async ajustarSaldo(form: TAjusteSaldoFondosForm): Promise<ServiceResult<TFondoMovimiento>> {
+    const parsed = ajusteSaldoFondosSchema.safeParse(form)
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+
+    const { data, error } = await supabase.rpc('fn_ajustar_saldo_fondos', {
+      p_cuenta: parsed.data.cuenta,
+      p_saldo_real: parsed.data.saldo_real,
+      p_fecha: parsed.data.fecha,
+      p_notas: parsed.data.notas,
+    })
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    const rows = (data ?? []) as unknown as TFondoMovimiento[]
+    if (!rows.length)
+      return { ok: false, error: 'No se pudo registrar el ajuste', code: 'DB_ERROR' }
+    return { ok: true, data: rows[0] }
   },
 }

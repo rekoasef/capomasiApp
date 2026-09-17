@@ -370,3 +370,30 @@ No se guarda la cotización en una columna: las dos filas quedan unidas por el m
 **Se hizo `DROP` + `CREATE` en vez de `CREATE OR REPLACE`:** agregar un parámetro con default crea una **segunda** función en vez de reemplazar la vieja, y las dos sobrecargas dejarían ambigua la llamada de seis argumentos desde PostgREST.
 
 **Verificado** en seco contra producción dentro de `BEGIN … ROLLBACK`, 7 chequeos: compra de dólares (efectivo −$1.248.000 / USD +800, dos filas con el mismo `referencia_id`), venta de dólares, rechazo de pesos con importes distintos, la llamada vieja de 6 argumentos sin cambios, mismo importe explícito permitido, importe destino en cero rechazado, y que quede **una sola** sobrecarga. Aplicada.
+
+### 4 — Ajustar el balance de una cuenta a mano (migración 0084)
+
+Audio del 2026-09-17, sobre la misma captura: _"que ella pueda cambiar lo que es el monto... si vos ves, tuve un egreso de 750 dólares y después un ingreso de 800. En ese caso está perfecto, ahí muestra 50 dólares. Pero en realidad ella ya tenía esos 750 y ahora tiene 800... capaz que hace un botón en cada cuadrado que diga ajustar balance... pone 800 y abajo pone una nota... que quede registrado como un movimiento"_.
+
+**La cuenta del sistema estaba bien; le faltaba el punto de partida.** La tarjeta de Dólares decía US$ 50 porque en la base solo hay un egreso de US$ 750 y un ingreso de US$ 800. La resta es correcta, pero **los 750 ya los tenía antes de que el sistema existiera**: nunca se cargó un saldo inicial de caja. Lo mismo le puede pasar en cualquier cuenta cada vez que arrastra plata de antes o se le escapa un movimiento.
+
+Hasta ahora la única salida era inventar un INGRESO o EGRESO suelto con "Registrar movimiento" y elegir un concepto de la lista que no dice nada del ajuste: queda indistinguible de plata que entró o salió de verdad.
+
+**Cada tarjeta tiene ahora un botón "Ajustar balance"** (solo admin). Se abre un panel que muestra el saldo que calculó el sistema, pide el **saldo real** y una **nota obligatoria**, y anticipa en vivo el movimiento que va a crear ("Se va a registrar un **Ingreso** de US$ 750,00 en Dólares"). Al guardar, `fn_ajustar_saldo_fondos` escribe **un movimiento por la diferencia**:
+
+- falta plata en el sistema → INGRESO
+- sobra → EGRESO
+
+No se toca ninguna fila vieja ni se guarda el saldo en una columna: `v_saldo_fondos` sigue siendo la suma de los movimientos y el ajuste es uno de ellos, con `concepto = 'Ajuste de saldo — <cuenta>'` y `referencia_tipo = 'ajuste_saldo'` para poder distinguirlo del resto. Así el saldo cierra sin dejar de ser auditable de dónde salió cada peso.
+
+**La nota es obligatoria en los dos lados** (Zod pide 5 caracteres, la DB rechaza vacío o solo espacios): es el único dato que explica por qué el saldo calculado estaba mal, y sin ella el ajuste es un número sin origen.
+
+**La diferencia la calcula la DB**, no el service: sacarla en el cliente serían tres viajes (leer el saldo, decidir, escribir) con el saldo cambiando en el medio.
+
+**Se puede ajustar a un saldo negativo o a cero** — el banco de Paola está en descubierto (−$4.946.410,50), así que validar el signo habría dejado esa tarjeta sin arreglo posible.
+
+**Cheques en cartera queda afuera a propósito.** Ese saldo es la suma de los cheques EN_CARTERA, así que ajustarlo a mano lo desincronizaría de la tabla `cheques` y la cartera mostraría un total que no se corresponde con ningún cheque de la lista. Si ahí hay una diferencia, se arregla con el cheque que falta o sobra (salida sin factura, 0082). La tarjeta de Cheques en cartera es la única sin botón.
+
+**Verificado** en seco contra producción dentro de `BEGIN … ROLLBACK`, 7 chequeos: su caso real (US$ 50 → 800 da INGRESO de 750 y la tarjeta queda en 800), ajuste a la baja (→ EGRESO de 700), ajustar al mismo saldo rechazado, nota en blanco rechazada, `cheques_cartera` rechazada, redondeo a 2 decimales, y que no se mueva ninguna otra cuenta. Aplicada.
+
+**Nota:** esto también es la herramienta que faltaba para cerrar el arrastre viejo de cada cuenta, no solo el de dólares. El efectivo inflado en $1.248.000 **no se arregla con un ajuste**: eso tiene una causa conocida (el cheque de la cueva sin registrar y la compra de dólares mal cargada) y se corrige con 0082 + 0083, que dejan el rastro real. El ajuste es para lo que no tiene explicación movimiento por movimiento.

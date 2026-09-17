@@ -1,4 +1,4 @@
-import { chequeManualSchema } from '../schemas/fondoSchema'
+import { ajusteSaldoFondosSchema, chequeManualSchema } from '../schemas/fondoSchema'
 
 const UUID = 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
 
@@ -72,5 +72,49 @@ describe('chequeManualSchema', () => {
       false
     )
     expect(chequeManualSchema.safeParse({ ...base, numero: '123', banco: '' }).success).toBe(false)
+  })
+})
+
+// Ajustar el balance de una cuenta a mano (pedido de Paola, 2026-09-17).
+describe('ajusteSaldoFondosSchema', () => {
+  const base = {
+    cuenta: 'usd' as const,
+    fecha: '2026-09-17',
+    notas: 'no cargué el saldo inicial, hoy tengo US$ 800',
+  }
+
+  it('acepta un ajuste con nota', () => {
+    expect(ajusteSaldoFondosSchema.safeParse({ ...base, saldo_real: 800 }).success).toBe(true)
+  })
+
+  it('acepta saldo negativo y cero — el banco puede estar en descubierto', () => {
+    expect(ajusteSaldoFondosSchema.safeParse({ ...base, saldo_real: -4946410.5 }).success).toBe(
+      true
+    )
+    expect(ajusteSaldoFondosSchema.safeParse({ ...base, saldo_real: 0 }).success).toBe(true)
+  })
+
+  it('exige una nota que explique el ajuste', () => {
+    expect(ajusteSaldoFondosSchema.safeParse({ ...base, saldo_real: 800, notas: '' }).success).toBe(
+      false
+    )
+    expect(
+      ajusteSaldoFondosSchema.safeParse({ ...base, saldo_real: 800, notas: '   ' }).success
+    ).toBe(false)
+  })
+
+  it('rechaza un saldo vacío o no numérico', () => {
+    expect(ajusteSaldoFondosSchema.safeParse({ ...base, saldo_real: NaN }).success).toBe(false)
+    expect(ajusteSaldoFondosSchema.safeParse({ ...base }).success).toBe(false)
+  })
+
+  it('rechaza cheques en cartera: ese saldo lo manda el lifecycle de cada cheque', () => {
+    expect(
+      ajusteSaldoFondosSchema.safeParse({
+        ...base,
+        cuenta: 'cheques_cartera',
+        saldo_real: 800,
+      }).success
+    ).toBe(false)
   })
 })
