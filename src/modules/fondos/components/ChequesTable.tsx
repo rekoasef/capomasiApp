@@ -9,9 +9,15 @@ import {
   useConfirmarAcreditacionCheque,
   useDesmarcarAcreditacionCheque,
   useEndosarChequeAProveedor,
+  useSalidaChequeSinFactura,
   useCrearChequeManual,
 } from '../hooks/useFondos'
-import { chequeManualSchema, type TChequeManualForm } from '../schemas/fondoSchema'
+import {
+  chequeManualSchema,
+  chequeSalidaSchema,
+  type TChequeManualForm,
+  type TChequeSalidaForm,
+} from '../schemas/fondoSchema'
 import { useProveedores, useComprasProveedores } from '@/modules/proveedores/hooks/useProveedores'
 import { useClientes } from '@/modules/clientes/hooks/useClientes'
 import { formatMoney, formatDate } from '@/shared/utils/formatters'
@@ -47,6 +53,14 @@ const ESTADO_LABEL: Record<TCheque['estado'], string> = {
   ENDOSADO: 'Endosado',
   RECHAZADO: 'Rechazado',
   ANULADO: 'Anulado',
+}
+
+// En el badge alcanza con la palabra suelta; en el select conviene
+// explicarla, porque "Endosado" es donde Paola tiene que entrar para
+// sacar un cheque que cambió en una cueva o usó para algo suyo.
+const ESTADO_OPCION_LABEL: Partial<Record<TCheque['estado'], string>> = {
+  DEPOSITADO: 'Depositado en el banco',
+  ENDOSADO: 'Entregado / endosado (se lo di a alguien)',
 }
 
 const TODOS_LOS_ESTADOS: TCheque['estado'][] = [
@@ -157,7 +171,7 @@ export function ChequesTable() {
                 <option value="">Seleccionar...</option>
                 {opcionesEstado.map((e) => (
                   <option key={e} value={e}>
-                    {ESTADO_LABEL[e]}
+                    {ESTADO_OPCION_LABEL[e] ?? ESTADO_LABEL[e]}
                   </option>
                 ))}
               </select>
@@ -178,7 +192,7 @@ export function ChequesTable() {
           </div>
 
           {nuevoEstado === 'ENDOSADO' && accionCheque ? (
-            <EndosarChequeForm
+            <EntregaChequeForm
               cheque={accionCheque}
               onDone={() => {
                 setAccionId(null)
@@ -376,6 +390,178 @@ function EstadoBadge({ estado }: { estado: TCheque['estado'] }) {
       <Icon className="h-3 w-3" />
       {ESTADO_LABEL[estado]}
     </span>
+  )
+}
+
+// Un cheque de tercero puede salir de la cartera por tres caminos y solo
+// uno de ellos tiene factura detrás. Hasta la 0082 el formulario asumía
+// siempre el primero y dejaba a Paola sin salida para los otros dos.
+type TDestinoEntrega = 'PROVEEDOR' | 'CAMBIO_EFECTIVO' | 'PERSONAL'
+
+const DESTINOS_ENTREGA: { value: TDestinoEntrega; label: string; hint: string }[] = [
+  {
+    value: 'PROVEEDOR',
+    label: 'Se lo di a un proveedor',
+    hint: 'Para pagarle una factura suya que está impaga.',
+  },
+  {
+    value: 'CAMBIO_EFECTIVO',
+    label: 'Lo cambié en una cueva',
+    hint: 'Entregaste el cheque y te dieron plata a cambio, normalmente menos.',
+  },
+  {
+    value: 'PERSONAL',
+    label: 'Lo usé para algo mío',
+    hint: 'No es del estudio: el cheque sale de la cartera y no vuelve nada.',
+  },
+]
+
+function EntregaChequeForm({
+  cheque,
+  onDone,
+  onCancel,
+}: {
+  cheque: TCheque
+  onDone: () => void
+  onCancel: () => void
+}) {
+  const [destino, setDestino] = useState<TDestinoEntrega | ''>('')
+
+  return (
+    <div className="border-border space-y-3 border-t pt-3">
+      <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+        ¿Qué hiciste con el cheque de {formatMoney(cheque.importe)}?
+      </p>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {DESTINOS_ENTREGA.map((d) => (
+          <button
+            key={d.value}
+            type="button"
+            onClick={() => setDestino(d.value)}
+            className={`border p-3 text-left transition-colors ${
+              destino === d.value
+                ? 'border-primary bg-primary/10'
+                : 'border-border hover:border-foreground'
+            }`}
+          >
+            <span className="block text-sm font-medium">{d.label}</span>
+            <span className="text-muted-foreground mt-0.5 block text-[11px] leading-snug">
+              {d.hint}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {destino === 'PROVEEDOR' && (
+        <EndosarChequeForm cheque={cheque} onDone={onDone} onCancel={onCancel} />
+      )}
+      {(destino === 'CAMBIO_EFECTIVO' || destino === 'PERSONAL') && (
+        <SalidaSinFacturaForm
+          key={destino}
+          cheque={cheque}
+          destino={destino}
+          onDone={onDone}
+          onCancel={onCancel}
+        />
+      )}
+      {!destino && (
+        <Button size="sm" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+      )}
+    </div>
+  )
+}
+
+// Salida sin factura: el cheque se fue y no hay comprobante que imputar,
+// así que la nota es el único dato obligatorio. El tope contra el importe
+// del cheque lo valida fn_salida_cheque_sin_factura y su mensaje llega
+// como toast — no se repite acá (regla 4 de CLAUDE.md).
+function SalidaSinFacturaForm({
+  cheque,
+  destino,
+  onDone,
+  onCancel,
+}: {
+  cheque: TCheque
+  destino: 'CAMBIO_EFECTIVO' | 'PERSONAL'
+  onDone: () => void
+  onCancel: () => void
+}) {
+  const salida = useSalidaChequeSinFactura()
+  const esCambio = destino === 'CAMBIO_EFECTIVO'
+
+  const form = useForm<TChequeSalidaForm>({
+    resolver: zodResolver(chequeSalidaSchema) as unknown as Resolver<TChequeSalidaForm>,
+    defaultValues: {
+      destino,
+      fecha: toLocalDateInputValue(),
+      notas: '',
+      cuenta_recibido: 'efectivo',
+    },
+  })
+
+  const onSubmit = form.handleSubmit((data) => {
+    salida.mutate({ chequeId: cheque.id, form: data }, { onSuccess: (r) => r.ok && onDone() })
+  })
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-3">
+      {esCambio && (
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Cuánto te dieron *"
+            type="number"
+            step="0.01"
+            min="0.01"
+            max={cheque.importe}
+            {...form.register('importe_recibido', { valueAsNumber: true })}
+            error={form.formState.errors.importe_recibido?.message}
+          />
+          <div>
+            <label className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+              Lo recibí en *
+            </label>
+            <select
+              {...form.register('cuenta_recibido')}
+              className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+            >
+              <option value="efectivo">Efectivo</option>
+              <option value="banco">Transferencia al banco</option>
+            </select>
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="Fecha *"
+          type="date"
+          {...form.register('fecha')}
+          error={form.formState.errors.fecha?.message}
+        />
+      </div>
+      <Input
+        label="Qué hiciste con el cheque *"
+        placeholder={
+          esCambio ? 'Ej: lo cambié en la cueva de Rosario' : 'Ej: lo usé para pagar el colegio'
+        }
+        {...form.register('notas')}
+        error={form.formState.errors.notas?.message}
+      />
+      <p className="text-muted-foreground text-[11px] leading-snug">
+        {esCambio
+          ? `Salen ${formatMoney(cheque.importe)} de cheques en cartera y entra lo que te dieron. La diferencia queda como costo del cambio.`
+          : `Salen ${formatMoney(cheque.importe)} de cheques en cartera y no entra nada al estudio.`}
+      </p>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={salida.isPending}>
+          {salida.isPending ? 'Guardando...' : 'Confirmar salida'}
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
   )
 }
 

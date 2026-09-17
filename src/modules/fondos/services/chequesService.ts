@@ -2,7 +2,12 @@ import { supabase } from '@/lib/supabase/client'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
 import type { TCheque } from '@/modules/cobranzas/types'
 import type { TPagoProveedor } from '@/modules/proveedores/types'
-import { chequeManualSchema, type TChequeManualForm } from '../schemas/fondoSchema'
+import {
+  chequeManualSchema,
+  chequeSalidaSchema,
+  type TChequeManualForm,
+  type TChequeSalidaForm,
+} from '../schemas/fondoSchema'
 
 export type TEstadoCheque = TCheque['estado']
 
@@ -118,6 +123,31 @@ export const chequesService = {
     })
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: data as TPagoProveedor }
+  },
+
+  // Sacar un cheque de la cartera sin imputarlo a ninguna factura: lo
+  // cambió en una cueva/financiera (y entró efectivo o una
+  // transferencia por menos plata) o lo usó para algo personal. El
+  // cheque queda ENDOSADO y la nota cuenta qué pasó.
+  async salidaSinFactura(
+    chequeId: string,
+    form: TChequeSalidaForm
+  ): Promise<ServiceResult<TCheque>> {
+    const parsed = chequeSalidaSchema.safeParse(form)
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+
+    const esCambio = parsed.data.destino === 'CAMBIO_EFECTIVO'
+    const { data, error } = await supabase.rpc('fn_salida_cheque_sin_factura', {
+      p_cheque_id: chequeId,
+      p_destino: parsed.data.destino,
+      p_fecha: parsed.data.fecha,
+      p_notas: parsed.data.notas,
+      p_importe_recibido: esCambio ? (parsed.data.importe_recibido ?? undefined) : undefined,
+      p_cuenta_recibido: esCambio ? parsed.data.cuenta_recibido : undefined,
+    })
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: data as TCheque }
   },
 
   // Cargar un cheque que Paola ya tiene en mano por fuera de un recibo o un

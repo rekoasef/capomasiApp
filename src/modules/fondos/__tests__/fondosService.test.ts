@@ -21,6 +21,7 @@ function mockChain(overrides: Record<string, unknown> = {}) {
     update: jest.fn().mockReturnThis(),
     delete: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    neq: jest.fn().mockReturnThis(),
     not: jest.fn().mockReturnThis(),
     gte: jest.fn().mockReturnThis(),
     lte: jest.fn().mockReturnThis(),
@@ -58,6 +59,49 @@ describe('fondosService.getMovimientos', () => {
     const result = await fondosService.getMovimientos()
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('DB_ERROR')
+  })
+})
+
+// Paola: "los movimientos de tarallo y de dólares no los puedo ver en
+// ningún lado". Las tarjetas de saldo filtran el listado por cuenta.
+// Acá la query se encadena después de .range(), así que el mock tiene
+// que devolver la cadena y recién resolver cuando se la espera.
+
+describe('fondosService.getMovimientos — filtro por cuenta', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  function mockChainEncadenable() {
+    const respuesta = { data: [], error: null, count: 0 }
+    return mockChain({
+      range: jest.fn().mockReturnThis(),
+      then: (resolve: (v: typeof respuesta) => unknown) => Promise.resolve(respuesta).then(resolve),
+    })
+  }
+
+  it('filtra por la columna de importe de la cuenta elegida', async () => {
+    const chain = mockChainEncadenable()
+
+    const result = await fondosService.getMovimientos({ cuenta: 'usd' })
+
+    expect(result.ok).toBe(true)
+    expect(chain.neq).toHaveBeenCalledWith('importe_usd', 0)
+  })
+
+  it('usa la columna de cheques en cartera, que no es un importe más', async () => {
+    const chain = mockChainEncadenable()
+
+    await fondosService.getMovimientos({ cuenta: 'cheques_cartera' })
+
+    expect(chain.neq).toHaveBeenCalledWith('importe_cheques_cartera', 0)
+  })
+
+  it('sin cuenta no filtra por importe', async () => {
+    const chain = mockChainEncadenable()
+
+    await fondosService.getMovimientos({ desde: '2026-09-01' })
+
+    expect(chain.gte).toHaveBeenCalledWith('fecha', '2026-09-01')
+    expect(chain.neq).not.toHaveBeenCalled()
   })
 })
 
@@ -177,6 +221,104 @@ describe('fondosService.registrar', () => {
       importe_taralo: 80000,
     })
     expect(result.ok).toBe(true)
+  })
+})
+
+// ── fondosService.transferir con cotización ──────────────────
+// Comprar dólares mueve importes distintos de cada lado (0083).
+
+describe('fondosService.transferir', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('manda lo que entra cuando hay cambio de moneda', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null })
+
+    const result = await fondosService.transferir({
+      origen: 'efectivo',
+      destino: 'usd',
+      importe: 1248000,
+      importe_destino: 800,
+      fecha: '2026-09-17',
+      concepto: 'Compra de dólares',
+    })
+
+    expect(result.ok).toBe(true)
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_transferir_fondos',
+      expect.objectContaining({
+        p_origen: 'efectivo',
+        p_destino: 'usd',
+        p_importe: 1248000,
+        p_importe_destino: 800,
+      })
+    )
+  })
+
+  it('vale también vendiendo dólares', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null })
+
+    await fondosService.transferir({
+      origen: 'usd',
+      destino: 'banco',
+      importe: 500,
+      importe_destino: 790000,
+      fecha: '2026-09-17',
+      concepto: 'Venta de dólares',
+    })
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_transferir_fondos',
+      expect.objectContaining({ p_importe: 500, p_importe_destino: 790000 })
+    )
+  })
+
+  it('entre cuentas en pesos no manda importe de destino', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null })
+
+    await fondosService.transferir({
+      origen: 'banco',
+      destino: 'efectivo',
+      importe: 100000,
+      importe_destino: 99000,
+      fecha: '2026-09-17',
+      concepto: 'Retiro de caja',
+    })
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_transferir_fondos',
+      expect.objectContaining({ p_importe: 100000, p_importe_destino: undefined })
+    )
+  })
+
+  it('exige cuánto entra si hay cambio de moneda', async () => {
+    const result = await fondosService.transferir({
+      origen: 'efectivo',
+      destino: 'usd',
+      importe: 1248000,
+      fecha: '2026-09-17',
+      concepto: 'Compra de dólares',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.code).toBe('VALIDATION_ERROR')
+      expect(result.error).toMatch(/cuánto entra/i)
+    }
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('rechaza origen y destino iguales', async () => {
+    const result = await fondosService.transferir({
+      origen: 'usd',
+      destino: 'usd',
+      importe: 100,
+      fecha: '2026-09-17',
+      concepto: 'Nada',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+    expect(mockRpc).not.toHaveBeenCalled()
   })
 })
 
@@ -322,6 +464,102 @@ describe('chequesService.endosarAProveedor', () => {
       compraId: 'compra-1',
       importe: 5000,
       fechaPago: '2026-04-21',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
+  })
+})
+
+// ── chequesService.salidaSinFactura ──────────────────────────
+// Paola cambia cheques en una cueva o los usa para algo suyo: salen
+// de la cartera sin factura que imputar (migración 0082).
+
+describe('chequesService.salidaSinFactura', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('manda el importe recibido y la cuenta cuando lo cambió en una cueva', async () => {
+    mockRpc.mockResolvedValue({ data: { id: 'ch-1', estado: 'ENDOSADO' }, error: null })
+
+    const result = await chequesService.salidaSinFactura('ch-1', {
+      destino: 'CAMBIO_EFECTIVO',
+      fecha: '2026-09-17',
+      notas: 'Cambiado en la cueva',
+      importe_recibido: 200000,
+      cuenta_recibido: 'efectivo',
+    })
+
+    expect(result.ok).toBe(true)
+    expect(mockRpc).toHaveBeenCalledWith('fn_salida_cheque_sin_factura', {
+      p_cheque_id: 'ch-1',
+      p_destino: 'CAMBIO_EFECTIVO',
+      p_fecha: '2026-09-17',
+      p_notas: 'Cambiado en la cueva',
+      p_importe_recibido: 200000,
+      p_cuenta_recibido: 'efectivo',
+    })
+  })
+
+  it('no manda importe ni cuenta cuando el cheque se usó para algo personal', async () => {
+    mockRpc.mockResolvedValue({ data: { id: 'ch-1', estado: 'ENDOSADO' }, error: null })
+
+    await chequesService.salidaSinFactura('ch-1', {
+      destino: 'PERSONAL',
+      fecha: '2026-09-17',
+      notas: 'Lo usé para el colegio',
+      cuenta_recibido: 'efectivo',
+    })
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_salida_cheque_sin_factura',
+      expect.objectContaining({
+        p_destino: 'PERSONAL',
+        p_importe_recibido: undefined,
+        p_cuenta_recibido: undefined,
+      })
+    )
+  })
+
+  it('exige la nota: es el único dato que pidió Paola', async () => {
+    const result = await chequesService.salidaSinFactura('ch-1', {
+      destino: 'PERSONAL',
+      fecha: '2026-09-17',
+      notas: '  ',
+      cuenta_recibido: 'efectivo',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('exige cuánto le dieron si lo cambió en una cueva', async () => {
+    const result = await chequesService.salidaSinFactura('ch-1', {
+      destino: 'CAMBIO_EFECTIVO',
+      fecha: '2026-09-17',
+      notas: 'Cambiado en la cueva',
+      cuenta_recibido: 'efectivo',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.code).toBe('VALIDATION_ERROR')
+      expect(result.error).toMatch(/cuánto te dieron/i)
+    }
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('retorna DB_ERROR si el cheque ya no está en cartera', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'El cheque no está en cartera (estado actual: DEPOSITADO)' },
+    })
+
+    const result = await chequesService.salidaSinFactura('ch-1', {
+      destino: 'PERSONAL',
+      fecha: '2026-09-17',
+      notas: 'Lo usé para algo mío',
+      cuenta_recibido: 'efectivo',
     })
 
     expect(result.ok).toBe(false)

@@ -1,5 +1,9 @@
 export type TTipoMovimiento = 'INGRESO' | 'EGRESO' | 'MOVIMIENTO'
 
+// Las cinco cuentas de la caja. Cada una es una columna de importe en
+// fondos_movimientos y una tarjeta de saldo en Fondos.
+export type TCuentaFondos = 'banco' | 'cheques_cartera' | 'efectivo' | 'usd' | 'taralo'
+
 export interface TFondoMovimiento {
   id: string
   tipo_movimiento: TTipoMovimiento

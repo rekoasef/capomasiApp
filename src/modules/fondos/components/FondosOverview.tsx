@@ -11,6 +11,7 @@ import {
   useTransferirFondos,
 } from '../hooks/useFondos'
 import {
+  esCambioDeMoneda,
   fondoMovimientoSchema,
   transferenciaFondosSchema,
   type TFondoMovimientoForm,
@@ -24,7 +25,8 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { PaginationControls } from '@/shared/components/PaginationControls'
 import { formatMoney } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
-import { Plus, Trash2, ArrowLeftRight } from 'lucide-react'
+import { Plus, Trash2, ArrowLeftRight, X } from 'lucide-react'
+import type { TCuentaFondos, TFondoMovimiento } from '../types'
 import { useAuth } from '@/lib/auth/useAuth'
 import { useParametros } from '@/shared/hooks/useParametros'
 import {
@@ -38,6 +40,28 @@ const TIPO_LABEL: Record<string, string> = {
   MOVIMIENTO: 'Movimiento',
 }
 
+// Una columna por cuenta, en el mismo orden que las tarjetas de saldo.
+// Se declaran acá (y no sueltas en el <table>) porque la tabla esconde
+// las que están en cero: con nueve columnas fijas, Dólares y Tarallo se
+// caían fuera del borde derecho y Paola no las encontraba nunca.
+const COLUMNAS_IMPORTE: {
+  cuenta: TCuentaFondos
+  label: string
+  get: (m: TFondoMovimiento) => number
+  moneda: 'ARS' | 'USD'
+}[] = [
+  { cuenta: 'banco', label: 'Banco', get: (m) => m.importe_banco, moneda: 'ARS' },
+  {
+    cuenta: 'cheques_cartera',
+    label: 'Cheques cartera',
+    get: (m) => m.importe_cheques_cartera,
+    moneda: 'ARS',
+  },
+  { cuenta: 'efectivo', label: 'Efectivo', get: (m) => m.importe_efectivo, moneda: 'ARS' },
+  { cuenta: 'usd', label: 'Dólares', get: (m) => m.importe_usd, moneda: 'USD' },
+  { cuenta: 'taralo', label: 'Tarallo', get: (m) => m.importe_taralo, moneda: 'ARS' },
+]
+
 const CUENTAS_TRANSFERIBLES: { value: TTransferenciaFondosForm['origen']; label: string }[] = [
   { value: 'banco', label: 'Banco' },
   { value: 'efectivo', label: 'Efectivo' },
@@ -45,12 +69,17 @@ const CUENTAS_TRANSFERIBLES: { value: TTransferenciaFondosForm['origen']; label:
   { value: 'taralo', label: 'Tarallo' },
 ]
 
+function etiquetaCuenta(cuenta: string): string {
+  return CUENTAS_TRANSFERIBLES.find((c) => c.value === cuenta)?.label ?? cuenta
+}
+
 const PAGE_SIZE = 25
 
 export function FondosOverview() {
   const { data: saldo, isLoading: loadingSaldo } = useSaldoFondos()
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
+  const [cuenta, setCuenta] = useState<TCuentaFondos | null>(null)
   const [page, setPage] = useState(0)
   const {
     data: movsData,
@@ -59,6 +88,7 @@ export function FondosOverview() {
   } = useMovimientosFondos({
     desde: desde || undefined,
     hasta: hasta || undefined,
+    cuenta: cuenta ?? undefined,
     page,
     pageSize: PAGE_SIZE,
   })
@@ -80,6 +110,16 @@ export function FondosOverview() {
   const [showTransferForm, setShowTransferForm] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
+  const cuentaActiva = COLUMNAS_IMPORTE.find((c) => c.cuenta === cuenta) ?? null
+
+  // Solo las cuentas que alguna fila de esta página movió. Si no queda
+  // ninguna (movimientos que un cheque rechazado dejó en cero) se
+  // muestran todas, para no dejar la tabla sin columnas de importe.
+  const conMovimiento = COLUMNAS_IMPORTE.filter((col) =>
+    (movs ?? []).some((m) => Number(col.get(m)) > 0)
+  )
+  const columnasImporte = conMovimiento.length ? conMovimiento : COLUMNAS_IMPORTE
+
   const transferForm = useForm<TTransferenciaFondosForm>({
     resolver: zodResolver(
       transferenciaFondosSchema
@@ -93,6 +133,22 @@ export function FondosOverview() {
       notas: '',
     },
   })
+
+  // Comprar o vender dólares mueve importes distintos de cada lado, así
+  // que el formulario pregunta cuánto entra y calcula la cotización en
+  // vivo para que se pueda controlar antes de guardar. Entre cuentas en
+  // pesos ni se pregunta: entra lo mismo que sale.
+  const origenTransfer = transferForm.watch('origen')
+  const destinoTransfer = transferForm.watch('destino')
+  const importeSale = Number(transferForm.watch('importe')) || 0
+  const importeEntra = Number(transferForm.watch('importe_destino')) || 0
+  const cambioDeMoneda = esCambioDeMoneda(origenTransfer, destinoTransfer)
+  const pesosPorDolar =
+    cambioDeMoneda && importeSale > 0 && importeEntra > 0
+      ? origenTransfer === 'usd'
+        ? importeEntra / importeSale
+        : importeSale / importeEntra
+      : null
 
   const handleTransferir = transferForm.handleSubmit((data) => {
     transferir.mutate(data, {
@@ -142,30 +198,73 @@ export function FondosOverview() {
       ) : (
         saldo && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {[
-              { label: 'Banco', value: saldo.saldo_banco },
-              { label: 'Cheques en cartera', value: saldo.saldo_cheques_cartera },
-              { label: 'Efectivo', value: saldo.saldo_efectivo },
-              { label: 'Dólares', value: saldo.saldo_usd },
-              { label: 'Tarallo', value: saldo.saldo_taralo },
-            ].map(({ label, value }) => (
-              <div key={label} className="border-border border p-4">
-                <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
-                  {label}
-                </p>
-                <p
-                  className={`mt-1 text-xl font-bold tabular-nums ${value < 0 ? 'text-danger' : ''}`}
+            {(
+              [
+                { cuenta: 'banco', label: 'Banco', value: saldo.saldo_banco, moneda: 'ARS' },
+                {
+                  cuenta: 'cheques_cartera',
+                  label: 'Cheques en cartera',
+                  value: saldo.saldo_cheques_cartera,
+                  moneda: 'ARS',
+                },
+                {
+                  cuenta: 'efectivo',
+                  label: 'Efectivo',
+                  value: saldo.saldo_efectivo,
+                  moneda: 'ARS',
+                },
+                { cuenta: 'usd', label: 'Dólares', value: saldo.saldo_usd, moneda: 'USD' },
+                { cuenta: 'taralo', label: 'Tarallo', value: saldo.saldo_taralo, moneda: 'ARS' },
+              ] as const
+            ).map(({ cuenta: c, label, value, moneda }) => {
+              const activa = cuenta === c
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    setCuenta(activa ? null : c)
+                    setPage(0)
+                  }}
+                  title={activa ? 'Ver todos los movimientos' : `Ver los movimientos de ${label}`}
+                  className={`border p-4 text-left transition-colors ${
+                    activa
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-foreground'
+                  }`}
                 >
-                  {formatMoney(value)}
-                </p>
-              </div>
-            ))}
+                  <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+                    {label}
+                  </p>
+                  <p
+                    className={`mt-1 text-xl font-bold tabular-nums ${value < 0 ? 'text-danger' : ''}`}
+                  >
+                    {formatMoney(value, moneda)}
+                  </p>
+                </button>
+              )
+            })}
           </div>
         )
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold">Movimientos</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold">Movimientos</h3>
+          {cuentaActiva && (
+            <button
+              type="button"
+              onClick={() => {
+                setCuenta(null)
+                setPage(0)
+              }}
+              className="border-primary text-primary bg-primary/10 inline-flex items-center gap-1 border px-2 py-1 text-[11px] font-semibold"
+            >
+              Solo {cuentaActiva.label}
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap items-end gap-2">
           <Input
             label="Desde"
@@ -253,17 +352,34 @@ export function FondosOverview() {
               )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Input
-              label="Importe *"
+              label={cambioDeMoneda ? `Sale de ${etiquetaCuenta(origenTransfer)} *` : 'Importe *'}
               type="number"
               step="0.01"
               min="0.01"
               {...transferForm.register('importe', { valueAsNumber: true })}
               error={transferForm.formState.errors.importe?.message}
             />
+            {cambioDeMoneda && (
+              <Input
+                label={`Entra en ${etiquetaCuenta(destinoTransfer)} *`}
+                type="number"
+                step="0.01"
+                min="0.01"
+                {...transferForm.register('importe_destino', { valueAsNumber: true })}
+                error={transferForm.formState.errors.importe_destino?.message}
+              />
+            )}
             <Input label="Fecha *" type="date" {...transferForm.register('fecha')} />
           </div>
+          {cambioDeMoneda && (
+            <p className="text-muted-foreground text-[11px] leading-snug">
+              {pesosPorDolar
+                ? `Cotización: US$ 1 = ${formatMoney(pesosPorDolar)}.`
+                : 'Cargá los dos importes y te muestro a cuánto quedó el dólar.'}
+            </p>
+          )}
           <Input
             label="Motivo *"
             placeholder="Ej: Depósito de efectivo en cuenta"
@@ -345,7 +461,7 @@ export function FondosOverview() {
               {...form.register('importe_efectivo', { valueAsNumber: true })}
             />
             <Input
-              label="Dólares $"
+              label="Dólares US$"
               type="number"
               step="0.01"
               min="0"
@@ -388,7 +504,9 @@ export function FondosOverview() {
         <p className="text-danger text-sm">{error.message}</p>
       ) : !movs?.length ? (
         <p className="text-muted-foreground py-8 text-center text-xs tracking-widest uppercase">
-          Sin movimientos registrados
+          {cuentaActiva
+            ? `Sin movimientos de ${cuentaActiva.label}`
+            : 'Sin movimientos registrados'}
         </p>
       ) : (
         <div className="border-border overflow-x-auto border">
@@ -404,21 +522,14 @@ export function FondosOverview() {
                 <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
                   Concepto
                 </th>
-                <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                  Banco
-                </th>
-                <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                  Cheques cartera
-                </th>
-                <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                  Efectivo
-                </th>
-                <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                  Dólares
-                </th>
-                <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
-                  Tarallo
-                </th>
+                {columnasImporte.map((col) => (
+                  <th
+                    key={col.cuenta}
+                    className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase"
+                  >
+                    {col.label}
+                  </th>
+                ))}
                 {isAdmin && <th className="px-4 py-2.5" />}
               </tr>
             </thead>
@@ -446,21 +557,14 @@ export function FondosOverview() {
                     {m.concepto}
                     {m.notas && <p className="text-muted-foreground mt-0.5 text-xs">{m.notas}</p>}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    {m.importe_banco > 0 ? formatMoney(m.importe_banco) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    {m.importe_cheques_cartera > 0 ? formatMoney(m.importe_cheques_cartera) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    {m.importe_efectivo > 0 ? formatMoney(m.importe_efectivo) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    {m.importe_usd > 0 ? formatMoney(m.importe_usd) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    {m.importe_taralo > 0 ? formatMoney(m.importe_taralo) : '—'}
-                  </td>
+                  {columnasImporte.map((col) => {
+                    const importe = Number(col.get(m))
+                    return (
+                      <td key={col.cuenta} className="px-4 py-2.5 text-right tabular-nums">
+                        {importe > 0 ? formatMoney(importe, col.moneda) : '—'}
+                      </td>
+                    )
+                  })}
                   {isAdmin && (
                     <td className="px-4 py-2.5 text-right">
                       <button

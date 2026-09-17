@@ -3,10 +3,12 @@ import { fondosService } from '../services/fondosService'
 import { chequesService } from '../services/chequesService'
 import type { TEstadoCheque } from '../services/chequesService'
 import type { TCheque } from '@/modules/cobranzas/types'
+import type { TCuentaFondos } from '../types'
 import { toast } from 'sonner'
 import type {
   TFondoMovimientoForm,
   TChequeManualForm,
+  TChequeSalidaForm,
   TTransferenciaFondosForm,
 } from '../schemas/fondoSchema'
 
@@ -25,6 +27,7 @@ export function useMovimientosFondos(opts?: {
   desde?: string
   hasta?: string
   tipo?: string
+  cuenta?: TCuentaFondos
   page?: number
   pageSize?: number
 }) {
@@ -192,6 +195,24 @@ export function useEndosarChequeAProveedor() {
       qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
       qc.invalidateQueries({ queryKey: ['compras_proveedores'] })
       qc.invalidateQueries({ queryKey: ['cuenta_corriente_proveedores'] })
+    },
+  })
+}
+
+export function useSalidaChequeSinFactura() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ chequeId, form }: { chequeId: string; form: TChequeSalidaForm }) =>
+      chequesService.salidaSinFactura(chequeId, form),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success('Cheque dado de baja de la cartera')
+      qc.invalidateQueries({ queryKey: ['cheques'] })
+      qc.invalidateQueries({ queryKey: ['fondos_movimientos'] })
+      qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
     },
   })
 }
