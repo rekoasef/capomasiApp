@@ -1,14 +1,27 @@
 import { supabase } from '@/lib/supabase/client'
-import { fondoMovimientoSchema, transferenciaFondosSchema } from '../schemas/fondoSchema'
+import {
+  esCambioDeMoneda,
+  fondoMovimientoSchema,
+  transferenciaFondosSchema,
+} from '../schemas/fondoSchema'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
-import type { TFondoMovimiento, TSaldoFondos } from '../types'
+import type { TCuentaFondos, TFondoMovimiento, TSaldoFondos } from '../types'
 import type { TFondoMovimientoForm, TTransferenciaFondosForm } from '../schemas/fondoSchema'
+
+const COLUMNA_POR_CUENTA: Record<TCuentaFondos, string> = {
+  banco: 'importe_banco',
+  cheques_cartera: 'importe_cheques_cartera',
+  efectivo: 'importe_efectivo',
+  usd: 'importe_usd',
+  taralo: 'importe_taralo',
+}
 
 export const fondosService = {
   async getMovimientos(opts?: {
     desde?: string
     hasta?: string
     tipo?: string
+    cuenta?: TCuentaFondos
     page?: number
     pageSize?: number
   }): Promise<ServiceResult<{ rows: TFondoMovimiento[]; total: number }>> {
@@ -25,6 +38,10 @@ export const fondosService = {
     if (opts?.desde) query = query.gte('fecha', opts.desde)
     if (opts?.hasta) query = query.lte('fecha', opts.hasta)
     if (opts?.tipo) query = query.eq('tipo_movimiento', opts.tipo)
+    // Filtrar por cuenta = quedarse con los movimientos que la tocaron.
+    // Un movimiento puede tocar dos (comprar dólares con efectivo mueve
+    // las dos columnas), así que aparece bajo cualquiera de las dos.
+    if (opts?.cuenta) query = query.neq(COLUMNA_POR_CUENTA[opts.cuenta], 0)
     const { data, error, count } = await query
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: { rows: (data ?? []) as TFondoMovimiento[], total: count ?? 0 } }
@@ -69,6 +86,9 @@ export const fondosService = {
     if (!parsed.success)
       return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
 
+    // Entre cuentas en pesos no se manda importe de destino: la DB
+    // rechaza que difiera y el formulario ni siquiera lo pregunta.
+    const cambioDeMoneda = esCambioDeMoneda(parsed.data.origen, parsed.data.destino)
     const { data, error } = await supabase.rpc('fn_transferir_fondos', {
       p_origen: parsed.data.origen,
       p_destino: parsed.data.destino,
@@ -76,6 +96,7 @@ export const fondosService = {
       p_fecha: parsed.data.fecha,
       p_concepto: parsed.data.concepto,
       p_notas: parsed.data.notas ?? undefined,
+      p_importe_destino: cambioDeMoneda ? (parsed.data.importe_destino ?? undefined) : undefined,
     })
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: (data ?? []) as unknown as TFondoMovimiento[] }

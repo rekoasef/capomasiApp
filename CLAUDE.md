@@ -147,6 +147,12 @@ SUPABASE\_SERVICE\_ROLE\_KEY=eyJ...
 
 **Sesión 2026-09-10:** se arregló el comparativo entre períodos, que era el único reporte que seguía sin mirar la facturación migrada (Paola: _"lo histórico no me lo compara"_). Buscando eso apareció que **las 16 vistas eran legibles con la anon key sin loguearse** — migración 0080, escrita y **sin aplicar**. Antes de tocar nada, leer `docs/core/PENDIENTES.md`.
 
+**Sesión 2026-09-17:** Paola no podía sacar de la cartera los cheques que cambia en una cueva o usa para algo suyo — el único camino de salida sin depósito era el endoso a proveedor, que exige una factura impaga. Migración **0082**: `fn_salida_cheque_sin_factura` agrega los destinos "lo cambié en una cueva" (sale el cheque, entra lo que le dieron en efectivo o banco) y "lo usé para algo mío" (sale y no vuelve nada), con la nota como único dato obligatorio, y `trigger_revertir_salida_cheque` deshace la salida si vuelve el cheque a cartera. **Aplicada en producción.** Detalle en `docs/funcional/PEDIDOS_PAOLA.md`.
+
+**⚠️ Datos a corregir con Paola (2026-09-17):** su fila "Compra USD" quedó como INGRESO de $1.248.000 de efectivo + US$800 porque hasta la 0083 no había forma de cargar una compra de dólares. El **Efectivo está inflado en $1.248.000** y el cheque **68579950 MACRO $1.253.000**, que cambió en una cueva, sigue EN_CARTERA. Las dos herramientas ya existen (0082 y 0083); **la corrección se hace con ella, no por atrás**.
+
+**Migración 0083 (2026-09-17):** `fn_transferir_fondos` acepta **un importe por lado** (`p_importe_destino`), así que comprar y vender dólares por fin se registra bien. Los importes solo pueden diferir cuando exactamente una punta es `usd`; entre cuentas en pesos la DB exige que entre lo mismo que sale. **Aplicada en producción.**
+
 **Pendientes reales (no de código) antes de la entrega final:** personalizar el PDF de liquidación/recibo según modelo de Paola (cambio simple, se puede hacer ya en producción) y publicar en subdominio de prueba. El saldo inicial de cuenta corriente se implementó el 2026-09-03 a pedido de Paola — ver sección 19. Ver memoria de sesión "reunion_2026-08-04_revision_y_cierre" para el detalle completo.
 
 ---

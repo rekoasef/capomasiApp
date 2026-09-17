@@ -501,8 +501,8 @@ export type Database = {
           telefono: string | null
           tipo_comision: string
           tipo_relacion: string
-          valor_hora: number | null
           usuario_id: string | null
+          valor_hora: number | null
         }
         Insert: {
           activo?: boolean
@@ -523,8 +523,8 @@ export type Database = {
           telefono?: string | null
           tipo_comision?: string
           tipo_relacion: string
-          valor_hora?: number | null
           usuario_id?: string | null
+          valor_hora?: number | null
         }
         Update: {
           activo?: boolean
@@ -545,8 +545,8 @@ export type Database = {
           telefono?: string | null
           tipo_comision?: string
           tipo_relacion?: string
-          valor_hora?: number | null
           usuario_id?: string | null
+          valor_hora?: number | null
         }
         Relationships: [
           {
@@ -1525,6 +1525,77 @@ export type Database = {
           },
         ]
       }
+      recibos_medios: {
+        Row: {
+          cheque_id: string | null
+          created_at: string
+          created_by: string | null
+          cuenta_bancaria: string | null
+          id: string
+          importe: number
+          importe_usd: number | null
+          orden: number
+          recibo_id: string
+          tipo_cambio: number | null
+          tipo_pago: string
+        }
+        Insert: {
+          cheque_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuenta_bancaria?: string | null
+          id?: string
+          importe: number
+          importe_usd?: number | null
+          orden?: number
+          recibo_id: string
+          tipo_cambio?: number | null
+          tipo_pago: string
+        }
+        Update: {
+          cheque_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuenta_bancaria?: string | null
+          id?: string
+          importe?: number
+          importe_usd?: number | null
+          orden?: number
+          recibo_id?: string
+          tipo_cambio?: number | null
+          tipo_pago?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'recibos_medios_cheque_id_fkey'
+            columns: ['cheque_id']
+            isOneToOne: false
+            referencedRelation: 'cheques'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'recibos_medios_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'usuarios'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'recibos_medios_recibo_id_fkey'
+            columns: ['recibo_id']
+            isOneToOne: false
+            referencedRelation: 'recibos'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'recibos_medios_recibo_id_fkey'
+            columns: ['recibo_id']
+            isOneToOne: false
+            referencedRelation: 'v_recibos_disponibles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       registros_horas_empleadas: {
         Row: {
           created_at: string
@@ -1940,6 +2011,33 @@ export type Database = {
         }
         Relationships: []
       }
+      v_facturacion_historica_normalizada: {
+        Row: {
+          fecha_liquidacion: string | null
+          generado_por: string | null
+          importe_facturado: number | null
+          importe_liquidado: number | null
+          tipo_comprobante: string | null
+          tipo_servicio: string | null
+        }
+        Insert: {
+          fecha_liquidacion?: string | null
+          generado_por?: string | null
+          importe_facturado?: number | null
+          importe_liquidado?: number | null
+          tipo_comprobante?: never
+          tipo_servicio?: never
+        }
+        Update: {
+          fecha_liquidacion?: string | null
+          generado_por?: string | null
+          importe_facturado?: number | null
+          importe_liquidado?: number | null
+          tipo_comprobante?: never
+          tipo_servicio?: never
+        }
+        Relationships: []
+      }
       v_historial_egresos_estudio: {
         Row: {
           concepto: string | null
@@ -2007,14 +2105,15 @@ export type Database = {
           },
         ]
       }
-      v_facturacion_historica_normalizada: {
+      v_ingresos_mensuales: {
         Row: {
-          fecha_liquidacion: string | null
-          generado_por: string | null
-          importe_facturado: number | null
-          importe_liquidado: number | null
-          tipo_comprobante: string | null
-          tipo_servicio: string | null
+          cantidad_liquidaciones: number | null
+          facturado_cliente_neto: number | null
+          ingreso_base_negro: number | null
+          iva_facturado: number | null
+          mes: string | null
+          total_facturado: number | null
+          total_liquidado: number | null
         }
         Relationships: []
       }
@@ -2030,24 +2129,11 @@ export type Database = {
         }
         Relationships: []
       }
-      v_ingresos_por_tipo_mes_con_historico: {
+      v_ingresos_por_empleada_mes: {
         Row: {
           cantidad: number | null
+          empleada: string | null
           mes: string | null
-          tipo_servicio: string | null
-          total_facturado: number | null
-          total_liquidado: number | null
-        }
-        Relationships: []
-      }
-      v_ingresos_mensuales: {
-        Row: {
-          cantidad_liquidaciones: number | null
-          facturado_cliente_neto: number | null
-          ingreso_base_negro: number | null
-          iva_facturado: number | null
-          mes: string | null
-          total_facturado: number | null
           total_liquidado: number | null
         }
         Relationships: []
@@ -2061,16 +2147,17 @@ export type Database = {
         }
         Relationships: []
       }
-      v_ingresos_por_empleada_mes: {
+      v_ingresos_por_tipo_mes: {
         Row: {
           cantidad: number | null
-          empleada: string | null
           mes: string | null
+          tipo_servicio: string | null
+          total_facturado: number | null
           total_liquidado: number | null
         }
         Relationships: []
       }
-      v_ingresos_por_tipo_mes: {
+      v_ingresos_por_tipo_mes_con_historico: {
         Row: {
           cantidad: number | null
           mes: string | null
@@ -2126,6 +2213,7 @@ export type Database = {
           id: string | null
           importe: number | null
           importe_usd: number | null
+          medios: Json | null
           notas: string | null
           numero_recibo: string | null
           saldo_libre: number | null
@@ -2412,15 +2500,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      fn_eliminar_pago_gasto: { Args: { p_pago_id: string }; Returns: undefined }
+      fn_eliminar_compra_proveedor: {
+        Args: { p_compra_id: string }
+        Returns: undefined
+      }
       fn_eliminar_imputacion: {
         Args: { p_imputacion_id: string }
         Returns: boolean
       }
-      fn_eliminar_compra_proveedor: {
-        Args: {
-          p_compra_id: string
-        }
+      fn_eliminar_pago_gasto: {
+        Args: { p_pago_id: string }
         Returns: undefined
       }
       fn_endosar_cheque_a_proveedor: {
@@ -2492,6 +2581,7 @@ export type Database = {
           p_periodo_mes: number
         }
         Returns: {
+          cantidad_horas: number | null
           concepto: string
           created_at: string
           empleada_id: string
@@ -2501,6 +2591,7 @@ export type Database = {
           periodo_anio: number
           periodo_mes: number
           tipo_concepto: string
+          valor_hora: number | null
         }[]
         SetofOptions: {
           from: '*'
@@ -2661,6 +2752,42 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_salida_cheque_sin_factura: {
+        Args: {
+          p_cheque_id: string
+          p_cuenta_recibido?: string
+          p_destino: string
+          p_fecha: string
+          p_importe_recibido?: number
+          p_notas: string
+        }
+        Returns: {
+          acreditacion_confirmada: boolean
+          acreditacion_confirmada_at: string | null
+          acreditacion_confirmada_by: string | null
+          banco: string
+          cliente_id: string | null
+          created_at: string
+          cuenta_bancaria: string | null
+          estado: string
+          fecha_cobro: string | null
+          fecha_emision: string
+          id: string
+          importe: number
+          notas: string | null
+          numero: string
+          origen: string
+          proveedor_id: string | null
+          tipo: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'cheques'
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_serie_recibo_de_tipo_comprobante: {
         Args: { p_tipo_comprobante: string }
         Returns: string
@@ -2671,6 +2798,7 @@ export type Database = {
           p_destino: string
           p_fecha: string
           p_importe: number
+          p_importe_destino?: number
           p_notas?: string
           p_origen: string
         }
