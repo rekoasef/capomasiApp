@@ -397,3 +397,39 @@ No se toca ninguna fila vieja ni se guarda el saldo en una columna: `v_saldo_fon
 **Verificado** en seco contra producción dentro de `BEGIN … ROLLBACK`, 7 chequeos: su caso real (US$ 50 → 800 da INGRESO de 750 y la tarjeta queda en 800), ajuste a la baja (→ EGRESO de 700), ajustar al mismo saldo rechazado, nota en blanco rechazada, `cheques_cartera` rechazada, redondeo a 2 decimales, y que no se mueva ninguna otra cuenta. Aplicada.
 
 **Nota:** esto también es la herramienta que faltaba para cerrar el arrastre viejo de cada cuenta, no solo el de dólares. El efectivo inflado en $1.248.000 **no se arregla con un ajuste**: eso tiene una causa conocida (el cheque de la cueva sin registrar y la compra de dólares mal cargada) y se corrige con 0082 + 0083, que dejan el rastro real. El ajuste es para lo que no tiene explicación movimiento por movimiento.
+
+### 5 — La cadena del cheque de la cueva, corregida en producción (2026-09-17)
+
+Renzo, sobre los movimientos raros de la caja: _"hubo un movimiento medio raro, porque es como que ella recibió un cheque... después es como que lo mandó a la cueva y le dieron efectivo por ese cheque y después con ese efectivo ella compró dólares. Y es como que se sumó el efectivo y se sumaron dólares, ahí quedó algo medio raro"_. Y después: _"podés arreglarlo vos directamente"_.
+
+**Era exactamente eso.** La cadena real tuvo cuatro pasos y el sistema tenía dos bien y dos fusionados en una sola fila con el signo al revés:
+
+| #   | Qué pasó                                                                         | Cómo estaba                                                      |
+| :-- | :------------------------------------------------------------------------------- | :--------------------------------------------------------------- |
+| 1   | **15/09** — recibo de RICCIOTTI, LUCIANO con el cheque 68579950 MACRO $1.253.000 | ✅ Bien: cartera +$1.253.000                                     |
+| 2   | Lo llevó a la cueva, le dieron $1.248.000 en efectivo                            | ❌ **No estaba en ningún lado.** El cheque seguía EN_CARTERA     |
+| 3   | Con ese efectivo compró US$ 800 a Piñero                                         | ❌ Una sola fila INGRESO: efectivo **+**1.248.000 **y** usd +800 |
+| 4   | **17/09** — pagó US$ 750                                                         | ✅ Bien: EGRESO usd 750                                          |
+
+La causa de fondo: los pasos 2 y 3 entraron juntos en un solo movimiento, y **un movimiento tiene un solo `tipo_movimiento`**, así que las dos columnas tomaron el mismo signo. El efectivo que ella gastó figuraba como que había entrado.
+
+**Se rearmó la cadena con los mismos RPC que usa la UI** (nada de UPDATE a mano sobre las filas), todo dentro de una transacción y actuando como el admin de Renzo, así que los movimientos quedaron atribuidos a un usuario real:
+
+1. `fn_salida_cheque_sin_factura` — destino `CAMBIO_EFECTIVO`, $1.248.000 a efectivo. Cartera **4.207.818,92 → 2.954.818,92**, efectivo → 2.029.341,43. Los **$5.000** de diferencia quedan como costo del cambio. El cheque pasa a **ENDOSADO**, que es la decisión de la 0082 (se lo entregó a un tercero).
+2. `DELETE` de la fila "Compra USD" — movimiento manual sin referencia, se borra igual que desde el tacho. Efectivo → 781.341,43, dólares → −750 (transitorio).
+3. `fn_transferir_fondos` — efectivo → usd, $1.248.000 por US$ 800, **cotización $1.560,00**. Las dos filas quedan unidas por el mismo `referencia_id`.
+4. `fn_ajustar_saldo_fondos` — dólares a **US$ 800**, el arrastre de antes del sistema. Es el caso del audio, resuelto con la herramienta de la 0084.
+
+**Caja resultante:** cartera **$2.954.818,92** · dólares **US$ 800,00** · efectivo **−$466.658,57** · banco −$4.946.410,50 (sin cambios) · tarallo $0.
+
+Verificado en seco dentro de `BEGIN … ROLLBACK` antes de aplicar, con los saldos intermedios de los cuatro pasos comparados contra la proyección. Después de aplicar: ninguna fila "Compra USD" sobrante, un solo cheque con ese número, y las 5 filas nuevas atribuidas a `renzoasef02@gmail.com`.
+
+#### ⚠️ Lo que quedó pendiente: el saldo real de la caja de efectivo
+
+Con la cadena bien registrada el efectivo da **−$466.658,57**. **No es un error de la corrección** — la aritmética cierra paso por paso. Es que **el efectivo también arrastra plata de antes del sistema que nunca se cargó**, igual que los dólares; lo que pasaba es que el ingreso mal cargado de $1.248.000 lo venía tapando y el saldo parecía sano.
+
+Se cierra con "Ajustar balance" en la tarjeta de Efectivo, en cuanto Paola diga **cuánta plata tiene realmente en la caja**. Es el único número de todo esto que no se puede sacar de la base.
+
+#### Hallazgo menor: los movimientos manuales no guardan quién los cargó
+
+La fila vieja "Pago a proveedores" (US$ 750) tiene `created_by` en NULL. `fondosService.registrar` hace un insert plano sin `created_by`, mientras que todos los RPC escriben `auth.uid()`. No se tocó en esta sesión — es un cambio de una línea, pero queda anotado: los movimientos cargados desde "Registrar movimiento" no dejan rastro de autor.
