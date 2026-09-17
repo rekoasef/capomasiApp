@@ -6,6 +6,7 @@ import type { TCheque } from '@/modules/cobranzas/types'
 import type { TCuentaFondos } from '../types'
 import { toast } from 'sonner'
 import type {
+  TAjusteSaldoFondosForm,
   TFondoMovimientoForm,
   TChequeManualForm,
   TChequeSalidaForm,
@@ -83,6 +84,22 @@ export function useTransferirFondos() {
         return
       }
       toast.success('Transferencia registrada')
+      qc.invalidateQueries({ queryKey: ['fondos_movimientos'] })
+      qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
+    },
+  })
+}
+
+export function useAjustarSaldoFondos() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (form: TAjusteSaldoFondosForm) => fondosService.ajustarSaldo(form),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success('Saldo ajustado')
       qc.invalidateQueries({ queryKey: ['fondos_movimientos'] })
       qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
     },

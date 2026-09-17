@@ -2268,6 +2268,39 @@ export type Database = {
       }
     }
     Functions: {
+      fn_ajustar_saldo_fondos: {
+        Args: {
+          p_cuenta: string
+          p_fecha: string
+          p_notas: string
+          p_saldo_real: number
+        }
+        Returns: {
+          cheque_id: string | null
+          concepto: string
+          created_at: string
+          created_by: string | null
+          cuenta_bancaria: string | null
+          fecha: string
+          id: string
+          importe_banco: number | null
+          importe_cheques_cartera: number | null
+          importe_efectivo: number | null
+          importe_taralo: number | null
+          importe_usd: number | null
+          notas: string | null
+          nro_comprobante: string | null
+          referencia_id: string | null
+          referencia_tipo: string | null
+          tipo_movimiento: string
+        }[]
+        SetofOptions: {
+          from: '*'
+          to: 'fondos_movimientos'
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       fn_ajustar_saldo_puntaje:
         | {
             Args: {

@@ -9,11 +9,14 @@ import {
   useRegistrarMovimiento,
   useEliminarMovimiento,
   useTransferirFondos,
+  useAjustarSaldoFondos,
 } from '../hooks/useFondos'
 import {
+  ajusteSaldoFondosSchema,
   esCambioDeMoneda,
   fondoMovimientoSchema,
   transferenciaFondosSchema,
+  type TAjusteSaldoFondosForm,
   type TFondoMovimientoForm,
   type TTransferenciaFondosForm,
 } from '../schemas/fondoSchema'
@@ -25,7 +28,7 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { PaginationControls } from '@/shared/components/PaginationControls'
 import { formatMoney } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
-import { Plus, Trash2, ArrowLeftRight, X } from 'lucide-react'
+import { Plus, Trash2, ArrowLeftRight, X, Pencil } from 'lucide-react'
 import type { TCuentaFondos, TFondoMovimiento } from '../types'
 import { useAuth } from '@/lib/auth/useAuth'
 import { useParametros } from '@/shared/hooks/useParametros'
@@ -96,6 +99,7 @@ export function FondosOverview() {
   const registrar = useRegistrarMovimiento()
   const eliminar = useEliminarMovimiento()
   const transferir = useTransferirFondos()
+  const ajustar = useAjustarSaldoFondos()
   const { isAdmin } = useAuth()
   const { data: tiposMovimiento = FALLBACK_TIPOS_MOVIMIENTO_FONDOS } = useParametros({
     categorias: ['TIPO_MOV_FONDOS'],
@@ -109,6 +113,14 @@ export function FondosOverview() {
   const [showForm, setShowForm] = useState(false)
   const [showTransferForm, setShowTransferForm] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  // Qué tarjeta se está ajustando. Guarda el saldo que mostraba al
+  // abrir para poder anticipar la diferencia sin volver a la DB.
+  const [ajuste, setAjuste] = useState<{
+    cuenta: TAjusteSaldoFondosForm['cuenta']
+    label: string
+    moneda: 'ARS' | 'USD'
+    saldoActual: number
+  } | null>(null)
 
   const cuentaActiva = COLUMNAS_IMPORTE.find((c) => c.cuenta === cuenta) ?? null
 
@@ -119,6 +131,50 @@ export function FondosOverview() {
     (movs ?? []).some((m) => Number(col.get(m)) > 0)
   )
   const columnasImporte = conMovimiento.length ? conMovimiento : COLUMNAS_IMPORTE
+
+  const ajusteForm = useForm<TAjusteSaldoFondosForm>({
+    resolver: zodResolver(ajusteSaldoFondosSchema) as unknown as Resolver<TAjusteSaldoFondosForm>,
+    defaultValues: {
+      cuenta: 'efectivo',
+      saldo_real: 0,
+      fecha: toLocalDateInputValue(),
+      notas: '',
+    },
+  })
+
+  // Arranca con el saldo que calculó el sistema para que ella edite
+  // ese número: así ve de dónde parte y qué tanto lo está corriendo.
+  function abrirAjuste(
+    cuenta: TAjusteSaldoFondosForm['cuenta'],
+    label: string,
+    moneda: 'ARS' | 'USD',
+    saldoActual: number
+  ) {
+    setAjuste({ cuenta, label, moneda, saldoActual })
+    ajusteForm.reset({
+      cuenta,
+      saldo_real: saldoActual,
+      fecha: toLocalDateInputValue(),
+      notas: '',
+    })
+  }
+
+  const saldoRealTipeado = Number(ajusteForm.watch('saldo_real'))
+  const diferenciaAjuste =
+    ajuste && Number.isFinite(saldoRealTipeado)
+      ? Math.round((saldoRealTipeado - ajuste.saldoActual) * 100) / 100
+      : 0
+
+  const handleAjustar = ajusteForm.handleSubmit((data) => {
+    ajustar.mutate(data, {
+      onSuccess: (r) => {
+        if (r.ok) {
+          ajusteForm.reset()
+          setAjuste(null)
+        }
+      },
+    })
+  })
 
   const transferForm = useForm<TTransferenciaFondosForm>({
     resolver: zodResolver(
@@ -218,34 +274,122 @@ export function FondosOverview() {
               ] as const
             ).map(({ cuenta: c, label, value, moneda }) => {
               const activa = cuenta === c
+              // Cheques en cartera no se ajusta: ese saldo es la suma de
+              // los cheques EN_CARTERA, y corregirlo a mano lo dejaría sin
+              // corresponder con ningún cheque de la lista de abajo.
+              const ajustable = c !== 'cheques_cartera'
               return (
-                <button
+                <div
                   key={label}
-                  type="button"
-                  onClick={() => {
-                    setCuenta(activa ? null : c)
-                    setPage(0)
-                  }}
-                  title={activa ? 'Ver todos los movimientos' : `Ver los movimientos de ${label}`}
-                  className={`border p-4 text-left transition-colors ${
+                  className={`flex flex-col border transition-colors ${
                     activa
                       ? 'border-primary bg-primary/10'
                       : 'border-border hover:border-foreground'
                   }`}
                 >
-                  <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
-                    {label}
-                  </p>
-                  <p
-                    className={`mt-1 text-xl font-bold tabular-nums ${value < 0 ? 'text-danger' : ''}`}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCuenta(activa ? null : c)
+                      setPage(0)
+                    }}
+                    title={activa ? 'Ver todos los movimientos' : `Ver los movimientos de ${label}`}
+                    className="flex-1 px-4 pt-4 pb-2 text-left"
                   >
-                    {formatMoney(value, moneda)}
-                  </p>
-                </button>
+                    <p className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+                      {label}
+                    </p>
+                    <p
+                      className={`mt-1 text-xl font-bold tabular-nums ${value < 0 ? 'text-danger' : ''}`}
+                    >
+                      {formatMoney(value, moneda)}
+                    </p>
+                  </button>
+                  {isAdmin && ajustable && (
+                    <button
+                      type="button"
+                      onClick={() => abrirAjuste(c, label, moneda, value)}
+                      title={`Corregir a mano el saldo de ${label}`}
+                      className="text-muted-foreground hover:text-primary flex items-center gap-1 px-4 pb-3 text-[10px] font-bold tracking-widest uppercase"
+                    >
+                      <Pencil className="h-2.5 w-2.5" />
+                      Ajustar balance
+                    </button>
+                  )}
+                </div>
               )
             })}
           </div>
         )
+      )}
+
+      {ajuste && (
+        <form onSubmit={handleAjustar} className="border-primary space-y-3 border p-4">
+          <div>
+            <p className="text-sm font-medium">Ajustar el balance de {ajuste.label}</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              El saldo lo calcula el sistema sumando los movimientos cargados. Si no coincide con lo
+              que tenés de verdad, cargá el saldo real: la diferencia queda registrada como un
+              movimiento más, con tu nota.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wide uppercase">
+                Según el sistema
+              </p>
+              <p className="border-border bg-muted/30 border px-3 py-2 text-sm tabular-nums">
+                {formatMoney(ajuste.saldoActual, ajuste.moneda)}
+              </p>
+            </div>
+            <Input
+              label="Saldo real *"
+              type="number"
+              step="0.01"
+              {...ajusteForm.register('saldo_real', { valueAsNumber: true })}
+              error={ajusteForm.formState.errors.saldo_real?.message}
+            />
+            <Input
+              label="Fecha *"
+              type="date"
+              {...ajusteForm.register('fecha')}
+              error={ajusteForm.formState.errors.fecha?.message}
+            />
+          </div>
+          {/* Anticipa el movimiento que se va a crear, para que el
+              ajuste no sea un número que aparece de la nada. */}
+          {diferenciaAjuste !== 0 && (
+            <p className="text-muted-foreground text-xs">
+              Se va a registrar un{' '}
+              <span
+                className={`font-bold tracking-widest uppercase ${
+                  diferenciaAjuste > 0 ? 'text-success' : 'text-danger'
+                }`}
+              >
+                {diferenciaAjuste > 0 ? 'Ingreso' : 'Egreso'}
+              </span>{' '}
+              de{' '}
+              <span className="font-semibold tabular-nums">
+                {formatMoney(Math.abs(diferenciaAjuste), ajuste.moneda)}
+              </span>{' '}
+              en {ajuste.label}.
+            </p>
+          )}
+          <Textarea
+            label="Nota *"
+            placeholder="Ej: se ajusta el balance porque no cargué el saldo inicial y hoy tengo US$ 800"
+            {...ajusteForm.register('notas')}
+            error={ajusteForm.formState.errors.notas?.message}
+          />
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={ajustar.isPending}>
+              {ajustar.isPending ? 'Guardando...' : 'Ajustar balance'}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setAjuste(null)}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">

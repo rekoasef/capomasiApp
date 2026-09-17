@@ -678,3 +678,71 @@ describe('chequesService.crearManual', () => {
     if (!result.ok) expect(result.code).toBe('DB_ERROR')
   })
 })
+
+// ── fondosService.ajustarSaldo ───────────────────────────────
+// La diferencia la calcula la DB contra v_saldo_fondos; el service
+// solo valida y pasa el saldo real tal cual lo cargó Paola.
+
+describe('fondosService.ajustarSaldo', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  const base = {
+    cuenta: 'usd' as const,
+    fecha: '2026-09-17',
+    notas: 'no cargué el saldo inicial, hoy tengo US$ 800',
+  }
+
+  it('llama al RPC con el saldo real y la nota', async () => {
+    mockRpc.mockResolvedValue({
+      data: [{ id: 'm-9', tipo_movimiento: 'INGRESO', importe_usd: 750 }],
+      error: null,
+    })
+
+    const result = await fondosService.ajustarSaldo({ ...base, saldo_real: 800 })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.id).toBe('m-9')
+    expect(mockRpc).toHaveBeenCalledWith('fn_ajustar_saldo_fondos', {
+      p_cuenta: 'usd',
+      p_saldo_real: 800,
+      p_fecha: '2026-09-17',
+      p_notas: 'no cargué el saldo inicial, hoy tengo US$ 800',
+    })
+  })
+
+  it('acepta un saldo negativo — el banco está en descubierto', async () => {
+    mockRpc.mockResolvedValue({ data: [{ id: 'm-10' }], error: null })
+
+    const result = await fondosService.ajustarSaldo({
+      ...base,
+      cuenta: 'banco',
+      saldo_real: -4946410.5,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_ajustar_saldo_fondos',
+      expect.objectContaining({ p_cuenta: 'banco', p_saldo_real: -4946410.5 })
+    )
+  })
+
+  it('no llama al RPC si falta la nota', async () => {
+    const result = await fondosService.ajustarSaldo({ ...base, saldo_real: 800, notas: '' })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('VALIDATION_ERROR')
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('devuelve DB_ERROR cuando el saldo ya era ese', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'El saldo de la cuenta ya es ese, no hay nada que ajustar' },
+    })
+
+    const result = await fondosService.ajustarSaldo({ ...base, saldo_real: 50 })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
+  })
+})
