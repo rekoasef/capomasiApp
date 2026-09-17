@@ -284,3 +284,89 @@ Lo que hay ahora:
 **Un bug que apareció al revisarlo en el navegador:** los rangos por defecto del comparativo se calculaban durante el render, o sea también en el server. Vercel corre en UTC, así que entre las 21 y la medianoche de Argentina el server ya estaba en el día siguiente y los rangos salían con un día de más. Ahora "hoy" se resuelve recién en el navegador (`useSyncExternalStore`, sin efectos, que el linter del proyecto no permite).
 
 ⚠️ **Los gráficos dejan la fila de ZELARAYAN a la vista.** Con $78,3M en una sola fila, agosto se lleva media escala del gráfico mensual y aplasta a los otros meses, Victoria queda primera con 20 trabajos contra los 197 de Luciana, y el comparativo contra agosto da −93,6%. No se tocó nada: es el pendiente de confirmación de arriba. Pero conviene resolverlo **antes** de mostrarle los reportes a Paola.
+
+---
+
+## 2026-09-17
+
+| #   | Pedido                                                                                        | Estado            |
+| :-- | :-------------------------------------------------------------------------------------------- | :---------------- |
+| 1   | "No puedo sacar los cheques cuando los cambio en una cueva o los saco para pagar algo propio" | ✅ migración 0082 |
+
+Textual, con captura del formulario de endoso trabado: _"fijate que no puedo sacar los cheques cuando los cambio en una cueva o los saco para pagar algo propio"_ / _"me debería dejar sacarlos poniendo solamente la nota de lo que hice sin que se impute a una factura"_.
+
+**El problema era real y el formulario de la captura lo muestra:** eligió **Endosado** sobre un cheque de $1.253.000 y quedó frenada en **"Compra a pagar \*"**, que es obligatorio. Un cheque de tercero en cartera tenía tres salidas y ninguna servía para lo que ella hace:
+
+- **Depositado** → lo manda a Banco, y esa plata nunca entró al banco.
+- **Endosado** → `fn_endosar_cheque_a_proveedor` (0054) exige proveedor **y** factura impaga. Si el cheque se fue a una cueva o a un gasto suyo no hay factura que imputar.
+- **Rechazado / Anulado** → dicen que la plata nunca existió. Es mentira: el cheque salió y, en el caso de la cueva, entró plata a cambio.
+
+Resultado: el cheque se quedaba en cartera para siempre y `saldo_cheques_cartera` mentía. Había **5 cheques en cartera por $4.938.500** cuando se hizo el arreglo.
+
+### Cómo quedó
+
+En **Fondos > Cheques > Cambiar estado**, la opción pasó a llamarse **"Entregado / endosado (se lo di a alguien)"** y antes de pedir datos pregunta qué hizo con el cheque:
+
+| Elección                    | Qué registra                                                                                                                                                 |
+| :-------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Se lo di a un proveedor** | El endoso de siempre (0054): proveedor + factura impaga + importe.                                                                                           |
+| **Lo cambié en una cueva**  | Sale el cheque de cartera por su importe y entra lo que le dieron, en efectivo o por transferencia. La diferencia baja la caja sola: es el costo del cambio. |
+| **Lo usé para algo mío**    | Sale de cartera y no entra nada al estudio.                                                                                                                  |
+| **En los dos últimos**      | La nota es obligatoria y es el único dato que se le pide además de la fecha. El cheque queda **Endosado**, sin proveedor.                                    |
+
+**No se crea un gasto en ninguno de los dos casos nuevos.** Ella pidió "solamente la nota", y además es el mismo criterio de la 0075: la plata personal se va de la caja, no del resultado del estudio.
+
+**Si se equivoca, se deshace:** volver el cheque a "En cartera" borra los movimientos de la salida y devuelve la plata a donde estaba (trigger `trigger_revertir_salida_cheque`). Se hizo con trigger propio porque el de la 0060 solo entiende Rechazado/Anulado y ahí pone los importes en cero en vez de borrar la fila — con una contrapartida en efectivo eso dejaría viva la plata que entró.
+
+### Verificado
+
+Prueba en seco contra producción, dentro de `BEGIN … ROLLBACK`, con `request.jwt.claims` seteado a un admin real para no tocar `is_admin()`. Ocho chequeos: cambio en cueva (cartera −$227.500 / efectivo +$200.000, banco quieto), el cheque no se puede sacar dos veces, la reversión deja los tres saldos exactamente como estaban y sin movimientos huérfanos, uso personal (un solo movimiento, no toca efectivo ni banco), rechazo posterior a la salida, nota vacía, tope de importe y cobro por transferencia. Migración aplicada; `SELECT` de control: 0 filas `cheque_salida`, o sea que no quedó nada de la prueba.
+
+**Para que Paola verifique:** entrar a **Fondos > Cheques > En cartera**, elegir un cheque que de verdad haya cambiado, **Cambiar estado > Entregado / endosado**, marcar **"Lo cambié en una cueva"**, poner cuánto le dieron y la nota. Después mirar que **Cheques en cartera** bajó por el total del cheque y **Efectivo** subió por lo que le dieron.
+
+### Lo que quedó abierto
+
+El **endoso a proveedor sigue sin reversión**: volver ese cheque a "En cartera" deja vivo el pago a la compra y la caja queda descuadrada. Es el mismo agujero que la 0075 tapó para las compras, pero del lado del cheque. No se tocó acá porque no es lo que ella reportó.
+
+### 2 — "Los movimientos de Tarallo y de dólares no los puedo ver en ningún lado"
+
+Textual, con captura de las tarjetas **DÓLARES $ 50,00** y **TARALLO $ 0,00**: _"fijate que los movimientos de tarallo y de dólares no los puedo ver en ningún lado, a qué se deben"_.
+
+**Los movimientos estaban, pero fuera de la pantalla.** La tabla de Fondos tenía nueve columnas fijas (Fecha, Tipo, Concepto, Banco, Cheques cartera, Efectivo, Dólares, Tarallo, borrar) dentro de un `overflow-x-auto`. En su monitor, con el sidebar, Dólares y Tarallo caían del borde derecho y había que scrollear la tabla en horizontal para verlas. Nunca lo hizo, y es razonable que no lo hiciera.
+
+**Tres cambios:**
+
+1. **Las tarjetas de saldo son botones.** Click en "Dólares" y el listado muestra solo los movimientos que tocaron dólares; click de nuevo, o en la cruz del chip "Solo Dólares", vuelve a mostrar todo. El filtro va al servidor (`fondosService.getMovimientos({ cuenta })` con un `neq(columna, 0)`), así que la paginación no miente. Un movimiento que toca dos cuentas — comprar dólares con efectivo — aparece bajo cualquiera de las dos.
+2. **La tabla esconde las columnas que están en cero** en las filas que se ven. Sin filtro y con la caja como está hoy quedan cuatro columnas de importe en vez de cinco; con "Solo Dólares" quedan dos. Ya no hace falta scrollear.
+3. **Los dólares se muestran como dólares.** `formatMoney(v, 'USD')` → **US$ 50,00**, no "$ 50,00", que se leía como pesos. También en el label del formulario ("Dólares US$").
+
+### ⚠️ Lo que apareció mirando esos movimientos: no hay forma de cargar bien una compra de dólares
+
+Las dos únicas filas con dólares las cargó ella hoy a mano:
+
+| Hora  | Tipo    | Concepto           | Efectivo       | USD  | Nota                                                         |
+| :---- | :------ | :----------------- | :------------- | :--- | :----------------------------------------------------------- |
+| 18:30 | INGRESO | Compra USD         | **+1.248.000** | +800 | "compra dolares a piñero con efectivo del cambio del cheque" |
+| 18:30 | EGRESO  | Pago a proveedores | —              | −750 | "pago a renzo asef fin del programa"                         |
+
+La primera fila está mal, y **no es culpa suya: el sistema no le deja hacerlo bien.** Un movimiento tiene un solo `tipo_movimiento`, así que al marcarlo INGRESO los 1.248.000 de efectivo **entraron** en vez de salir. Y "Transferir entre cuentas" tampoco sirve: `fn_transferir_fondos` (0061) mueve **el mismo número** de una cuenta a la otra, o sea que efectivo → dólares le habría metido 1.248.000 dólares. No hay campo de cotización.
+
+**Estado de la caja:** Efectivo da **$781.341,43** y está **inflado en $1.248.000**. Encima el cheque del que salió esa plata — **68579950, MACRO, $1.253.000** — sigue figurando EN CARTERA, porque cambió el cheque en la cueva antes de que estuviera la salida de la 0082.
+
+La secuencia correcta, una vez deployado, sería: sacar el cheque con "Lo cambié en una cueva" (cartera −1.253.000, efectivo +1.248.000, y los $5.000 de diferencia quedan como costo del cambio) y después registrar la compra de dólares como salida de efectivo + entrada de USD. **Ese segundo paso todavía no tiene forma limpia de cargarse.** Falta una transferencia con cotización: "salen X pesos, entran Y dólares".
+
+**No se tocó nada de su caja.** Los números son de ella y la corrección se hace con ella, no por atrás.
+
+### 3 — Transferencia con cotización (migración 0083)
+
+Se cerró el hueco de arriba en la misma sesión. `fn_transferir_fondos` pasa a tener **un importe por lado**: `p_importe` es lo que sale del origen y `p_importe_destino` lo que entra al destino. Omitirlo deja el comportamiento viejo, así que las transferencias que ya existían no cambian.
+
+**Los importes solo pueden diferir cuando hay cambio de moneda**, o sea cuando exactamente una punta es Dólares. Banco, efectivo y tarallo son todos pesos: mover $100 de banco a efectivo tiene que llegar como $100, y dejar que no coincidan sería abrir la puerta a que se pierda plata en una transferencia sin que nadie se entere. La DB lo rechaza y el formulario ni siquiera pregunta.
+
+En la pantalla, al elegir Dólares de un lado aparece un segundo campo — "Sale de Efectivo" / "Entra en Dólares" — y debajo **la cotización calculada en vivo** ("Cotización: US$ 1 = $1.560,00"), para que pueda controlarla antes de guardar. La regla de qué es cambio de moneda vive en `esCambioDeMoneda()`, que usan el schema Zod y el formulario, y en la función de la DB.
+
+No se guarda la cotización en una columna: las dos filas quedan unidas por el mismo `referencia_id` y cada una muestra su importe en la columna de su cuenta, así que el tipo de cambio se lee de las dos filas juntas.
+
+**Se hizo `DROP` + `CREATE` en vez de `CREATE OR REPLACE`:** agregar un parámetro con default crea una **segunda** función en vez de reemplazar la vieja, y las dos sobrecargas dejarían ambigua la llamada de seis argumentos desde PostgREST.
+
+**Verificado** en seco contra producción dentro de `BEGIN … ROLLBACK`, 7 chequeos: compra de dólares (efectivo −$1.248.000 / USD +800, dos filas con el mismo `referencia_id`), venta de dólares, rechazo de pesos con importes distintos, la llamada vieja de 6 argumentos sin cambios, mismo importe explícito permitido, importe destino en cero rechazado, y que quede **una sola** sobrecarga. Aplicada.
