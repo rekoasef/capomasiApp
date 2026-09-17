@@ -2,27 +2,25 @@
 
 import { useEffect } from 'react'
 import { useFieldArray, useForm, type Resolver } from 'react-hook-form'
+import type { FieldErrors, UseFieldArrayAppend, UseFormRegister } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { reciboSchema, totalMedios, type TReciboForm } from '../schemas/reciboSchema'
 import { calcularImportePagoUSD } from '../services/calcularSaldo'
 import { useRegistrarRecibo } from '../hooks/useCobranzas'
+import { MediosPagoFields, MEDIO_VACIO, type TMediosForm } from './MediosPagoFields'
 import { Input } from '@/shared/components/ui/input'
-import { Select } from '@/shared/components/ui/select'
 import { Textarea } from '@/shared/components/ui/textarea'
 import { Button } from '@/shared/components/ui/button'
 import { formatMoney } from '@/shared/utils/formatters'
 import { toLocalDateInputValue } from '@/shared/utils/dates'
 import { useParametros } from '@/shared/hooks/useParametros'
 import { FALLBACK_CUENTAS_BANCARIAS, FALLBACK_TIPOS_PAGO_COBRANZAS } from '@/shared/lib/parametros'
-import { Plus, X } from 'lucide-react'
 
 type Props = {
   clienteId: string
   onSuccess?: () => void
   onCancel?: () => void
 }
-
-const MEDIO_VACIO = { tipo_pago: 'TRANSFERENCIA', importe: 0 } as const
 
 export function RegistrarReciboForm({ clienteId, onSuccess, onCancel }: Props) {
   const registrar = useRegistrarRecibo(clienteId)
@@ -108,140 +106,20 @@ export function RegistrarReciboForm({ clienteId, onSuccess, onCancel }: Props) {
         {...register('fecha')}
       />
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-            Cómo pagó
-          </span>
-          <span className="text-muted-foreground text-xs">
-            Total del recibo{' '}
-            <strong className="text-foreground tabular-nums">{formatMoney(total)}</strong>
-          </span>
-        </div>
-
-        {fields.map((field, index) => {
-          const tipo = medios?.[index]?.tipo_pago
-          const medioErrors = errors.medios?.[index]
-
-          return (
-            <div key={field.id} className="border-border space-y-3 rounded-md border p-3">
-              <div className="flex items-start gap-3">
-                <div className="flex-1">
-                  <Select
-                    id={`medios.${index}.tipo_pago`}
-                    label="Medio de pago *"
-                    options={tiposPago}
-                    error={medioErrors?.tipo_pago?.message}
-                    disabled={registrar.isPending}
-                    {...register(`medios.${index}.tipo_pago`)}
-                  />
-                </div>
-                <div className="flex-1">
-                  <Input
-                    id={`medios.${index}.importe`}
-                    label={tipo === 'USD' ? 'Importe ARS (calculado)' : 'Importe ARS *'}
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    error={medioErrors?.importe?.message}
-                    disabled={registrar.isPending || tipo === 'USD'}
-                    {...register(`medios.${index}.importe`)}
-                  />
-                </div>
-                {fields.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => remove(index)}
-                    disabled={registrar.isPending}
-                    className="text-muted-foreground hover:text-danger mt-6 p-1.5"
-                    title="Quitar este medio de pago"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-
-              {tipo === 'TRANSFERENCIA' && (
-                <Select
-                  id={`medios.${index}.cuenta_bancaria`}
-                  label="Cuenta bancaria"
-                  options={cuentas}
-                  placeholder="Seleccionar cuenta"
-                  error={medioErrors?.cuenta_bancaria?.message}
-                  disabled={registrar.isPending}
-                  {...register(`medios.${index}.cuenta_bancaria`)}
-                />
-              )}
-
-              {tipo === 'USD' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    id={`medios.${index}.importe_usd`}
-                    label="Importe USD *"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    error={medioErrors?.importe_usd?.message}
-                    disabled={registrar.isPending}
-                    {...register(`medios.${index}.importe_usd`)}
-                  />
-                  <Input
-                    id={`medios.${index}.tipo_cambio`}
-                    label="Tipo de cambio *"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    error={medioErrors?.tipo_cambio?.message}
-                    disabled={registrar.isPending}
-                    {...register(`medios.${index}.tipo_cambio`)}
-                  />
-                </div>
-              )}
-
-              {tipo === 'CHEQUE' && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      id={`medios.${index}.cheque_numero`}
-                      label="Número de cheque *"
-                      error={medioErrors?.cheque_numero?.message}
-                      disabled={registrar.isPending}
-                      {...register(`medios.${index}.cheque_numero`)}
-                    />
-                    <Input
-                      id={`medios.${index}.cheque_banco`}
-                      label="Banco *"
-                      error={medioErrors?.cheque_banco?.message}
-                      disabled={registrar.isPending}
-                      {...register(`medios.${index}.cheque_banco`)}
-                    />
-                  </div>
-                  <Input
-                    id={`medios.${index}.cheque_fecha_cobro`}
-                    label="Fecha de cobro"
-                    type="date"
-                    disabled={registrar.isPending}
-                    {...register(`medios.${index}.cheque_fecha_cobro`)}
-                  />
-                </div>
-              )}
-            </div>
-          )
-        })}
-
-        {errors.medios?.message && <p className="text-danger text-xs">{errors.medios.message}</p>}
-
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => append({ ...MEDIO_VACIO })}
-          disabled={registrar.isPending}
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" />
-          Agregar otro medio de pago
-        </Button>
-      </div>
+      <MediosPagoFields
+        fields={fields}
+        // El componente se tipa contra { medios } y no contra TReciboForm:
+        // los genéricos de RHF no aceptan un formulario más ancho. Ver
+        // MediosPagoFields.
+        register={register as unknown as UseFormRegister<TMediosForm>}
+        errors={errors as FieldErrors<TMediosForm>}
+        medios={medios}
+        append={append as unknown as UseFieldArrayAppend<TMediosForm, 'medios'>}
+        remove={remove}
+        disabled={registrar.isPending}
+        tiposPago={tiposPago}
+        cuentas={cuentas}
+      />
 
       {esChequeUnico && (
         <div>

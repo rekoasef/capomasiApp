@@ -433,3 +433,35 @@ Se cierra con "Ajustar balance" en la tarjeta de Efectivo, en cuanto Paola diga 
 #### Hallazgo menor: los movimientos manuales no guardan quién los cargó
 
 La fila vieja "Pago a proveedores" (US$ 750) tiene `created_by` en NULL. `fondosService.registrar` hace un insert plano sin `created_by`, mientras que todos los RPC escriben `auth.uid()`. No se tocó en esta sesión — es un cambio de una línea, pero queda anotado: los movimientos cargados desde "Registrar movimiento" no dejan rastro de autor.
+
+### 6 — Editar y eliminar recibos, y el cheque que quedaba colgado (migración 0085)
+
+Renzo preguntó si los recibos se podían editar. No: las liquidaciones tienen "Editar" desde la 0070, pero el recibo solo se podía **anular**, así que un error de importe obligaba a anular y reemitir, quemando un número de la serie. Su decisión: _"para mí se tendría que poder editar y eliminar el recibo, quiero que ella tenga libertad para hacer lo que quiera porque sé que me lo va a pedir"_, con el límite que puso enseguida: _"un recibo que ya se imputó no tendría que poder editarse, yo digo los nuevos... creás un recibo y no lo imputaste, ahí sí tendrías que poder editarlo"_.
+
+**La regla quedó: se edita y se elimina mientras no esté imputado.** Un recibo sin imputar es plata que entró y todavía no se aplicó a ninguna factura, así que corregirlo no mueve nada más que a sí mismo. Desde que se imputa pasa a sostener el estado de una factura (PARCIAL, PAGADA) y editarlo por abajo la haría cambiar de estado sin que nadie lo pida. Para esos casos está quitar la imputación primero, o anular. La guardia vive en `fn_verificar_recibo_editable`, que usan las dos operaciones para dar el mismo mensaje, y en la UI los botones solo aparecen cuando `total_imputado === 0`.
+
+**Lo que cambia y lo que no.** Editar rearma el recibo: fecha, medios de pago y notas. **El número y el cliente no se tocan** — el número es el papel que ya está en manos del cliente, y mover el cliente dejaría el recibo colgado de otra cuenta corriente. Eliminar borra de verdad, con su movimiento de fondos. **El número no vuelve a la serie**: `seq_recibo_c` no retrocede, así que el próximo recibo sigue de largo. Es a propósito; reusar un número ya entregado es peor que saltearlo.
+
+#### El agujero que apareció mirando esto: el cheque que quedaba en cartera
+
+`fn_anular_recibo` borraba las imputaciones y los movimientos de fondos del recibo, pero **no tocaba los cheques que habían entrado con él**. El cheque quedaba `EN_CARTERA` en la lista mientras la tarjeta "Cheques en cartera" ya no lo contaba: dos números que dejaban de coincidir. Al 2026-09-17 era latente (27 recibos, 2 anulados, ninguno con cheque), pero saltaba la primera vez que anulara un cobro con cheque.
+
+Lo resuelve `fn_liberar_cheques_de_recibo`, que ahora usan anular, editar y eliminar:
+
+- Cheque todavía **EN_CARTERA** → se borra. Entró con el recibo y no tuvo vida propia.
+- Cheque que **ya se movió** (DEPOSITADO, ENDOSADO, RECHAZADO, ANULADO) → **se rechaza la operación entera**, nombrando el cheque y su estado. Ese cheque ya generó movimientos por su cuenta y borrarlo dejaría la caja mintiendo. Primero se resuelve el cheque, después se toca el recibo.
+- Además del estado, se chequea que el cheque no esté referenciado desde `pagos_proveedores` ni `pagos_empleadas`.
+
+**Un bug que encontró la prueba en seco:** `cheques` tiene cinco FKs apuntándole (`fondos_movimientos`, `recibos`, `recibos_medios`, `pagos_proveedores`, `pagos_empleadas`), ninguna con `ON DELETE`. La primera versión borraba el cheque mientras `recibos_medios` todavía lo referenciaba y fallaba con violación de FK. La función quedó en cuatro pasos: juntar los ids, validar estados, **desenganchar** las referencias de `recibos_medios` y `recibos`, y recién entonces borrar.
+
+#### Auditoría: el borrado es reconstruible
+
+`recibos` e `imputaciones` ya auditaban, pero `recibos_medios` cuelga con `ON DELETE CASCADE` y se iba sin dejar rastro, y `cheques` nunca auditó. Sin eso, eliminar un recibo con dos cheques perdía el desglose para siempre. La 0085 les agrega `fn_audit_trigger`, así que **un recibo eliminado se reconstruye fila por fila desde `audit_log`** — la misma red que permitió recuperar los clientes borrados el 2026-08-10.
+
+#### Del lado del código
+
+`MediosPagoFields` sale de `RegistrarReciboForm` a componente propio: el alta y la edición comparten el mismo editor de medios (~130 líneas de markup) en vez de tenerlo dos veces y dejar que se despeguen. Se tipa contra la forma mínima `{ medios }` con un cast por llamador, porque los genéricos de React Hook Form no aceptan un formulario más ancho.
+
+Al editar, los cheques se **rehacen**: el formulario vuelve a pedir número y banco, se crean filas nuevas y el RPC borra las viejas (quedan fuera de `p_conservar`). Es más simple que diferenciar cuál sobrevivió, y si el cheque anterior tuviera vida propia el RPC rechaza antes de tocar nada. Si el RPC falla, el service borra los cheques que acababa de crear.
+
+**Verificado** en seco contra producción dentro de `BEGIN … ROLLBACK`, 7 chequeos sobre un recibo de prueba con número explícito (para no quemar uno de la serie): alta con cheque (cartera +1.000), edición a efectivo de 500 (cheque borrado, cartera en 0, un movimiento de fondos de 500), eliminación (recibo, medios y fondos en cero, con su fila DELETE en `audit_log`), rechazo de editar y de eliminar un recibo imputado, rechazo con el cheque depositado, y edición conservando el mismo cheque sin borrarlo. Aplicada. 299 tests en verde, build limpio.

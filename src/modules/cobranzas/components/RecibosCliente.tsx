@@ -6,9 +6,12 @@ import {
   useAnularRecibo,
   useImputacionesRecibo,
   useEliminarImputacion,
+  useEliminarRecibo,
 } from '../hooks/useCobranzas'
 import { filtrarRecibosPorFecha } from '../services/cuentaCorrientePdfService'
 import { ImputarDesdeReciboModal } from './ImputarDesdeReciboModal'
+import { EditarReciboForm } from './EditarReciboForm'
+import { Modal } from '@/shared/components/Modal'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
@@ -45,9 +48,12 @@ type Props = { clienteId: string; desde?: string; hasta?: string }
 export function RecibosCliente({ clienteId, desde, hasta }: Props) {
   const { data: raw, isLoading, error } = useRecibosCliente(clienteId)
   const anular = useAnularRecibo(clienteId)
+  const eliminar = useEliminarRecibo(clienteId)
   const { isAdmin } = useAuth()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [anularId, setAnularId] = useState<string | null>(null)
+  const [eliminarRec, setEliminarRec] = useState<TReciboDisponible | null>(null)
+  const [editarRecibo, setEditarRecibo] = useState<TReciboDisponible | null>(null)
   const [imputarRecibo, setImputarRecibo] = useState<TReciboDisponible | null>(null)
 
   const data = raw ? filtrarRecibosPorFecha(raw, desde, hasta) : raw
@@ -108,6 +114,8 @@ export function RecibosCliente({ clienteId, desde, hasta }: Props) {
                   expanded={expanded}
                   onToggle={() => setExpandedId(expanded ? null : rec.id)}
                   onAnular={() => setAnularId(rec.id)}
+                  onEditar={() => setEditarRecibo(rec)}
+                  onEliminar={() => setEliminarRec(rec)}
                   onImputar={() => setImputarRecibo(rec)}
                   isAdmin={isAdmin}
                   clienteId={clienteId}
@@ -126,10 +134,34 @@ export function RecibosCliente({ clienteId, desde, hasta }: Props) {
         />
       )}
 
+      {editarRecibo && (
+        <Modal title="Editar recibo" onClose={() => setEditarRecibo(null)}>
+          <EditarReciboForm
+            clienteId={clienteId}
+            recibo={editarRecibo}
+            onSuccess={() => setEditarRecibo(null)}
+            onCancel={() => setEditarRecibo(null)}
+          />
+        </Modal>
+      )}
+
+      <ConfirmDialog
+        open={!!eliminarRec}
+        title="Eliminar recibo"
+        description={`Se borra el recibo ${eliminarRec?.numero_recibo ?? ''} junto con su movimiento de fondos, y los cheques que entraron con él salen de la cartera. El número no vuelve a la serie: el próximo recibo sigue de largo.`}
+        confirmLabel="Sí, eliminar"
+        onConfirm={() => {
+          if (eliminarRec) eliminar.mutate(eliminarRec.id)
+          setEliminarRec(null)
+        }}
+        onCancel={() => setEliminarRec(null)}
+        isPending={eliminar.isPending}
+      />
+
       <ConfirmDialog
         open={!!anularId}
         title="Anular recibo"
-        description="Se revertirán todas las imputaciones del recibo y se eliminará su movimiento de fondos. Esta acción no se puede deshacer."
+        description="Se revertirán todas las imputaciones del recibo, se eliminará su movimiento de fondos y los cheques que entraron con él saldrán de la cartera. El recibo queda registrado como anulado."
         confirmLabel="Sí, anular"
         onConfirm={() => {
           if (anularId) anular.mutate({ id: anularId })
@@ -147,6 +179,8 @@ type RowProps = {
   expanded: boolean
   onToggle: () => void
   onAnular: () => void
+  onEditar: () => void
+  onEliminar: () => void
   onImputar: () => void
   isAdmin: boolean
   clienteId: string
@@ -157,6 +191,8 @@ function RecibosRow({
   expanded,
   onToggle,
   onAnular,
+  onEditar,
+  onEliminar,
   onImputar,
   isAdmin,
   clienteId,
@@ -207,6 +243,19 @@ function RecibosRow({
               <Button type="button" size="sm" variant="outline" onClick={onImputar}>
                 Imputar
               </Button>
+            )}
+            {/* Editar y eliminar solo mientras el recibo no sostenga el
+                estado de ninguna factura. Imputado, el camino es quitar la
+                imputación o anular. */}
+            {isAdmin && !anulado && totalImputado === 0 && (
+              <>
+                <Button type="button" size="sm" variant="ghost" onClick={onEditar}>
+                  Editar
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={onEliminar}>
+                  Eliminar
+                </Button>
+              </>
             )}
             {isAdmin && !anulado && (
               <Button type="button" size="sm" variant="ghost" onClick={onAnular}>
