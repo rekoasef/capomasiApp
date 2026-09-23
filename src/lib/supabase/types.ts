@@ -2268,6 +2268,39 @@ export type Database = {
       }
     }
     Functions: {
+      fn_ajustar_saldo_fondos: {
+        Args: {
+          p_cuenta: string
+          p_fecha: string
+          p_notas: string
+          p_saldo_real: number
+        }
+        Returns: {
+          cheque_id: string | null
+          concepto: string
+          created_at: string
+          created_by: string | null
+          cuenta_bancaria: string | null
+          fecha: string
+          id: string
+          importe_banco: number | null
+          importe_cheques_cartera: number | null
+          importe_efectivo: number | null
+          importe_taralo: number | null
+          importe_usd: number | null
+          notas: string | null
+          nro_comprobante: string | null
+          referencia_id: string | null
+          referencia_tipo: string | null
+          tipo_movimiento: string
+        }[]
+        SetofOptions: {
+          from: '*'
+          to: 'fondos_movimientos'
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       fn_ajustar_saldo_puntaje:
         | {
             Args: {
@@ -2500,6 +2533,40 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fn_editar_recibo: {
+        Args: {
+          p_fecha: string
+          p_medios: Json
+          p_notas?: string
+          p_recibo_id: string
+        }
+        Returns: {
+          anulado: boolean
+          anulado_at: string | null
+          anulado_by: string | null
+          cheque_id: string | null
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          cuenta_bancaria: string | null
+          fecha: string
+          id: string
+          importe: number
+          importe_usd: number | null
+          motivo_anulacion: string | null
+          notas: string | null
+          numero_recibo: string | null
+          tipo_cambio: number | null
+          tipo_pago: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'recibos'
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_eliminar_compra_proveedor: {
         Args: { p_compra_id: string }
         Returns: undefined
@@ -2512,6 +2579,7 @@ export type Database = {
         Args: { p_pago_id: string }
         Returns: undefined
       }
+      fn_eliminar_recibo: { Args: { p_recibo_id: string }; Returns: boolean }
       fn_endosar_cheque_a_proveedor: {
         Args: {
           p_cheque_id: string
@@ -2622,6 +2690,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      fn_liberar_cheques_de_recibo: {
+        Args: { p_conservar?: string[]; p_recibo_id: string }
+        Returns: number
       }
       fn_liquidar_comision_puntaje: {
         Args: { p_registro_id: string }
@@ -2826,6 +2898,35 @@ export type Database = {
           to: 'fondos_movimientos'
           isOneToOne: false
           isSetofReturn: true
+        }
+      }
+      fn_verificar_recibo_editable: {
+        Args: { p_accion: string; p_recibo_id: string }
+        Returns: {
+          anulado: boolean
+          anulado_at: string | null
+          anulado_by: string | null
+          cheque_id: string | null
+          cliente_id: string
+          created_at: string
+          created_by: string | null
+          cuenta_bancaria: string | null
+          fecha: string
+          id: string
+          importe: number
+          importe_usd: number | null
+          motivo_anulacion: string | null
+          notas: string | null
+          numero_recibo: string | null
+          tipo_cambio: number | null
+          tipo_pago: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'recibos'
+          isOneToOne: true
+          isSetofReturn: false
         }
       }
       is_admin: { Args: never; Returns: boolean }

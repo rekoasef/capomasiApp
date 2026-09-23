@@ -7,6 +7,7 @@ import { recibosService } from '../services/recibosService'
 import { imputacionesService } from '../services/imputacionesService'
 import { cuentaCorrienteService } from '../services/cuentaCorrienteService'
 import { saldoInicialService } from '../services/saldoInicialService'
+import type { TEditarReciboForm } from '../schemas/reciboSchema'
 
 // ----- Liquidaciones -----
 
@@ -203,6 +204,51 @@ export function useAnularRecibo(clienteId: string) {
       qc.invalidateQueries({ queryKey: ['liquidaciones', 'pendientes', clienteId] })
       qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
       qc.invalidateQueries({ queryKey: ['imputaciones'] })
+    },
+  })
+}
+
+// Editar y eliminar solo existen para recibos sin imputar (regla de la
+// 0085). Se invalidan las mismas queries que al anular: el recibo toca
+// cuenta corriente, fondos y la cartera de cheques.
+function invalidarRecibo(qc: ReturnType<typeof useQueryClient>, clienteId: string) {
+  qc.invalidateQueries({ queryKey: ['recibos', 'cliente', clienteId] })
+  qc.invalidateQueries({ queryKey: ['recibos', 'disponibles', clienteId] })
+  qc.invalidateQueries({ queryKey: ['liquidaciones', 'cliente', clienteId] })
+  qc.invalidateQueries({ queryKey: ['liquidaciones', 'pendientes', clienteId] })
+  qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
+  qc.invalidateQueries({ queryKey: ['imputaciones'] })
+  qc.invalidateQueries({ queryKey: ['cheques'] })
+  qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
+  qc.invalidateQueries({ queryKey: ['fondos_movimientos'] })
+}
+
+export function useEditarRecibo(clienteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (form: TEditarReciboForm) => recibosService.editar(form),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Recibo actualizado')
+      invalidarRecibo(qc, clienteId)
+    },
+  })
+}
+
+export function useEliminarRecibo(clienteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => recibosService.eliminar(id),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Recibo eliminado')
+      invalidarRecibo(qc, clienteId)
     },
   })
 }

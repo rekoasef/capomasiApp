@@ -93,3 +93,17 @@ export const chequeSalidaSchema = z
   })
 
 export type TChequeSalidaForm = z.infer<typeof chequeSalidaSchema>
+
+// Decir cuánto hay realmente en una cuenta en vez de sumar un
+// movimiento inventado. El saldo puede ser negativo (el banco de
+// Paola está en descubierto) y hasta cero, así que no se valida el
+// signo — solo que haya un número. La nota es obligatoria: es lo
+// único que explica por qué el saldo calculado estaba mal.
+export const ajusteSaldoFondosSchema = z.object({
+  cuenta: z.enum(['banco', 'efectivo', 'usd', 'taralo']),
+  saldo_real: z.number({ message: 'Cargá el saldo real de la cuenta' }),
+  fecha: z.string().date(),
+  notas: z.string().trim().min(5, 'Explicá en una nota por qué se ajusta el saldo'),
+})
+
+export type TAjusteSaldoFondosForm = z.infer<typeof ajusteSaldoFondosSchema>

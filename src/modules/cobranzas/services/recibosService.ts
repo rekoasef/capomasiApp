@@ -1,5 +1,11 @@
 import { supabase } from '@/lib/supabase/client'
-import { reciboSchema, totalMedios, type TReciboForm } from '../schemas/reciboSchema'
+import {
+  editarReciboSchema,
+  reciboSchema,
+  totalMedios,
+  type TEditarReciboForm,
+  type TReciboForm,
+} from '../schemas/reciboSchema'
 import type { ServiceResult } from '@/shared/utils/serviceResult'
 import type { TRecibo, TReciboDisponible } from '../types'
 
@@ -65,6 +71,101 @@ export const recibosService = {
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     return { ok: true, data: data as TRecibo }
   },
+
+  async editar(form: unknown): Promise<ServiceResult<TRecibo>> {
+    const parsed = editarReciboSchema.safeParse(form)
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.issues[0].message, code: 'VALIDATION_ERROR' }
+    }
+    return editarRecibo(parsed.data)
+  },
+
+  async eliminar(id: string): Promise<ServiceResult<true>> {
+    const { error } = await supabase.rpc('fn_eliminar_recibo', { p_recibo_id: id })
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: true }
+  },
+}
+
+// Editar es rearmar: los medios que llegan reemplazan a los de antes. Los
+// cheques se crean de nuevo y el RPC borra los viejos, que quedaron fuera
+// de p_conservar. Es más simple que diferenciar cuál sobrevivió, y el
+// cheque anterior no tenía vida propia — si la tuviera, el RPC rechaza.
+async function editarRecibo(params: TEditarReciboForm): Promise<ServiceResult<TRecibo>> {
+  const chequesCreados: string[] = []
+  const medios: MedioPayload[] = []
+
+  // El cliente del recibo no se edita, pero el cheque nuevo necesita
+  // saber de quién es.
+  const { data: recibo, error: reciboError } = await supabase
+    .from('recibos')
+    .select('cliente_id')
+    .eq('id', params.recibo_id)
+    .single()
+
+  if (reciboError) return { ok: false, error: reciboError.message, code: 'DB_ERROR' }
+
+  for (const medio of params.medios) {
+    if (medio.tipo_pago === 'CHEQUE') {
+      if (!medio.cheque_numero || !medio.cheque_banco) {
+        await borrarCheques(chequesCreados)
+        return {
+          ok: false,
+          error: 'Falta el número o el banco de uno de los cheques',
+          code: 'VALIDATION_ERROR',
+        }
+      }
+
+      const { data: cheque, error: chequeError } = await supabase
+        .from('cheques')
+        .insert({
+          tipo: 'TERCERO',
+          numero: medio.cheque_numero,
+          banco: medio.cheque_banco,
+          importe: medio.importe,
+          fecha_emision: params.fecha,
+          fecha_cobro: medio.cheque_fecha_cobro || null,
+          origen: 'CLIENTE',
+          estado: 'EN_CARTERA',
+          cliente_id: recibo.cliente_id,
+        })
+        .select()
+        .single()
+
+      if (chequeError) {
+        await borrarCheques(chequesCreados)
+        return { ok: false, error: chequeError.message, code: 'DB_ERROR' }
+      }
+
+      chequesCreados.push(cheque.id)
+      medios.push({ tipo_pago: 'CHEQUE', importe: medio.importe, cheque_id: cheque.id })
+      continue
+    }
+
+    medios.push({
+      tipo_pago: medio.tipo_pago,
+      importe: medio.importe,
+      cuenta_bancaria: medio.cuenta_bancaria || undefined,
+      importe_usd: medio.importe_usd ?? undefined,
+      tipo_cambio: medio.tipo_cambio ?? undefined,
+    })
+  }
+
+  const { data, error } = await supabase.rpc('fn_editar_recibo', {
+    p_recibo_id: params.recibo_id,
+    p_fecha: params.fecha,
+    p_medios: medios,
+    p_notas: params.notas || undefined,
+  })
+
+  if (error) {
+    // Si el RPC rechazó (recibo imputado, cheque ya movido), los cheques
+    // que acabamos de crear no tienen dueño: se van.
+    await borrarCheques(chequesCreados)
+    return { ok: false, error: error.message, code: 'DB_ERROR' }
+  }
+
+  return { ok: true, data: data as TRecibo }
 }
 
 async function registrarRecibo(params: TReciboForm): Promise<ServiceResult<TRecibo[]>> {

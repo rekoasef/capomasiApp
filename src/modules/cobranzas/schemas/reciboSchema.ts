@@ -24,6 +24,45 @@ export function totalMedios(medios: { importe: number }[]): number {
   return Math.round(medios.reduce((acc, m) => acc + (Number(m.importe) || 0), 0) * 100) / 100
 }
 
+// Los datos que cada tipo de medio exige. Vive aparte porque la usan el
+// alta del recibo y la edición, y tienen que pedir exactamente lo mismo.
+export function validarMediosDePago(medios: TMedioPagoForm[], ctx: z.RefinementCtx): void {
+  medios.forEach((medio, i) => {
+    if (medio.tipo_pago === 'USD') {
+      if (!medio.importe_usd) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['medios', i, 'importe_usd'],
+          message: 'Importe USD requerido',
+        })
+      }
+      if (!medio.tipo_cambio) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['medios', i, 'tipo_cambio'],
+          message: 'Tipo de cambio requerido',
+        })
+      }
+    }
+    if (medio.tipo_pago === 'CHEQUE') {
+      if (!medio.cheque_numero) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['medios', i, 'cheque_numero'],
+          message: 'Número de cheque requerido',
+        })
+      }
+      if (!medio.cheque_banco) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['medios', i, 'cheque_banco'],
+          message: 'Banco requerido',
+        })
+      }
+    }
+  })
+}
+
 export const reciboSchema = z
   .object({
     cliente_id: z.string().uuid('Cliente requerido'),
@@ -35,40 +74,7 @@ export const reciboSchema = z
     imputaciones: z.array(imputacionInlineSchema).default([]),
   })
   .superRefine((data, ctx) => {
-    data.medios.forEach((medio, i) => {
-      if (medio.tipo_pago === 'USD') {
-        if (!medio.importe_usd) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['medios', i, 'importe_usd'],
-            message: 'Importe USD requerido',
-          })
-        }
-        if (!medio.tipo_cambio) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['medios', i, 'tipo_cambio'],
-            message: 'Tipo de cambio requerido',
-          })
-        }
-      }
-      if (medio.tipo_pago === 'CHEQUE') {
-        if (!medio.cheque_numero) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['medios', i, 'cheque_numero'],
-            message: 'Número de cheque requerido',
-          })
-        }
-        if (!medio.cheque_banco) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['medios', i, 'cheque_banco'],
-            message: 'Banco requerido',
-          })
-        }
-      }
-    })
+    validarMediosDePago(data.medios, ctx)
 
     const total = totalMedios(data.medios)
 
@@ -112,3 +118,18 @@ export const imputacionSchema = z.object({
 })
 
 export type TImputacionForm = z.infer<typeof imputacionSchema>
+
+// Editar un recibo ya emitido. Solo se puede mientras no esté imputado
+// (regla de la migración 0085), así que acá no hay imputaciones ni vuelto:
+// el vuelto es una comodidad del alta, y al editar se cargan los medios
+// finales tal cual quedaron. El número y el cliente no se tocan.
+export const editarReciboSchema = z
+  .object({
+    recibo_id: z.string().uuid(),
+    fecha: z.string().min(1, 'Fecha requerida'),
+    medios: z.array(medioPagoSchema).min(1, 'Agregá al menos un medio de pago'),
+    notas: z.string().optional(),
+  })
+  .superRefine((data, ctx) => validarMediosDePago(data.medios, ctx))
+
+export type TEditarReciboForm = z.infer<typeof editarReciboSchema>

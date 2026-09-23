@@ -370,3 +370,98 @@ No se guarda la cotización en una columna: las dos filas quedan unidas por el m
 **Se hizo `DROP` + `CREATE` en vez de `CREATE OR REPLACE`:** agregar un parámetro con default crea una **segunda** función en vez de reemplazar la vieja, y las dos sobrecargas dejarían ambigua la llamada de seis argumentos desde PostgREST.
 
 **Verificado** en seco contra producción dentro de `BEGIN … ROLLBACK`, 7 chequeos: compra de dólares (efectivo −$1.248.000 / USD +800, dos filas con el mismo `referencia_id`), venta de dólares, rechazo de pesos con importes distintos, la llamada vieja de 6 argumentos sin cambios, mismo importe explícito permitido, importe destino en cero rechazado, y que quede **una sola** sobrecarga. Aplicada.
+
+### 4 — Ajustar el balance de una cuenta a mano (migración 0084)
+
+Audio del 2026-09-17, sobre la misma captura: _"que ella pueda cambiar lo que es el monto... si vos ves, tuve un egreso de 750 dólares y después un ingreso de 800. En ese caso está perfecto, ahí muestra 50 dólares. Pero en realidad ella ya tenía esos 750 y ahora tiene 800... capaz que hace un botón en cada cuadrado que diga ajustar balance... pone 800 y abajo pone una nota... que quede registrado como un movimiento"_.
+
+**La cuenta del sistema estaba bien; le faltaba el punto de partida.** La tarjeta de Dólares decía US$ 50 porque en la base solo hay un egreso de US$ 750 y un ingreso de US$ 800. La resta es correcta, pero **los 750 ya los tenía antes de que el sistema existiera**: nunca se cargó un saldo inicial de caja. Lo mismo le puede pasar en cualquier cuenta cada vez que arrastra plata de antes o se le escapa un movimiento.
+
+Hasta ahora la única salida era inventar un INGRESO o EGRESO suelto con "Registrar movimiento" y elegir un concepto de la lista que no dice nada del ajuste: queda indistinguible de plata que entró o salió de verdad.
+
+**Cada tarjeta tiene ahora un botón "Ajustar balance"** (solo admin). Se abre un panel que muestra el saldo que calculó el sistema, pide el **saldo real** y una **nota obligatoria**, y anticipa en vivo el movimiento que va a crear ("Se va a registrar un **Ingreso** de US$ 750,00 en Dólares"). Al guardar, `fn_ajustar_saldo_fondos` escribe **un movimiento por la diferencia**:
+
+- falta plata en el sistema → INGRESO
+- sobra → EGRESO
+
+No se toca ninguna fila vieja ni se guarda el saldo en una columna: `v_saldo_fondos` sigue siendo la suma de los movimientos y el ajuste es uno de ellos, con `concepto = 'Ajuste de saldo — <cuenta>'` y `referencia_tipo = 'ajuste_saldo'` para poder distinguirlo del resto. Así el saldo cierra sin dejar de ser auditable de dónde salió cada peso.
+
+**La nota es obligatoria en los dos lados** (Zod pide 5 caracteres, la DB rechaza vacío o solo espacios): es el único dato que explica por qué el saldo calculado estaba mal, y sin ella el ajuste es un número sin origen.
+
+**La diferencia la calcula la DB**, no el service: sacarla en el cliente serían tres viajes (leer el saldo, decidir, escribir) con el saldo cambiando en el medio.
+
+**Se puede ajustar a un saldo negativo o a cero** — el banco de Paola está en descubierto (−$4.946.410,50), así que validar el signo habría dejado esa tarjeta sin arreglo posible.
+
+**Cheques en cartera queda afuera a propósito.** Ese saldo es la suma de los cheques EN_CARTERA, así que ajustarlo a mano lo desincronizaría de la tabla `cheques` y la cartera mostraría un total que no se corresponde con ningún cheque de la lista. Si ahí hay una diferencia, se arregla con el cheque que falta o sobra (salida sin factura, 0082). La tarjeta de Cheques en cartera es la única sin botón.
+
+**Verificado** en seco contra producción dentro de `BEGIN … ROLLBACK`, 7 chequeos: su caso real (US$ 50 → 800 da INGRESO de 750 y la tarjeta queda en 800), ajuste a la baja (→ EGRESO de 700), ajustar al mismo saldo rechazado, nota en blanco rechazada, `cheques_cartera` rechazada, redondeo a 2 decimales, y que no se mueva ninguna otra cuenta. Aplicada.
+
+**Nota:** esto también es la herramienta que faltaba para cerrar el arrastre viejo de cada cuenta, no solo el de dólares. El efectivo inflado en $1.248.000 **no se arregla con un ajuste**: eso tiene una causa conocida (el cheque de la cueva sin registrar y la compra de dólares mal cargada) y se corrige con 0082 + 0083, que dejan el rastro real. El ajuste es para lo que no tiene explicación movimiento por movimiento.
+
+### 5 — La cadena del cheque de la cueva, corregida en producción (2026-09-17)
+
+Renzo, sobre los movimientos raros de la caja: _"hubo un movimiento medio raro, porque es como que ella recibió un cheque... después es como que lo mandó a la cueva y le dieron efectivo por ese cheque y después con ese efectivo ella compró dólares. Y es como que se sumó el efectivo y se sumaron dólares, ahí quedó algo medio raro"_. Y después: _"podés arreglarlo vos directamente"_.
+
+**Era exactamente eso.** La cadena real tuvo cuatro pasos y el sistema tenía dos bien y dos fusionados en una sola fila con el signo al revés:
+
+| #   | Qué pasó                                                                         | Cómo estaba                                                      |
+| :-- | :------------------------------------------------------------------------------- | :--------------------------------------------------------------- |
+| 1   | **15/09** — recibo de RICCIOTTI, LUCIANO con el cheque 68579950 MACRO $1.253.000 | ✅ Bien: cartera +$1.253.000                                     |
+| 2   | Lo llevó a la cueva, le dieron $1.248.000 en efectivo                            | ❌ **No estaba en ningún lado.** El cheque seguía EN_CARTERA     |
+| 3   | Con ese efectivo compró US$ 800 a Piñero                                         | ❌ Una sola fila INGRESO: efectivo **+**1.248.000 **y** usd +800 |
+| 4   | **17/09** — pagó US$ 750                                                         | ✅ Bien: EGRESO usd 750                                          |
+
+La causa de fondo: los pasos 2 y 3 entraron juntos en un solo movimiento, y **un movimiento tiene un solo `tipo_movimiento`**, así que las dos columnas tomaron el mismo signo. El efectivo que ella gastó figuraba como que había entrado.
+
+**Se rearmó la cadena con los mismos RPC que usa la UI** (nada de UPDATE a mano sobre las filas), todo dentro de una transacción y actuando como el admin de Renzo, así que los movimientos quedaron atribuidos a un usuario real:
+
+1. `fn_salida_cheque_sin_factura` — destino `CAMBIO_EFECTIVO`, $1.248.000 a efectivo. Cartera **4.207.818,92 → 2.954.818,92**, efectivo → 2.029.341,43. Los **$5.000** de diferencia quedan como costo del cambio. El cheque pasa a **ENDOSADO**, que es la decisión de la 0082 (se lo entregó a un tercero).
+2. `DELETE` de la fila "Compra USD" — movimiento manual sin referencia, se borra igual que desde el tacho. Efectivo → 781.341,43, dólares → −750 (transitorio).
+3. `fn_transferir_fondos` — efectivo → usd, $1.248.000 por US$ 800, **cotización $1.560,00**. Las dos filas quedan unidas por el mismo `referencia_id`.
+4. `fn_ajustar_saldo_fondos` — dólares a **US$ 800**, el arrastre de antes del sistema. Es el caso del audio, resuelto con la herramienta de la 0084.
+
+**Caja resultante:** cartera **$2.954.818,92** · dólares **US$ 800,00** · efectivo **−$466.658,57** · banco −$4.946.410,50 (sin cambios) · tarallo $0.
+
+Verificado en seco dentro de `BEGIN … ROLLBACK` antes de aplicar, con los saldos intermedios de los cuatro pasos comparados contra la proyección. Después de aplicar: ninguna fila "Compra USD" sobrante, un solo cheque con ese número, y las 5 filas nuevas atribuidas a `renzoasef02@gmail.com`.
+
+#### ⚠️ Lo que quedó pendiente: el saldo real de la caja de efectivo
+
+Con la cadena bien registrada el efectivo da **−$466.658,57**. **No es un error de la corrección** — la aritmética cierra paso por paso. Es que **el efectivo también arrastra plata de antes del sistema que nunca se cargó**, igual que los dólares; lo que pasaba es que el ingreso mal cargado de $1.248.000 lo venía tapando y el saldo parecía sano.
+
+Se cierra con "Ajustar balance" en la tarjeta de Efectivo, en cuanto Paola diga **cuánta plata tiene realmente en la caja**. Es el único número de todo esto que no se puede sacar de la base.
+
+#### Hallazgo menor: los movimientos manuales no guardan quién los cargó
+
+La fila vieja "Pago a proveedores" (US$ 750) tiene `created_by` en NULL. `fondosService.registrar` hace un insert plano sin `created_by`, mientras que todos los RPC escriben `auth.uid()`. No se tocó en esta sesión — es un cambio de una línea, pero queda anotado: los movimientos cargados desde "Registrar movimiento" no dejan rastro de autor.
+
+### 6 — Editar y eliminar recibos, y el cheque que quedaba colgado (migración 0085)
+
+Renzo preguntó si los recibos se podían editar. No: las liquidaciones tienen "Editar" desde la 0070, pero el recibo solo se podía **anular**, así que un error de importe obligaba a anular y reemitir, quemando un número de la serie. Su decisión: _"para mí se tendría que poder editar y eliminar el recibo, quiero que ella tenga libertad para hacer lo que quiera porque sé que me lo va a pedir"_, con el límite que puso enseguida: _"un recibo que ya se imputó no tendría que poder editarse, yo digo los nuevos... creás un recibo y no lo imputaste, ahí sí tendrías que poder editarlo"_.
+
+**La regla quedó: se edita y se elimina mientras no esté imputado.** Un recibo sin imputar es plata que entró y todavía no se aplicó a ninguna factura, así que corregirlo no mueve nada más que a sí mismo. Desde que se imputa pasa a sostener el estado de una factura (PARCIAL, PAGADA) y editarlo por abajo la haría cambiar de estado sin que nadie lo pida. Para esos casos está quitar la imputación primero, o anular. La guardia vive en `fn_verificar_recibo_editable`, que usan las dos operaciones para dar el mismo mensaje, y en la UI los botones solo aparecen cuando `total_imputado === 0`.
+
+**Lo que cambia y lo que no.** Editar rearma el recibo: fecha, medios de pago y notas. **El número y el cliente no se tocan** — el número es el papel que ya está en manos del cliente, y mover el cliente dejaría el recibo colgado de otra cuenta corriente. Eliminar borra de verdad, con su movimiento de fondos. **El número no vuelve a la serie**: `seq_recibo_c` no retrocede, así que el próximo recibo sigue de largo. Es a propósito; reusar un número ya entregado es peor que saltearlo.
+
+#### El agujero que apareció mirando esto: el cheque que quedaba en cartera
+
+`fn_anular_recibo` borraba las imputaciones y los movimientos de fondos del recibo, pero **no tocaba los cheques que habían entrado con él**. El cheque quedaba `EN_CARTERA` en la lista mientras la tarjeta "Cheques en cartera" ya no lo contaba: dos números que dejaban de coincidir. Al 2026-09-17 era latente (27 recibos, 2 anulados, ninguno con cheque), pero saltaba la primera vez que anulara un cobro con cheque.
+
+Lo resuelve `fn_liberar_cheques_de_recibo`, que ahora usan anular, editar y eliminar:
+
+- Cheque todavía **EN_CARTERA** → se borra. Entró con el recibo y no tuvo vida propia.
+- Cheque que **ya se movió** (DEPOSITADO, ENDOSADO, RECHAZADO, ANULADO) → **se rechaza la operación entera**, nombrando el cheque y su estado. Ese cheque ya generó movimientos por su cuenta y borrarlo dejaría la caja mintiendo. Primero se resuelve el cheque, después se toca el recibo.
+- Además del estado, se chequea que el cheque no esté referenciado desde `pagos_proveedores` ni `pagos_empleadas`.
+
+**Un bug que encontró la prueba en seco:** `cheques` tiene cinco FKs apuntándole (`fondos_movimientos`, `recibos`, `recibos_medios`, `pagos_proveedores`, `pagos_empleadas`), ninguna con `ON DELETE`. La primera versión borraba el cheque mientras `recibos_medios` todavía lo referenciaba y fallaba con violación de FK. La función quedó en cuatro pasos: juntar los ids, validar estados, **desenganchar** las referencias de `recibos_medios` y `recibos`, y recién entonces borrar.
+
+#### Auditoría: el borrado es reconstruible
+
+`recibos` e `imputaciones` ya auditaban, pero `recibos_medios` cuelga con `ON DELETE CASCADE` y se iba sin dejar rastro, y `cheques` nunca auditó. Sin eso, eliminar un recibo con dos cheques perdía el desglose para siempre. La 0085 les agrega `fn_audit_trigger`, así que **un recibo eliminado se reconstruye fila por fila desde `audit_log`** — la misma red que permitió recuperar los clientes borrados el 2026-08-10.
+
+#### Del lado del código
+
+`MediosPagoFields` sale de `RegistrarReciboForm` a componente propio: el alta y la edición comparten el mismo editor de medios (~130 líneas de markup) en vez de tenerlo dos veces y dejar que se despeguen. Se tipa contra la forma mínima `{ medios }` con un cast por llamador, porque los genéricos de React Hook Form no aceptan un formulario más ancho.
+
+Al editar, los cheques se **rehacen**: el formulario vuelve a pedir número y banco, se crean filas nuevas y el RPC borra las viejas (quedan fuera de `p_conservar`). Es más simple que diferenciar cuál sobrevivió, y si el cheque anterior tuviera vida propia el RPC rechaza antes de tocar nada. Si el RPC falla, el service borra los cheques que acababa de crear.
+
+**Verificado** en seco contra producción dentro de `BEGIN … ROLLBACK`, 7 chequeos sobre un recibo de prueba con número explícito (para no quemar uno de la serie): alta con cheque (cartera +1.000), edición a efectivo de 500 (cheque borrado, cartera en 0, un movimiento de fondos de 500), eliminación (recibo, medios y fondos en cero, con su fila DELETE en `audit_log`), rechazo de editar y de eliminar un recibo imputado, rechazo con el cheque depositado, y edición conservando el mismo cheque sin borrarlo. Aplicada. 299 tests en verde, build limpio.
