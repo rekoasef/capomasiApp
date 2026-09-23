@@ -8,16 +8,38 @@ import {
   type TChequeManualForm,
   type TChequeSalidaForm,
 } from '../schemas/fondoSchema'
+import type { TChequeListado } from '../types'
 
 export type TEstadoCheque = TCheque['estado']
+
+type TChequeConRelaciones = TCheque & {
+  clientes: { nombre: string } | null
+  proveedores: { nombre: string } | null
+  recibos_medios: { recibos: { numero_recibo: string | null; anulado: boolean } | null }[]
+}
+
+// Un cheque entra a cartera por un solo recibo; si ese recibo se anuló y
+// se volvió a cargar, el vigente es el que cuenta.
+function aChequeListado(row: TChequeConRelaciones): TChequeListado {
+  const { clientes, proveedores, recibos_medios, ...cheque } = row
+  const recibos = recibos_medios.flatMap((m) => (m.recibos ? [m.recibos] : []))
+  const recibo = recibos.find((r) => !r.anulado) ?? recibos[0] ?? null
+  return {
+    ...cheque,
+    cliente_nombre: clientes?.nombre ?? null,
+    proveedor_nombre: proveedores?.nombre ?? null,
+    numero_recibo: recibo?.numero_recibo ?? null,
+  }
+}
 
 export const chequesService = {
   async getAll(opts?: {
     estado?: TEstadoCheque
     origen?: TCheque['origen']
+    numero?: string
     page?: number
     pageSize?: number
-  }): Promise<ServiceResult<{ rows: TCheque[]; total: number }>> {
+  }): Promise<ServiceResult<{ rows: TChequeListado[]; total: number }>> {
     const pageSize = opts?.pageSize ?? 25
     const page = opts?.page ?? 0
     const from = page * pageSize
@@ -25,14 +47,20 @@ export const chequesService = {
 
     let query = supabase
       .from('cheques')
-      .select('*', { count: 'exact' })
+      .select(
+        '*, clientes(nombre), proveedores(nombre), recibos_medios(recibos(numero_recibo, anulado))',
+        { count: 'exact' }
+      )
       .order('fecha_cobro', { ascending: true })
       .range(from, to)
     if (opts?.estado) query = query.eq('estado', opts.estado)
     if (opts?.origen) query = query.eq('origen', opts.origen)
+    const numero = opts?.numero?.trim()
+    if (numero) query = query.ilike('numero', `%${numero}%`)
     const { data, error, count } = await query
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
-    return { ok: true, data: { rows: (data ?? []) as TCheque[], total: count ?? 0 } }
+    const rows = ((data ?? []) as unknown as TChequeConRelaciones[]).map(aChequeListado)
+    return { ok: true, data: { rows, total: count ?? 0 } }
   },
 
   async actualizarEstado(

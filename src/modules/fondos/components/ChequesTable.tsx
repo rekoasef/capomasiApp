@@ -27,6 +27,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { PaginationControls } from '@/shared/components/PaginationControls'
 import type { TCheque } from '@/modules/cobranzas/types'
+import type { TChequeListado } from '../types'
 import {
   Check,
   X,
@@ -36,6 +37,7 @@ import {
   CheckCircle2,
   CircleDashed,
   Plus,
+  Search,
 } from 'lucide-react'
 
 const ESTADO_LABEL_COMPRA: Record<string, string> = {
@@ -78,9 +80,14 @@ export function ChequesTable() {
   const [fechaCobro, setFechaCobro] = useState('')
   const [page, setPage] = useState(0)
   const [showNuevoCheque, setShowNuevoCheque] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
 
+  // Un cheque que vuelve rechazado ya no está en cartera: si Paola busca
+  // por número, se busca en todos los estados.
+  const buscando = busqueda.trim() !== ''
   const opts = {
-    ...(filtro === 'TODOS' ? {} : { estado: filtro as TCheque['estado'] }),
+    ...(filtro === 'TODOS' || buscando ? {} : { estado: filtro as TCheque['estado'] }),
+    ...(buscando ? { numero: busqueda } : {}),
     page,
     pageSize: PAGE_SIZE,
   }
@@ -129,10 +136,11 @@ export function ChequesTable() {
               key={f.value}
               onClick={() => {
                 setFiltro(f.value)
+                setBusqueda('')
                 setPage(0)
               }}
               className={`border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                filtro === f.value
+                filtro === f.value && !buscando
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
               }`}
@@ -141,10 +149,26 @@ export function ChequesTable() {
             </button>
           ))}
         </div>
-        <Button size="sm" variant="outline" onClick={() => setShowNuevoCheque((v) => !v)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Nuevo cheque
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => {
+                setBusqueda(e.target.value)
+                setPage(0)
+              }}
+              placeholder="Buscar por N° de cheque"
+              aria-label="Buscar por número de cheque"
+              className="border-border bg-surface focus:ring-primary w-52 border py-1.5 pr-3 pl-8 text-xs focus:ring-1 focus:outline-none"
+            />
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setShowNuevoCheque((v) => !v)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Nuevo cheque
+          </Button>
+        </div>
       </div>
 
       {showNuevoCheque && (
@@ -240,7 +264,7 @@ export function ChequesTable() {
         <p className="text-danger text-sm">{error.message}</p>
       ) : !data?.length ? (
         <p className="text-muted-foreground py-8 text-center text-xs tracking-widest uppercase">
-          Sin cheques
+          {buscando ? `Ningún cheque con el número "${busqueda.trim()}"` : 'Sin cheques'}
         </p>
       ) : (
         <div className="border-border overflow-x-auto border">
@@ -252,6 +276,9 @@ export function ChequesTable() {
                 </th>
                 <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
                   Banco
+                </th>
+                <th className="text-muted-foreground px-4 py-2.5 text-left text-[10px] font-bold tracking-[0.14em] uppercase">
+                  De / A
                 </th>
                 <th className="text-muted-foreground px-4 py-2.5 text-right text-[10px] font-bold tracking-[0.14em] uppercase">
                   Importe
@@ -276,6 +303,9 @@ export function ChequesTable() {
                 <tr key={ch.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-2.5 font-mono text-xs">{ch.numero}</td>
                   <td className="px-4 py-2.5">{ch.banco}</td>
+                  <td className="px-4 py-2.5">
+                    <OrigenCheque cheque={ch} />
+                  </td>
                   <td className="px-4 py-2.5 text-right font-medium tabular-nums">
                     {formatMoney(Number(ch.importe))}
                   </td>
@@ -317,6 +347,32 @@ export function ChequesTable() {
             onPageChange={setPage}
           />
         </div>
+      )}
+    </div>
+  )
+}
+
+// Quién dio el cheque y adónde fue. Un cheque de tercero viene de un
+// cliente (con el recibo que lo registró) y, si se endosó a un
+// proveedor, también dice a quién. Uno propio solo tiene destinatario.
+function OrigenCheque({ cheque }: { cheque: TChequeListado }) {
+  if (cheque.tipo === 'PROPIO') {
+    return cheque.proveedor_nombre ? (
+      <span className="text-sm">A {cheque.proveedor_nombre}</span>
+    ) : (
+      <span className="text-muted-foreground text-xs">—</span>
+    )
+  }
+
+  return (
+    <div className="leading-tight">
+      <span className="block text-sm">{cheque.cliente_nombre ?? '—'}</span>
+      {(cheque.numero_recibo || cheque.proveedor_nombre) && (
+        <span className="text-muted-foreground block text-[11px]">
+          {cheque.numero_recibo && `Recibo ${cheque.numero_recibo}`}
+          {cheque.numero_recibo && cheque.proveedor_nombre && ' · '}
+          {cheque.proveedor_nombre && `Endosado a ${cheque.proveedor_nombre}`}
+        </span>
       )}
     </div>
   )

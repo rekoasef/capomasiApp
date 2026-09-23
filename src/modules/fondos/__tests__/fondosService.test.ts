@@ -25,6 +25,7 @@ function mockChain(overrides: Record<string, unknown> = {}) {
     not: jest.fn().mockReturnThis(),
     gte: jest.fn().mockReturnThis(),
     lte: jest.fn().mockReturnThis(),
+    ilike: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
     range: jest.fn().mockReturnThis(),
     single: jest.fn().mockReturnThis(),
@@ -328,7 +329,16 @@ describe('chequesService.getAll', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('retorna cheques en cartera paginados', async () => {
-    const cheques = [{ id: 'c-1', estado: 'EN_CARTERA', importe: 10000 }]
+    const cheques = [
+      {
+        id: 'c-1',
+        estado: 'EN_CARTERA',
+        importe: 10000,
+        clientes: null,
+        proveedores: null,
+        recibos_medios: [],
+      },
+    ]
     // Con opts.estado, la cadena termina en .eq(), no en .range()
     const chain = mockChain()
     chain.eq = jest.fn().mockResolvedValue({ data: cheques, error: null, count: 1 })
@@ -339,6 +349,44 @@ describe('chequesService.getAll', () => {
       expect(result.data.rows).toHaveLength(1)
       expect(result.data.total).toBe(1)
     }
+  })
+
+  it('trae de qué cliente y de qué recibo vino cada cheque', async () => {
+    const cheques = [
+      {
+        id: 'c-1',
+        tipo: 'TERCERO',
+        clientes: { nombre: 'ACOPLADOS SANTA ROSA S.R.L.' },
+        proveedores: { nombre: 'Albañil' },
+        recibos_medios: [
+          { recibos: { numero_recibo: 'C-0120', anulado: true } },
+          { recibos: { numero_recibo: 'C-0133', anulado: false } },
+        ],
+      },
+      { id: 'c-2', tipo: 'TERCERO', clientes: null, proveedores: null, recibos_medios: [] },
+    ]
+    mockChain({ range: jest.fn().mockResolvedValue({ data: cheques, error: null, count: 2 }) })
+
+    const result = await chequesService.getAll()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const [conRecibo, suelto] = result.data.rows
+    expect(conRecibo.cliente_nombre).toBe('ACOPLADOS SANTA ROSA S.R.L.')
+    expect(conRecibo.proveedor_nombre).toBe('Albañil')
+    expect(conRecibo.numero_recibo).toBe('C-0133')
+    expect(conRecibo).not.toHaveProperty('clientes')
+    expect(suelto.cliente_nombre).toBeNull()
+    expect(suelto.numero_recibo).toBeNull()
+  })
+
+  it('busca por número de cheque sin filtrar por estado', async () => {
+    const chain = mockChain()
+    chain.ilike = jest.fn().mockResolvedValue({ data: [], error: null, count: 0 })
+
+    const result = await chequesService.getAll({ numero: ' 2662 ' })
+    expect(result.ok).toBe(true)
+    expect(chain.ilike).toHaveBeenCalledWith('numero', '%2662%')
+    expect(chain.eq).not.toHaveBeenCalled()
   })
 })
 

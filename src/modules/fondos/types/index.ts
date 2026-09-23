@@ -1,3 +1,5 @@
+import type { TCheque } from '@/modules/cobranzas/types'
+
 export type TTipoMovimiento = 'INGRESO' | 'EGRESO' | 'MOVIMIENTO'
 
 // Las cinco cuentas de la caja. Cada una es una columna de importe en
@@ -30,4 +32,13 @@ export interface TSaldoFondos {
   saldo_usd: number
   saldo_taralo: number
   saldo_cheques_cartera: number
+}
+
+// Un cheque de la cartera con los nombres de quién lo dio y a quién se
+// entregó. Cuando un cheque vuelve rechazado, Paola necesita saber de qué
+// cliente y de qué recibo vino sin buscar recibo por recibo.
+export type TChequeListado = TCheque & {
+  cliente_nombre: string | null
+  proveedor_nombre: string | null
+  numero_recibo: string | null
 }

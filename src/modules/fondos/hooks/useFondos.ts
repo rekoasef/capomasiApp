@@ -92,6 +92,7 @@ export function useTransferirFondos() {
 export function useCheques(opts?: {
   estado?: TCheque['estado']
   origen?: TCheque['origen']
+  numero?: string
   page?: number
   pageSize?: number
 }) {
