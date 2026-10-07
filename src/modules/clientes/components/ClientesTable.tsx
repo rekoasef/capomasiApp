@@ -10,6 +10,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { useAuth } from '@/lib/auth/useAuth'
 import { formatCuit } from '@/shared/utils/formatters'
+import { DescargarTodasLasClavesPdf } from './DescargarTodasLasClavesPdf'
 import type { TCliente } from '../types'
 
 export function ClientesTable() {
@@ -40,15 +41,13 @@ export function ClientesTable() {
     {
       key: 'nombre',
       header: 'Nombre / Razón Social',
-      render: (c: TCliente) => (
-        <span className="font-medium text-foreground">{c.nombre}</span>
-      ),
+      render: (c: TCliente) => <span className="text-foreground font-medium">{c.nombre}</span>,
     },
     {
       key: 'cuit',
       header: 'CUIT',
       render: (c: TCliente) => (
-        <span className="font-mono text-muted-foreground">{formatCuit(c.cuit)}</span>
+        <span className="text-muted-foreground font-mono">{formatCuit(c.cuit)}</span>
       ),
     },
     { key: 'localidad', header: 'Localidad' },
@@ -72,7 +71,10 @@ export function ClientesTable() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  onClick={(e) => { e.stopPropagation(); router.push(`/clientes/${c.id}/editar`) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    router.push(`/clientes/${c.id}/editar`)
+                  }}
                   title="Editar"
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -80,7 +82,10 @@ export function ClientesTable() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  onClick={(e) => { e.stopPropagation(); setToDelete(c) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setToDelete(c)
+                  }}
                   title="Eliminar"
                   className="text-danger hover:text-danger"
                 >
@@ -97,21 +102,24 @@ export function ClientesTable() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar por nombre, CUIT o localidad..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full border border-border bg-surface py-2 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+            className="border-border bg-surface focus:border-primary focus:ring-primary/30 w-full border py-2 pr-3 pl-9 text-sm outline-none focus:ring-1"
           />
         </div>
-        {isAdmin && (
-          <Button onClick={() => router.push('/clientes/nuevo')}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Nuevo cliente
-          </Button>
-        )}
+        <div className="flex gap-2">
+          <DescargarTodasLasClavesPdf />
+          {isAdmin && (
+            <Button onClick={() => router.push('/clientes/nuevo')}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Nuevo cliente
+            </Button>
+          )}
+        </div>
       </div>
 
       <DataTable

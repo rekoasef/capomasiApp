@@ -1,4 +1,9 @@
-import { nombreArchivoClaves, prepararClavesParaPdf } from '../services/clavesPdfService'
+import {
+  agruparClavesPorCliente,
+  nombreArchivoClaves,
+  nombreArchivoTodasLasClaves,
+  prepararClavesParaPdf,
+} from '../services/clavesPdfService'
 import type { TClave } from '../types'
 
 const clave = (over: Partial<TClave>): TClave => ({
@@ -57,5 +62,35 @@ describe('nombreArchivoClaves', () => {
 
   it('usa un nombre genérico si no queda nada', () => {
     expect(nombreArchivoClaves('***')).toBe('cliente_claves_fiscales.pdf')
+  })
+})
+
+describe('agruparClavesPorCliente', () => {
+  const conCliente = (over: Partial<TClave>, nombre: string, cuit = '20123456789') => ({
+    ...clave(over),
+    clientes: { nombre, cuit },
+  })
+
+  it('agrupa por cliente y ordena los clientes alfabéticamente', () => {
+    const grupos = agruparClavesPorCliente(
+      [
+        conCliente({ id: '1', cliente_id: 'b', tipo: 'AFIP' }, 'SOC-MAR S.A.'),
+        conCliente({ id: '2', cliente_id: 'a', tipo: 'ANSES' }, 'Ardiles, Dario'),
+        conCliente({ id: '3', cliente_id: 'b', tipo: 'API' }, 'SOC-MAR S.A.'),
+      ],
+      (code) => code
+    )
+    expect(grupos.map((g) => g.clienteNombre)).toEqual(['Ardiles, Dario', 'SOC-MAR S.A.'])
+    expect(grupos[1].claves.map((c) => c.id)).toEqual(['1', '3'])
+  })
+
+  it('devuelve vacío sin claves', () => {
+    expect(agruparClavesPorCliente([], (code) => code)).toEqual([])
+  })
+})
+
+describe('nombreArchivoTodasLasClaves', () => {
+  it('lleva la fecha del día', () => {
+    expect(nombreArchivoTodasLasClaves(new Date(2026, 9, 7))).toBe('claves_fiscales_2026-10-07.pdf')
   })
 })

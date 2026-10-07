@@ -35,6 +35,10 @@ export type TClave = {
   updated_by: string | null
 }
 
+export type TClaveConCliente = TClave & {
+  clientes: { nombre: string; cuit: string }
+}
+
 export type TClaveForm = {
   tipo: string
   usuario?: string

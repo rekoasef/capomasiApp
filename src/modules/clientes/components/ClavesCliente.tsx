@@ -81,9 +81,15 @@ export function ClavesCliente({ clienteId, clienteNombre, clienteCuit }: Props) 
     try {
       const blob = await pdf(
         <ClavesPdfDocument
-          clienteNombre={clienteNombre}
-          clienteCuit={clienteCuit}
-          claves={prepararClavesParaPdf(claves, labelTipo)}
+          individual
+          grupos={[
+            {
+              clienteId,
+              clienteNombre,
+              clienteCuit: clienteCuit ?? null,
+              claves: prepararClavesParaPdf(claves, labelTipo),
+            },
+          ]}
         />
       ).toBlob()
 

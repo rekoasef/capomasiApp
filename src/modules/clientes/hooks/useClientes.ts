@@ -35,7 +35,10 @@ export function useCrearCliente() {
   return useMutation({
     mutationFn: (form: TClienteForm) => clientesService.create(form),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Cliente creado correctamente')
       qc.invalidateQueries({ queryKey: ['clientes'] })
     },
@@ -47,7 +50,10 @@ export function useActualizarCliente(id: string) {
   return useMutation({
     mutationFn: (form: TClienteForm) => clientesService.update(id, form),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Cliente actualizado')
       qc.invalidateQueries({ queryKey: ['clientes'] })
       qc.invalidateQueries({ queryKey: ['clientes', id] })
@@ -60,7 +66,10 @@ export function useEliminarCliente() {
   return useMutation({
     mutationFn: (id: string) => clientesService.softDelete(id),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Cliente eliminado')
       qc.invalidateQueries({ queryKey: ['clientes'] })
     },
@@ -79,12 +88,31 @@ export function useClavesCliente(clienteId: string) {
   })
 }
 
+// Se pide recién al apretar "Claves en PDF": no hace falta tener todas las
+// claves del estudio cargadas en memoria mientras se navega la lista.
+export function useObtenerTodasLasClaves() {
+  const qc = useQueryClient()
+  return () =>
+    qc.fetchQuery({
+      queryKey: ['claves', 'todas'],
+      queryFn: async () => {
+        const result = await clavesService.getAllConCliente()
+        if (!result.ok) throw new Error(result.error)
+        return result.data
+      },
+      staleTime: 0,
+    })
+}
+
 export function useGuardarClave(clienteId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (form: TClaveForm) => clavesService.upsert(clienteId, form),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Clave guardada')
       qc.invalidateQueries({ queryKey: ['claves', clienteId] })
     },
@@ -96,7 +124,10 @@ export function useEliminarClave(clienteId: string) {
   return useMutation({
     mutationFn: (id: string) => clavesService.delete(id),
     onSuccess: (result) => {
-      if (!result.ok) { toast.error(result.error); return }
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Clave eliminada')
       qc.invalidateQueries({ queryKey: ['claves', clienteId] })
     },
