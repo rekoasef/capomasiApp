@@ -57,7 +57,11 @@ export function ClienteDetalle({ cliente }: Props) {
       )}
 
       <div className="border-border bg-surface rounded-lg border p-6">
-        <ClavesCliente clienteId={cliente.id} />
+        <ClavesCliente
+          clienteId={cliente.id}
+          clienteNombre={cliente.nombre}
+          clienteCuit={cliente.cuit}
+        />
       </div>
     </div>
   )

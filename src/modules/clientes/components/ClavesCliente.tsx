@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff, Plus, Pencil, Trash2, KeyRound } from 'lucide-react'
+import { pdf } from '@react-pdf/renderer'
+import { Eye, EyeOff, Plus, Pencil, Trash2, KeyRound, FileDown } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useClavesCliente, useGuardarClave, useEliminarClave } from '../hooks/useClientes'
@@ -13,11 +14,13 @@ import { Input } from '@/shared/components/ui/input'
 import { Select } from '@/shared/components/ui/select'
 import { Textarea } from '@/shared/components/ui/textarea'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
+import { ClavesPdfDocument } from './ClavesPdfDocument'
+import { nombreArchivoClaves, prepararClavesParaPdf } from '../services/clavesPdfService'
 import type { TClave } from '../types'
 
-type Props = { clienteId: string }
+type Props = { clienteId: string; clienteNombre: string; clienteCuit?: string | null }
 
-export function ClavesCliente({ clienteId }: Props) {
+export function ClavesCliente({ clienteId, clienteNombre, clienteCuit }: Props) {
   const { data: claves = [], isLoading } = useClavesCliente(clienteId)
   const { data: tiposClave = [] } = useParametros({
     categorias: ['TIPO_CLAVE'],
@@ -30,6 +33,7 @@ export function ClavesCliente({ clienteId }: Props) {
   const [editing, setEditing] = useState<TClave | null>(null)
   const [toDelete, setToDelete] = useState<TClave | null>(null)
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
+  const [generandoPdf, setGenerandoPdf] = useState(false)
 
   const {
     register,
@@ -72,6 +76,28 @@ export function ClavesCliente({ clienteId }: Props) {
     }
   }
 
+  async function handleDescargarPdf() {
+    setGenerandoPdf(true)
+    try {
+      const blob = await pdf(
+        <ClavesPdfDocument
+          clienteNombre={clienteNombre}
+          clienteCuit={clienteCuit}
+          claves={prepararClavesParaPdf(claves, labelTipo)}
+        />
+      ).toBlob()
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = nombreArchivoClaves(clienteNombre)
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setGenerandoPdf(false)
+    }
+  }
+
   function toggleReveal(id: string) {
     setRevealed((prev) => {
       const next = new Set(prev)
@@ -88,9 +114,20 @@ export function ClavesCliente({ clienteId }: Props) {
           <KeyRound className="text-muted-foreground h-4 w-4" />
           <h3 className="text-sm font-semibold">Claves fiscales</h3>
         </div>
-        <Button size="sm" variant="outline" onClick={openNew}>
-          <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDescargarPdf}
+            disabled={!claves.length || generandoPdf}
+          >
+            <FileDown className="mr-1 h-3.5 w-3.5" />
+            {generandoPdf ? 'Generando...' : 'Descargar PDF'}
+          </Button>
+          <Button size="sm" variant="outline" onClick={openNew}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
