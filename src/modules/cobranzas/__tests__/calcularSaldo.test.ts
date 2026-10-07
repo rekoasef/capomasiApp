@@ -5,6 +5,7 @@ import {
   calcularImportePagoUSD,
   diasDesdeEmision,
   categorizarEdadDeuda,
+  calcularTotalesCuentaCorriente,
 } from '../services/calcularSaldo'
 
 describe('calcularSaldoPendiente', () => {
@@ -30,9 +31,9 @@ describe('calcularSaldoPendiente', () => {
 
   it('maneja múltiples imputaciones parciales con decimales', () => {
     const saldo = calcularSaldoPendiente(15000, [
-      { importe: 5000.50 },
+      { importe: 5000.5 },
       { importe: 3000.25 },
-      { importe: 2000.10 },
+      { importe: 2000.1 },
     ])
     expect(saldo).toBe(4999.15)
   })
@@ -116,5 +117,57 @@ describe('diasDesdeEmision', () => {
     const dias = diasDesdeEmision(fecha)
     expect(dias).toBeGreaterThanOrEqual(29)
     expect(dias).toBeLessThanOrEqual(31)
+  })
+})
+
+describe('calcularTotalesCuentaCorriente', () => {
+  it('suma devengado, cobrado, saldo y pendientes de todos los clientes', () => {
+    const totales = calcularTotalesCuentaCorriente([
+      {
+        total_devengado: 3780301.5,
+        total_cobrado: 2464900.75,
+        saldo_pendiente: 1315400.75,
+        liquidaciones_pendientes: 3,
+      },
+      {
+        total_devengado: 2474327.46,
+        total_cobrado: 1237163.73,
+        saldo_pendiente: 1237163.73,
+        liquidaciones_pendientes: 2,
+      },
+    ])
+    expect(totales).toEqual({
+      total_devengado: 6254628.96,
+      total_cobrado: 3702064.48,
+      saldo_pendiente: 2552564.48,
+      liquidaciones_pendientes: 5,
+    })
+  })
+
+  it('redondea a 2 decimales', () => {
+    const totales = calcularTotalesCuentaCorriente([
+      {
+        total_devengado: 0.1,
+        total_cobrado: 0.1,
+        saldo_pendiente: 0.1,
+        liquidaciones_pendientes: 1,
+      },
+      {
+        total_devengado: 0.2,
+        total_cobrado: 0.2,
+        saldo_pendiente: 0.2,
+        liquidaciones_pendientes: 1,
+      },
+    ])
+    expect(totales.saldo_pendiente).toBe(0.3)
+  })
+
+  it('devuelve ceros sin filas', () => {
+    expect(calcularTotalesCuentaCorriente([])).toEqual({
+      total_devengado: 0,
+      total_cobrado: 0,
+      saldo_pendiente: 0,
+      liquidaciones_pendientes: 0,
+    })
   })
 })

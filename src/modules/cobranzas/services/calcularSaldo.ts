@@ -1,4 +1,4 @@
-import type { TImputacion, TEdadDeuda } from '../types'
+import type { TImputacion, TEdadDeuda, TCuentaCorriente } from '../types'
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
@@ -42,4 +42,25 @@ export function categorizarEdadDeuda(dias: number): TEdadDeuda {
   if (dias <= 60) return '31-60'
   if (dias <= 90) return '61-90'
   return '90+'
+}
+
+export type TTotalesCuentaCorriente = {
+  total_devengado: number
+  total_cobrado: number
+  saldo_pendiente: number
+  liquidaciones_pendientes: number
+}
+
+export function calcularTotalesCuentaCorriente(
+  filas: Pick<
+    TCuentaCorriente,
+    'total_devengado' | 'total_cobrado' | 'saldo_pendiente' | 'liquidaciones_pendientes'
+  >[]
+): TTotalesCuentaCorriente {
+  return {
+    total_devengado: round2(filas.reduce((sum, f) => sum + f.total_devengado, 0)),
+    total_cobrado: round2(filas.reduce((sum, f) => sum + f.total_cobrado, 0)),
+    saldo_pendiente: round2(filas.reduce((sum, f) => sum + f.saldo_pendiente, 0)),
+    liquidaciones_pendientes: filas.reduce((sum, f) => sum + f.liquidaciones_pendientes, 0),
+  }
 }
