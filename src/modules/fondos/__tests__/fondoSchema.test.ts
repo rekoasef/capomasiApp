@@ -27,6 +27,50 @@ describe('chequeManualSchema', () => {
     expect(result.success).toBe(true)
   })
 
+  // Lo que manda el formulario cuando Paola cambia de "De tercero" a
+  // "Propio": el selector de cliente queda oculto pero con valor ''.
+  it('acepta un cheque propio con el cliente oculto vacío', () => {
+    const result = chequeManualSchema.safeParse({
+      tipo: 'PROPIO',
+      numero: '41',
+      banco: 'NACION',
+      importe: 929000,
+      fecha_emision: '2026-11-05',
+      fecha_cobro: '2026-12-05',
+      cliente_id: '',
+      proveedor_id: UUID,
+      notas: '',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.cliente_id).toBeNull()
+  })
+
+  it('acepta la fecha de cobro vacía', () => {
+    const result = chequeManualSchema.safeParse({
+      tipo: 'TERCERO',
+      numero: '123',
+      banco: 'Nación',
+      importe: 10000,
+      fecha_emision: '2026-04-21',
+      fecha_cobro: '',
+      cliente_id: UUID,
+    })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.fecha_cobro).toBeNull()
+  })
+
+  it('rechaza un cheque propio con el proveedor vacío', () => {
+    const result = chequeManualSchema.safeParse({
+      tipo: 'PROPIO',
+      numero: '456',
+      banco: 'Galicia',
+      importe: 5000,
+      fecha_emision: '2026-04-21',
+      proveedor_id: '',
+    })
+    expect(result.success).toBe(false)
+  })
+
   it('rechaza un cheque de tercero sin cliente', () => {
     const result = chequeManualSchema.safeParse({
       tipo: 'TERCERO',

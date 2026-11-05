@@ -50,6 +50,13 @@ export const transferenciaFondosSchema = z
 
 export type TTransferenciaFondosForm = z.infer<typeof transferenciaFondosSchema>
 
+// Un <select> o un input de fecha vacío manda '' en vez de nada. Sin esto,
+// el selector de cliente que queda oculto al pasar a "Propio" sigue
+// valiendo '' y falla el UUID en un campo que no se ve: el formulario no
+// guarda y no muestra ningún error.
+const vacioANull = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((v) => (v === '' ? null : v), schema).optional()
+
 export const chequeManualSchema = z
   .object({
     tipo: z.enum(['PROPIO', 'TERCERO']),
@@ -57,9 +64,9 @@ export const chequeManualSchema = z
     banco: z.string().min(1, 'Banco requerido'),
     importe: z.number().positive('El importe debe ser mayor a 0'),
     fecha_emision: z.string().date(),
-    fecha_cobro: z.string().date().optional().nullable(),
-    cliente_id: z.string().uuid().optional().nullable(),
-    proveedor_id: z.string().uuid().optional().nullable(),
+    fecha_cobro: vacioANull(z.string().date().nullable()),
+    cliente_id: vacioANull(z.string().uuid().nullable()),
+    proveedor_id: vacioANull(z.string().uuid().nullable()),
     cuenta_bancaria: z.string().optional().nullable(),
     notas: z.string().optional().nullable(),
   })
