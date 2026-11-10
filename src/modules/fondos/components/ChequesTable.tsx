@@ -11,7 +11,10 @@ import {
   useEndosarChequeAProveedor,
   useSalidaChequeSinFactura,
   useCrearChequeManual,
+  useTotalesCheques,
 } from '../hooks/useFondos'
+import type { TVistaCheques } from '../services/chequesService'
+import { esDepositadoSinAcreditar } from '../services/calcularTotalesCheques'
 import {
   chequeManualSchema,
   chequeSalidaSchema,
@@ -47,7 +50,7 @@ const ESTADO_LABEL_COMPRA: Record<string, string> = {
 
 const PAGE_SIZE = 25
 
-type TEstadoFiltro = TCheque['estado'] | 'TODOS'
+type TEstadoFiltro = TCheque['estado'] | 'TODOS' | TVistaCheques
 
 const ESTADO_LABEL: Record<TCheque['estado'], string> = {
   EN_CARTERA: 'En cartera',
@@ -74,7 +77,7 @@ const TODOS_LOS_ESTADOS: TCheque['estado'][] = [
 ]
 
 export function ChequesTable() {
-  const [filtro, setFiltro] = useState<TEstadoFiltro>('EN_CARTERA')
+  const [filtro, setFiltro] = useState<TEstadoFiltro>('CARTERA')
   const [accionId, setAccionId] = useState<string | null>(null)
   const [nuevoEstado, setNuevoEstado] = useState<TCheque['estado'] | ''>('')
   const [fechaCobro, setFechaCobro] = useState('')
@@ -85,25 +88,36 @@ export function ChequesTable() {
   // Un cheque que vuelve rechazado ya no está en cartera: si Paola busca
   // por número, se busca en todos los estados.
   const buscando = busqueda.trim() !== ''
+  const esVista = filtro === 'CARTERA' || filtro === 'EMITIDOS'
   const opts = {
-    ...(filtro === 'TODOS' || buscando ? {} : { estado: filtro as TCheque['estado'] }),
+    ...(filtro === 'TODOS' || buscando
+      ? {}
+      : esVista
+        ? { vista: filtro as TVistaCheques }
+        : { estado: filtro as TCheque['estado'] }),
     ...(buscando ? { numero: busqueda } : {}),
     page,
     pageSize: PAGE_SIZE,
   }
   const { data: chequesData, isLoading, error } = useCheques(opts)
+  const { data: totales } = useTotalesCheques()
   const data = chequesData?.rows
   const actualizar = useActualizarEstadoCheque()
   const confirmarAcreditacion = useConfirmarAcreditacionCheque()
   const desmarcarAcreditacion = useDesmarcarAcreditacionCheque()
 
   const accionCheque = data?.find((c) => c.id === accionId) ?? null
+  // Un cheque propio no se deposita ni se endosa: lo cobra el proveedor
+  // y el banco lo debita (eso es el tilde). Solo se puede anular o rechazar.
   const opcionesEstado = TODOS_LOS_ESTADOS.filter(
-    (e) => e !== accionCheque?.estado && (e !== 'ENDOSADO' || accionCheque?.tipo === 'TERCERO')
+    (e) =>
+      e !== accionCheque?.estado &&
+      (accionCheque?.tipo === 'TERCERO' || (e !== 'ENDOSADO' && e !== 'DEPOSITADO'))
   )
 
   const FILTROS: { value: TEstadoFiltro; label: string }[] = [
-    { value: 'EN_CARTERA', label: 'En cartera' },
+    { value: 'CARTERA', label: 'En cartera' },
+    { value: 'EMITIDOS', label: 'Emitidos' },
     { value: 'DEPOSITADO', label: 'Depositados' },
     { value: 'ENDOSADO', label: 'Endosados' },
     { value: 'RECHAZADO', label: 'Rechazados' },
@@ -170,6 +184,38 @@ export function ChequesTable() {
           </Button>
         </div>
       </div>
+
+      {totales && !buscando && filtro === 'CARTERA' && (
+        <div className="border-border bg-surface flex flex-wrap items-baseline gap-x-4 gap-y-1 border px-4 py-2.5 text-xs">
+          <span className="text-muted-foreground font-bold tracking-widest uppercase">
+            Total en cartera
+          </span>
+          <span className="text-base font-semibold tabular-nums">
+            {formatMoney(totales.totalCartera)}
+          </span>
+          {totales.depositadosSinAcreditar > 0 && (
+            <span className="text-muted-foreground">
+              {formatMoney(totales.enCartera)} en mano +{' '}
+              {formatMoney(totales.depositadosSinAcreditar)} depositados que falta tildar como
+              acreditados
+            </span>
+          )}
+        </div>
+      )}
+
+      {totales && !buscando && filtro === 'EMITIDOS' && (
+        <div className="border-danger/40 bg-danger/5 flex flex-wrap items-baseline gap-x-4 gap-y-1 border px-4 py-2.5 text-xs">
+          <span className="text-danger font-bold tracking-widest uppercase">
+            Emitidos sin debitar
+          </span>
+          <span className="text-danger text-base font-semibold tabular-nums">
+            {formatMoney(totales.emitidosSinDebitar)}
+          </span>
+          <span className="text-muted-foreground">
+            No suman en la cartera. Salen del Banco cuando tildás que se debitaron.
+          </span>
+        </div>
+      )}
 
       {showNuevoCheque && (
         <NuevoChequeForm
@@ -299,45 +345,72 @@ export function ChequesTable() {
               </tr>
             </thead>
             <tbody className="divide-border bg-surface divide-y">
-              {data.map((ch) => (
-                <tr key={ch.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-2.5 font-mono text-xs">{ch.numero}</td>
-                  <td className="px-4 py-2.5">{ch.banco}</td>
-                  <td className="px-4 py-2.5">
-                    <OrigenCheque cheque={ch} />
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-medium tabular-nums">
-                    {formatMoney(Number(ch.importe))}
-                  </td>
-                  <td className="text-muted-foreground px-4 py-2.5 tabular-nums">
-                    {ch.fecha_cobro ? formatDate(ch.fecha_cobro) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <EstadoBadge estado={ch.estado} />
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
-                      {ch.tipo === 'PROPIO' ? 'Propio' : 'Tercero'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-center">
-                    <AcreditacionToggle
-                      cheque={ch}
-                      isPending={confirmarAcreditacion.isPending || desmarcarAcreditacion.isPending}
-                      onConfirmar={() => confirmarAcreditacion.mutate(ch.id)}
-                      onDesmarcar={() => desmarcarAcreditacion.mutate(ch.id)}
-                    />
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <button
-                      onClick={() => setAccionId(ch.id)}
-                      className="text-primary text-xs hover:underline"
+              {data.map((ch) => {
+                const emitido = ch.tipo === 'PROPIO'
+                return (
+                  <tr
+                    key={ch.id}
+                    className={`transition-colors ${
+                      emitido ? 'bg-danger/5 hover:bg-danger/10' : 'hover:bg-muted/30'
+                    }`}
+                  >
+                    <td
+                      className={`border-l-2 px-4 py-2.5 font-mono text-xs ${
+                        emitido ? 'border-l-danger text-danger' : 'border-l-transparent'
+                      }`}
                     >
-                      Cambiar estado
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      {ch.numero}
+                    </td>
+                    <td className="px-4 py-2.5">{ch.banco}</td>
+                    <td className="px-4 py-2.5">
+                      <OrigenCheque cheque={ch} />
+                    </td>
+                    <td
+                      className={`px-4 py-2.5 text-right font-medium tabular-nums ${
+                        emitido ? 'text-danger' : ''
+                      }`}
+                    >
+                      {emitido && '−'}
+                      {formatMoney(Number(ch.importe))}
+                    </td>
+                    <td className="text-muted-foreground px-4 py-2.5 tabular-nums">
+                      {ch.fecha_cobro ? formatDate(ch.fecha_cobro) : '—'}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <EstadoBadge cheque={ch} />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {emitido ? (
+                        <span className="text-danger border-danger/40 bg-danger/10 border px-2 py-1 text-[10px] font-bold tracking-widest uppercase">
+                          Emitido
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+                          Tercero
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <AcreditacionToggle
+                        cheque={ch}
+                        isPending={
+                          confirmarAcreditacion.isPending || desmarcarAcreditacion.isPending
+                        }
+                        onConfirmar={() => confirmarAcreditacion.mutate(ch.id)}
+                        onDesmarcar={() => desmarcarAcreditacion.mutate(ch.id)}
+                      />
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <button
+                        onClick={() => setAccionId(ch.id)}
+                        className="text-primary text-xs hover:underline"
+                      >
+                        Cambiar estado
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
           <PaginationControls
@@ -391,7 +464,12 @@ function AcreditacionToggle({
   onConfirmar: () => void
   onDesmarcar: () => void
 }) {
-  if (!ESTADOS_CONFIRMABLES.includes(cheque.estado)) {
+  // En un cheque propio el tilde quiere decir "el banco ya lo debitó".
+  const emitido = cheque.tipo === 'PROPIO'
+  const confirmable = emitido
+    ? cheque.estado === 'EN_CARTERA'
+    : ESTADOS_CONFIRMABLES.includes(cheque.estado)
+  if (!confirmable) {
     return <span className="text-muted-foreground text-xs">—</span>
   }
 
@@ -401,7 +479,11 @@ function AcreditacionToggle({
         type="button"
         disabled={isPending}
         onClick={onDesmarcar}
-        title="Acreditación confirmada — click para desmarcar"
+        title={
+          emitido
+            ? 'Debitado del banco — click para desmarcar'
+            : 'Acreditación confirmada — click para desmarcar'
+        }
         className="text-success inline-flex items-center justify-center disabled:opacity-50"
       >
         <CheckCircle2 className="h-4 w-4" />
@@ -414,7 +496,11 @@ function AcreditacionToggle({
       type="button"
       disabled={isPending}
       onClick={onConfirmar}
-      title="Sin confirmar — click para marcar como acreditado"
+      title={
+        emitido
+          ? 'Sin debitar — click cuando el banco lo haya debitado'
+          : 'Sin confirmar — click para marcar como acreditado'
+      }
       className="text-danger inline-flex items-center justify-center disabled:opacity-50"
     >
       <CircleDashed className="h-4 w-4" />
@@ -430,7 +516,8 @@ const ESTADO_ICON: Record<TCheque['estado'], typeof Check> = {
   ANULADO: Ban,
 }
 
-function EstadoBadge({ estado }: { estado: TCheque['estado'] }) {
+function EstadoBadge({ cheque }: { cheque: TCheque }) {
+  const { estado } = cheque
   const colors: Record<TCheque['estado'], string> = {
     EN_CARTERA: 'text-warning border-warning/40 bg-warning/10',
     DEPOSITADO: 'text-success border-success/40 bg-success/10',
@@ -438,14 +525,30 @@ function EstadoBadge({ estado }: { estado: TCheque['estado'] }) {
     RECHAZADO: 'text-danger border-danger/40 bg-danger/10',
     ANULADO: 'text-muted-foreground border-border bg-muted/20',
   }
-  const Icon = ESTADO_ICON[estado]
+  // Un propio vigente se guarda como EN_CARTERA, pero nunca estuvo en la
+  // cartera: lo que importa es si el banco ya lo debitó.
+  const emitidoVigente = cheque.tipo === 'PROPIO' && estado === 'EN_CARTERA'
+  const label = emitidoVigente
+    ? cheque.acreditacion_confirmada
+      ? 'Debitado'
+      : 'Sin debitar'
+    : ESTADO_LABEL[estado]
+  const color = emitidoVigente ? 'text-danger border-danger/40 bg-danger/10' : colors[estado]
+  const Icon = emitidoVigente ? ArrowRightLeft : ESTADO_ICON[estado]
   return (
-    <span
-      className={`inline-flex items-center gap-1 border px-2 py-1 text-[10px] font-bold tracking-widest uppercase ${colors[estado]}`}
-    >
-      <Icon className="h-3 w-3" />
-      {ESTADO_LABEL[estado]}
-    </span>
+    <div className="leading-tight">
+      <span
+        className={`inline-flex items-center gap-1 border px-2 py-1 text-[10px] font-bold tracking-widest uppercase ${color}`}
+      >
+        <Icon className="h-3 w-3" />
+        {label}
+      </span>
+      {esDepositadoSinAcreditar(cheque) && (
+        <span className="text-warning mt-1 block text-[10px] font-semibold">
+          Falta tildar acreditado
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -788,7 +891,7 @@ function NuevoChequeForm({ onDone, onCancel }: { onDone: () => void; onCancel: (
             className="border-border bg-surface focus:ring-primary w-full border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
           >
             <option value="TERCERO">De tercero (lo recibió de un cliente)</option>
-            <option value="PROPIO">Propio (emitido a un proveedor)</option>
+            <option value="PROPIO">Emitido (cheque propio a un proveedor)</option>
           </select>
         </div>
         {tipo === 'TERCERO' ? (

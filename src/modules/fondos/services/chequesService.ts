@@ -9,6 +9,11 @@ import {
   type TChequeSalidaForm,
 } from '../schemas/fondoSchema'
 import type { TChequeListado } from '../types'
+import {
+  calcularTotalesCheques,
+  type TChequeParaTotales,
+  type TTotalesCheques,
+} from './calcularTotalesCheques'
 
 export type TEstadoCheque = TCheque['estado']
 
@@ -32,8 +37,16 @@ function aChequeListado(row: TChequeConRelaciones): TChequeListado {
   }
 }
 
+// Dos listas que no salen de un estado solo:
+//   CARTERA  → los cheques de terceros que suman en la tarjeta "Cheques en
+//              cartera": los que Paola tiene en la mano y los depositados
+//              que todavía no tildó como acreditados (0050).
+//   EMITIDOS → los cheques propios vigentes. Nunca son de la cartera (0086).
+export type TVistaCheques = 'CARTERA' | 'EMITIDOS'
+
 export const chequesService = {
   async getAll(opts?: {
+    vista?: TVistaCheques
     estado?: TEstadoCheque
     origen?: TCheque['origen']
     numero?: string
@@ -53,6 +66,13 @@ export const chequesService = {
       )
       .order('fecha_cobro', { ascending: true })
       .range(from, to)
+    if (opts?.vista === 'CARTERA') {
+      query = query
+        .eq('tipo', 'TERCERO')
+        .or('estado.eq.EN_CARTERA,and(estado.eq.DEPOSITADO,acreditacion_confirmada.eq.false)')
+    } else if (opts?.vista === 'EMITIDOS') {
+      query = query.eq('tipo', 'PROPIO').neq('estado', 'ANULADO')
+    }
     if (opts?.estado) query = query.eq('estado', opts.estado)
     if (opts?.origen) query = query.eq('origen', opts.origen)
     const numero = opts?.numero?.trim()
@@ -61,6 +81,16 @@ export const chequesService = {
     if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
     const rows = ((data ?? []) as unknown as TChequeConRelaciones[]).map(aChequeListado)
     return { ok: true, data: { rows, total: count ?? 0 } }
+  },
+
+  // Totales de toda la cartera, no de la página que se está viendo.
+  async getTotales(): Promise<ServiceResult<TTotalesCheques>> {
+    const { data, error } = await supabase
+      .from('cheques')
+      .select('tipo, estado, importe, acreditacion_confirmada')
+      .in('estado', ['EN_CARTERA', 'DEPOSITADO'])
+    if (error) return { ok: false, error: error.message, code: 'DB_ERROR' }
+    return { ok: true, data: calcularTotalesCheques((data ?? []) as TChequeParaTotales[]) }
   },
 
   async actualizarEstado(
@@ -97,7 +127,10 @@ export const chequesService = {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .not('estado', 'in', '(EN_CARTERA,ANULADO)')
+      .neq('estado', 'ANULADO')
+      // Un tercero en cartera todavía no fue al banco; un propio emitido
+      // sí se tilda en ese estado: es "el banco ya lo debitó" (0086).
+      .or('tipo.eq.PROPIO,estado.neq.EN_CARTERA')
       .select()
       .single()
 
@@ -106,7 +139,7 @@ export const chequesService = {
         return {
           ok: false,
           error:
-            'Solo se puede confirmar la acreditación de cheques depositados, endosados o rechazados',
+            'Solo se puede confirmar la acreditación de cheques depositados, endosados, rechazados o emitidos',
           code: 'VALIDATION_ERROR',
         }
       }

@@ -23,6 +23,8 @@ function mockChain(overrides: Record<string, unknown> = {}) {
     eq: jest.fn().mockReturnThis(),
     neq: jest.fn().mockReturnThis(),
     not: jest.fn().mockReturnThis(),
+    or: jest.fn().mockReturnThis(),
+    in: jest.fn().mockReturnThis(),
     gte: jest.fn().mockReturnThis(),
     lte: jest.fn().mockReturnThis(),
     ilike: jest.fn().mockReturnThis(),
@@ -379,6 +381,28 @@ describe('chequesService.getAll', () => {
     expect(suelto.numero_recibo).toBeNull()
   })
 
+  it('"En cartera" trae terceros en mano y depositados sin acreditar, nunca propios', async () => {
+    const chain = mockChain()
+    chain.or = jest.fn().mockResolvedValue({ data: [], error: null, count: 0 })
+
+    const result = await chequesService.getAll({ vista: 'CARTERA' })
+    expect(result.ok).toBe(true)
+    expect(chain.eq).toHaveBeenCalledWith('tipo', 'TERCERO')
+    expect(chain.or).toHaveBeenCalledWith(
+      'estado.eq.EN_CARTERA,and(estado.eq.DEPOSITADO,acreditacion_confirmada.eq.false)'
+    )
+  })
+
+  it('"Emitidos" trae los propios que no se anularon', async () => {
+    const chain = mockChain()
+    chain.neq = jest.fn().mockResolvedValue({ data: [], error: null, count: 0 })
+
+    const result = await chequesService.getAll({ vista: 'EMITIDOS' })
+    expect(result.ok).toBe(true)
+    expect(chain.eq).toHaveBeenCalledWith('tipo', 'PROPIO')
+    expect(chain.neq).toHaveBeenCalledWith('estado', 'ANULADO')
+  })
+
   it('busca por número de cheque sin filtrar por estado', async () => {
     const chain = mockChain()
     chain.ilike = jest.fn().mockResolvedValue({ data: [], error: null, count: 0 })
@@ -387,6 +411,37 @@ describe('chequesService.getAll', () => {
     expect(result.ok).toBe(true)
     expect(chain.ilike).toHaveBeenCalledWith('numero', '%2662%')
     expect(chain.eq).not.toHaveBeenCalled()
+  })
+})
+
+// ── chequesService.getTotales ────────────────────────────────
+
+describe('chequesService.getTotales', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('suma la cartera aparte de los emitidos', async () => {
+    const rows = [
+      { tipo: 'TERCERO', estado: 'EN_CARTERA', importe: 1000, acreditacion_confirmada: false },
+      { tipo: 'TERCERO', estado: 'DEPOSITADO', importe: 500, acreditacion_confirmada: false },
+      { tipo: 'PROPIO', estado: 'EN_CARTERA', importe: 929, acreditacion_confirmada: false },
+    ]
+    const chain = mockChain()
+    chain.in = jest.fn().mockResolvedValue({ data: rows, error: null })
+
+    const result = await chequesService.getTotales()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.totalCartera).toBe(1500)
+    expect(result.data.emitidosSinDebitar).toBe(929)
+  })
+
+  it('retorna DB_ERROR si falla', async () => {
+    const chain = mockChain()
+    chain.in = jest.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const result = await chequesService.getTotales()
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('DB_ERROR')
   })
 })
 
@@ -430,6 +485,16 @@ describe('chequesService.confirmarAcreditacion', () => {
     const result = await chequesService.confirmarAcreditacion('c-1')
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data.acreditacion_confirmada).toBe(true)
+  })
+
+  it('deja tildar un propio emitido (débito) pero no un tercero en cartera', async () => {
+    const chain = mockChain({
+      single: jest.fn().mockResolvedValue({ data: { id: 'c-1' }, error: null }),
+    })
+
+    await chequesService.confirmarAcreditacion('c-1')
+    expect(chain.neq).toHaveBeenCalledWith('estado', 'ANULADO')
+    expect(chain.or).toHaveBeenCalledWith('tipo.eq.PROPIO,estado.neq.EN_CARTERA')
   })
 
   it('retorna VALIDATION_ERROR si el cheque está en cartera o anulado (0 filas afectadas)', async () => {
