@@ -465,3 +465,23 @@ Lo resuelve `fn_liberar_cheques_de_recibo`, que ahora usan anular, editar y elim
 Al editar, los cheques se **rehacen**: el formulario vuelve a pedir número y banco, se crean filas nuevas y el RPC borra las viejas (quedan fuera de `p_conservar`). Es más simple que diferenciar cuál sobrevivió, y si el cheque anterior tuviera vida propia el RPC rechaza antes de tocar nada. Si el RPC falla, el service borra los cheques que acababa de crear.
 
 **Verificado** en seco contra producción dentro de `BEGIN … ROLLBACK`, 7 chequeos sobre un recibo de prueba con número explícito (para no quemar uno de la serie): alta con cheque (cartera +1.000), edición a efectivo de 500 (cheque borrado, cartera en 0, un movimiento de fondos de 500), eliminación (recibo, medios y fondos en cero, con su fila DELETE en `audit_log`), rechazo de editar y de eliminar un recibo imputado, rechazo con el cheque depositado, y edición conservando el mismo cheque sin borrarlo. Aplicada. 299 tests en verde, build limpio.
+
+### 7 — "Suma mal los cheques en cartera" y los emitidos en rojo (migración 0086, 2026-11-10)
+
+> _"Fijate que suma mal los cheques en cartera. Y no me marca los emitidos, pone que son propios; si podés ponelos en rojo así no me confunden."_ (WhatsApp, 2026-11-06)
+
+**Conciliación al 2026-11-10.** La tarjeta decía $6.413.342,19 y los terceros en cartera sumaban $7.218.795,25. La diferencia se explica completa con tres partidas:
+
+| Partida                                                                       |          Importe |
+| :---------------------------------------------------------------------------- | ---------------: |
+| Terceros en cartera (lista)                                                   |     7.218.795,25 |
+| + Depositados sin tildar "Acreditado" (SOC-MAR 69840065, MRC 1655 y 11194310) |    +1.617.738,02 |
+| − Cheque **propio** N° 41 restado de la cartera                               |      −929.000,00 |
+| − Sueldo de Victoria 9/2026 pagado "con cheque" sin `cheque_id`               |    −1.494.191,08 |
+| **= Tarjeta**                                                                 | **6.413.342,19** |
+
+**Cheques propios fuera de la cartera (0086).** Desde la 0050, un cheque emitido entraba como EGRESO de cartera hasta tildarlo. Un cheque que emite el estudio nunca estuvo en la cartera. Ahora, emitirlo (alta manual o pago a proveedor con cheque propio) deja el movimiento en cero; tildar "debitado" lo saca de Banco y destildarlo lo devuelve. Anular o rechazar no toca la cartera. El N° 41 se corrigió en la misma migración y la tarjeta pasó a $7.342.342,19. Los terceros siguen igual.
+
+**UI.** Filtro "Emitidos" aparte, en rojo y con su total sin debitar. "En cartera" ahora lista terceros en mano + depositados sin acreditar (con la etiqueta "Falta tildar acreditado"), con un total arriba. Tildar o destildar una acreditación refresca las tarjetas de saldo, que antes quedaban viejas hasta recargar.
+
+**⚠️ Pendiente de Paola:** ¿con qué cheques pagó el sueldo de Victoria de septiembre ($1.428.333 + $65.858,08)? `pagos_empleadas` con `tipo_pago = 'CHEQUE'` resta de cartera sin elegir cheque, así que ningún cheque salió de la lista. Hasta que conteste, la tarjeta queda $1.494.191,08 debajo del total de la lista. Si eran propios, tendrían que haber salido de Banco. A futuro, pagar un sueldo con cheque debería pedir cuál, igual que el endoso a proveedor.

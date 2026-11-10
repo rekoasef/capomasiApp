@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fondosService } from '../services/fondosService'
 import { chequesService } from '../services/chequesService'
-import type { TEstadoCheque } from '../services/chequesService'
+import type { TEstadoCheque, TVistaCheques } from '../services/chequesService'
 import type { TCheque } from '@/modules/cobranzas/types'
 import type { TCuentaFondos } from '../types'
 import { toast } from 'sonner'
@@ -107,6 +107,7 @@ export function useAjustarSaldoFondos() {
 }
 
 export function useCheques(opts?: {
+  vista?: TVistaCheques
   estado?: TCheque['estado']
   origen?: TCheque['origen']
   numero?: string
@@ -117,6 +118,17 @@ export function useCheques(opts?: {
     queryKey: ['cheques', opts],
     queryFn: async () => {
       const r = await chequesService.getAll(opts)
+      if (!r.ok) throw new Error(r.error)
+      return r.data
+    },
+  })
+}
+
+export function useTotalesCheques() {
+  return useQuery({
+    queryKey: ['cheques', 'totales'],
+    queryFn: async () => {
+      const r = await chequesService.getTotales()
       if (!r.ok) throw new Error(r.error)
       return r.data
     },
@@ -157,7 +169,11 @@ export function useConfirmarAcreditacionCheque() {
         return
       }
       toast.success('Acreditación confirmada')
+      // Tildar mueve la plata de cartera a banco (o saca del banco un
+      // cheque propio): las tarjetas y los movimientos cambian.
       qc.invalidateQueries({ queryKey: ['cheques'] })
+      qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
+      qc.invalidateQueries({ queryKey: ['fondos_movimientos'] })
     },
   })
 }
@@ -173,6 +189,8 @@ export function useDesmarcarAcreditacionCheque() {
       }
       toast.success('Acreditación desmarcada')
       qc.invalidateQueries({ queryKey: ['cheques'] })
+      qc.invalidateQueries({ queryKey: ['saldo_fondos'] })
+      qc.invalidateQueries({ queryKey: ['fondos_movimientos'] })
     },
   })
 }
