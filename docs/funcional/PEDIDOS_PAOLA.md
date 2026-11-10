@@ -484,4 +484,9 @@ Al editar, los cheques se **rehacen**: el formulario vuelve a pedir número y ba
 
 **UI.** Filtro "Emitidos" aparte, en rojo y con su total sin debitar. "En cartera" ahora lista terceros en mano + depositados sin acreditar (con la etiqueta "Falta tildar acreditado"), con un total arriba. Tildar o destildar una acreditación refresca las tarjetas de saldo, que antes quedaban viejas hasta recargar.
 
-**⚠️ Pendiente de Paola:** ¿con qué cheques pagó el sueldo de Victoria de septiembre ($1.428.333 + $65.858,08)? `pagos_empleadas` con `tipo_pago = 'CHEQUE'` resta de cartera sin elegir cheque, así que ningún cheque salió de la lista. Hasta que conteste, la tarjeta queda $1.494.191,08 debajo del total de la lista. Si eran propios, tendrían que haber salido de Banco. A futuro, pagar un sueldo con cheque debería pedir cuál, igual que el endoso a proveedor.
+**Sueldo de Victoria, corregido en producción (2026-11-10).** Los dos pagos del 11/09 ($1.428.333 + $65.858,08) estaban cargados con `tipo_pago = 'CHEQUE'`, que resta de cartera sin elegir cheque, así que ningún cheque salió de la lista. Paola tildó los 3 depositados, la tarjeta quedó en $5.724.604,17 y ella confirmó que la lista ($7.218.795,25) era la correcta. Renzo confirmó que eran **cheques propios**. Se pasaron los dos pagos a `TRANSFERENCIA` con el mismo UPDATE que hace la pantalla de edición (el trigger de la 0081 resincroniza fondos), impersonando el admin de Renzo. Prueba en seco antes y verificación después: tarjeta = lista = **$7.218.795,25**, 2 movimientos (sin duplicados), Banco −$1.494.191,08.
+
+**Queda abierto:**
+
+- **Banco quedó en −$1.072.628,60.** No es error de esta corrección: el banco, igual que el efectivo, arrastra plata de antes del sistema que nunca se cargó. Se cierra con "Ajustar balance" cuando Paola pase el saldo real del home banking.
+- Pagar un sueldo con cheque debería pedir **cuál**: elegir un tercero de la cartera, o cargar uno propio que salga de Banco al debitarse. Igual que el endoso a proveedor.
